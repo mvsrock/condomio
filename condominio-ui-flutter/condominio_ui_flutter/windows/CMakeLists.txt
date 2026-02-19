@@ -63,7 +63,7 @@ if(TARGET flutter_secure_storage_windows_plugin)
   target_include_directories(
     flutter_secure_storage_windows_plugin
     PRIVATE
-    "${FLUTTER_MANAGED_DIR}/ephemeral/.plugin_symlinks/flutter_secure_storage_windows/windows/include"
+    "${FLUTTER_MANAGED_DIR}/ephemeral/.plugin_symlinks/flutter_secure_storage_windows/windows"
   )
 endif()
 
