@@ -1,0 +1,175 @@
+<div class="container-fluid p-4">
+    <h3 class="table-title">{{ tableTitle | translate }}</h3>
+    <!-- Scrollbar TOP -->
+    <div class="table-wrapper">
+        <div class="scrollbar-container" #scrollContainerTop>
+            <div class="scrollbar-content"></div>
+        </div>
+
+        <p-table
+            #dt
+            [loading]="loading"
+            loadingIcon="pi pi-spin pi-spinner"
+            stripedRows
+            [value]="effectiveData"
+            [scrollable]="true"
+            scrollHeight="90vh"
+            [sortField]="defaultSortField"
+            [sortOrder]="defaultSortOrder"
+            [paginator]="false"
+            [rows]="effectiveRows"
+            [first]="effectiveFirst"
+            [totalRecords]="effectiveTotalRecords"
+            sortMode="single"
+            [customSort]="true"
+            (sortFunction)="customSort($event)"
+        >
+            <!-- HEADER -->
+            <ng-template pTemplate="header">
+                <tr>
+                    <th *ngFor="let col of columns" [pSortableColumn]="col.sortField">
+                        {{ col.header | translate }}
+                        @if (col.sortField) {
+                            <p-sortIcon [field]="col.sortField"></p-sortIcon>
+                        }
+                    </th>
+                    <th *ngIf="rowActions.length > 0">
+                        {{ 'common.actions' | translate }}
+                    </th>
+                </tr>
+            </ng-template>
+
+            <!-- BODY -->
+            <ng-template pTemplate="body" let-rowData let-rowIndex="rowIndex">
+                <tr>
+                    <td *ngFor="let col of columns">
+                        @let value = getCellValue(rowData, col.field);
+
+                        <!-- Array con almeno un elemento -->
+                        @if (Array.isArray(value) && value.length > 0) {
+                            <div style="display: flex; align-items: center">
+                                @if (!isExpanded(rowIndex, col.field) || value.length <= 1) {
+                                    {{ value[0] }}
+                                }
+                                @if (isExpanded(rowIndex, col.field) && value.length > 1) {
+                                    <ul style="list-style-type: none; padding: 0; margin: 0">
+                                        @for (item of value; track $index) {
+                                            <li>{{ item | translate | onlyDate }}</li>
+                                        }
+                                    </ul>
+                                }
+                                @if (value.length > 1) {
+                                    <button
+                                        pButton
+                                        type="button"
+                                        [icon]="isExpanded(rowIndex, col.field) ? 'pi pi-chevron-up' : 'pi pi-chevron-down'"
+                                        class="p-button-text p-button-rounded p-button-sm"
+                                        (click)="toggleExpansion(rowIndex, col.field)"
+                                        style="margin-left: 0.5rem"
+                                    ></button>
+                                }
+                            </div>
+                        }
+
+                        <!-- non array -->
+                        @if (!Array.isArray(value)) {
+                            @if (isEmptyValue(value)) {
+                                N/A
+                            } @else {
+                                @let targets =
+                                    toTargets({
+                                        column: col,
+                                        rowData: rowData,
+                                        rowIndex: rowIndex,
+                                        value: value
+                                    });
+
+                                @if (targets.length > 0) {
+                                    <span class="cell-multi-actions">
+                                        <ng-container *ngFor="let t of targets; let last = last">
+                                            @if (t.clickable !== false) {
+                                                <a href="javascript:void(0)" class="cell-link" (click)="onCellActivate($event, col, rowData, rowIndex, t)" [title]="t.title || (typeof value === 'string' ? value : '')">
+                                                    <span class="flex align-items-center gap-2">
+                                                        <span>{{ t.label ?? (value | translate | onlyDate) }}</span>
+                                                        @if (t.icon) {
+                                                            <i [class]="t.icon"></i>
+                                                        }
+                                                    </span>
+                                                </a>
+                                            } @else {
+                                                <span class="cell-link cell-disabled" [title]="t.title">
+                                                    <span class="flex align-items-center gap-2">
+                                                        <span>{{ t.label ?? (value | translate | onlyDate) }}</span>
+                                                        @if (t.icon) {
+                                                            <i [class]="t.icon"></i>
+                                                        }
+                                                    </span>
+                                                </span>
+                                            }
+
+                                            <!-- separatore opzionale tra target -->
+                                            @if (!last) {
+                                                <span class="mx-1">|</span>
+                                            }
+                                        </ng-container>
+                                    </span>
+                                } @else {
+                                    <!-- fallback non cliccabile esistente -->
+                                    @if (isPrimeNGIcon(value)) {
+                                        <div style="display: flex; align-items: center; gap: 0.5rem">
+                                            <i [class]="value"></i>
+                                            <span>{{ value | translate | onlyDate }}</span>
+                                        </div>
+                                    } @else {
+                                        {{ value | translate | onlyDate }}
+                                    }
+                                }
+                            }
+                        }
+                    </td>
+
+                    <!-- Azioni -->
+                    @if (rowActions.length > 0) {
+                        <td>
+                            @for (action of rowActions; track $index) {
+                                <button
+                                    *ngIf="rowActionVisibilityFn(action.eventName, rowData)"
+                                    [icon]="action.icon"
+                                    [title]="action.tooltip ? (action.tooltip | translate) : ''"
+                                    [class]="action.styleClass || 'p-button-text p-button-rounded p-button-sm'"
+                                    (click)="onAction.emit({ action: action.eventName, rowData: rowData })"
+                                    style="margin-right: 0.5rem"
+                                    pButton
+                                    type="button"
+                                ></button>
+                            }
+                        </td>
+                    }
+                </tr>
+            </ng-template>
+
+            <!-- EMPTY -->
+            <ng-template pTemplate="emptymessage">
+                <tr>
+                    <td [attr.colspan]="columns.length + (rowActions.length > 0 ? 1 : 0)" style="text-align: center">
+                        {{ 'table.paginator.noData' | translate }}
+                    </td>
+                </tr>
+            </ng-template>
+        </p-table>
+
+        <!-- Paginator -->
+        <div class="paginator-wrapper" [class.is-loading]="loading">
+            <p-paginator
+                [first]="first"
+                [rows]="effectiveRows"
+                [totalRecords]="effectiveTotalRecords"
+                [rowsPerPageOptions]="rowsPerPageOptions"
+                [showCurrentPageReport]="true"
+                [currentPageReportTemplate]="reportTemplate"
+                (onPageChange)="onPageChange($event)"
+                styleClass="mt-3"
+            ></p-paginator>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,75 @@
+services:
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    hostname: kafka
+    networks:
+      - kafka-net
+
+    ports:
+      - target: 9091
+        published: 9091
+        protocol: tcp
+        mode: host
+      - target: 9092
+        published: 9092
+        protocol: tcp
+        mode: host
+      - target: 29093
+        published: 29093
+        protocol: tcp
+        mode: host
+
+    environment:
+
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: "broker,controller"
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka:29093"
+      KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
+      CLUSTER_ID: "CLuster_id"
+
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "CONTROLLER:PLAINTEXT,INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT"
+      KAFKA_LISTENERS: "INTERNAL://0.0.0.0:9092,EXTERNAL://0.0.0.0:9091,CONTROLLER://0.0.0.0:29093"
+
+
+      KAFKA_ADVERTISED_LISTENERS: "INTERNAL://kafka:9092,EXTERNAL://localhost:9091"
+
+      KAFKA_INTER_BROKER_LISTENER_NAME: "INTERNAL"
+
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+
+    deploy:
+      replicas: 1
+      placement:
+        constraints: [node.role == manager]
+
+  akhq:
+    image: tchiotludo/akhq:latest
+    networks:
+      - kafka-net
+    depends_on:
+      - kafka
+    ports:
+      - target: 8080
+        published: 8087  
+        protocol: tcp
+        mode: host
+    environment:
+      AKHQ_CONFIGURATION: |
+        akhq:
+          connections:
+            kafka-cluster:
+              properties:
+                bootstrap.servers: "kafka:9092"
+
+volumes:
+  kafka_data:
+
+networks:
+  kafka-net:
+    driver: overlay
+    attachable: true

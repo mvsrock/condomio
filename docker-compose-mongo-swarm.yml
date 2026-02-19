@@ -1,0 +1,31 @@
+
+services:
+  mongodb:
+    image: mongo
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: myuser
+      MONGO_INITDB_ROOT_PASSWORD: mypassword
+      MONGO_INITDB_DATABASE: mimdb
+    command: >
+      bash -c "
+        chown mongodb:mongodb /data/mongodb-keyfile &&
+        chmod 600 /data/mongodb-keyfile &&
+        docker-entrypoint.sh mongod --replSet rs0 --keyFile /data/mongodb-keyfile --bind_ip 0.0.0.0 &
+        # aspetto che mongod si avvii correttamente
+        sleep 10 &&
+        mongosh --eval 'load(\"/data/init-replica.js\")' &&
+        # aspetto che tutti i comandi in background terminino
+        wait
+      "
+    volumes:
+      - mongo-data:/data/db
+      - mongo-data-config:/data/configdb
+      - ./mongo-config/init-replica.js:/data/init-replica.js
+      - ./mongo-config/mongodb-keyfile:/data/mongodb-keyfile
+    deploy:
+      placement:
+        constraints: [node.role == manager]
+    networks:
+      - mongo-net

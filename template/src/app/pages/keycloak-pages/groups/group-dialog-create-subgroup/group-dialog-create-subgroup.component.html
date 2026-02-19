@@ -1,0 +1,74 @@
+<p-card>
+    <p-tabs [(value)]="activeTab">
+        <p-tablist>
+            <p-tab value="0">{{ 'pages.modal_groups.tabs.data' | translate }}</p-tab>
+            <p-tab value="1">{{ 'pages.modal_groups.tabs.attributes' | translate }}</p-tab>
+        </p-tablist>
+
+        <p-tabpanels>
+            <!-- TAB 1: Dati Gruppo -->
+            <p-tabpanel value="0">
+
+                <form [formGroup]="groupsFormGroup" class="flex flex-col gap-6">
+
+                    <div class="flex flex-col md:flex-row gap-6">
+                        <div class="flex flex-wrap gap-2 w-full">
+                            <input-form-control label="{{ 'pages.modal_groups.form.company' | translate }}">
+                                <input class="w-full" exposeControl formControlName="distributionCompanyName"
+                                       pInputText
+                                       placeholder="{{ 'pages.modal_groups.form.company_placeholder' | translate }}"/>
+                            </input-form-control>
+                        </div>
+
+                        <div class="flex flex-wrap gap-2 w-full">
+                            <input-form-control
+                                label="{{ 'pages.modal_group_subgroup.form.parent_group_name' | translate }}">
+                                <input class="w-full" exposeControl formControlName="groupName"
+                                       pInputText
+                                       placeholder="{{ 'pages.modal_group_subgroup.form.parent_group_name_placeholder' | translate }}"/>
+                            </input-form-control>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col md:flex-row gap-6">
+                        <div class="flex flex-wrap gap-2 w-full">
+                            <input-form-control label="{{ 'pages.modal_groups.form.subgroup_name' | translate }}">
+                                <input class="w-full" exposeControl formControlName="nameGroup"
+                                       pInputText
+                                       placeholder="{{ 'pages.modal_groups.form.subgroup_name_placeholder' | translate }}"/>
+                            </input-form-control>
+                        </div>
+
+                        <div class="flex flex-wrap gap-2 w-full">
+                            <input-form-control label="{{ 'pages.modal_groups.form.roles' | translate }}">
+                                <p-multiSelect [options]="roleList" appendTo="body" class="w-full"
+                                               exposeControl formControlName="roles"
+                                               optionLabel="label" optionValue="value"
+                                               placeholder="{{ 'pages.modal_groups.form.roles_placeholder' | translate }}">
+                                </p-multiSelect>
+                            </input-form-control>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end gap-2 mt-4">
+                        <button pButton type="button" label="{{ 'common.undo' | translate }}" class="p-button-text"
+                                (click)="close()">
+                        </button>
+                        <button pButton type="button" label="{{ 'common.create' | translate }}"
+                                (click)="createdSubGroups()"
+                                [disabled]="groupsFormGroup.invalid">
+                        </button>
+                    </div>
+
+                </form>
+            </p-tabpanel>
+
+            <!-- TAB 2: Attributi del Gruppo -->
+            <p-tabpanel value="1">
+                <app-group-attributes-tab [(rows)]="rows" [mode]="event" (save)="onSaveAttributes($event)">
+                </app-group-attributes-tab>
+            </p-tabpanel>
+
+        </p-tabpanels>
+    </p-tabs>
+</p-card>

@@ -1,0 +1,120 @@
+<p-card>
+    <p-tabs [(value)]="activeTab">
+        <p-tablist>
+            <p-tab value="0">{{ 'pages.modal_groups.tabs.data' | translate }}</p-tab>
+            <p-tab value="1">{{ 'pages.modal_groups.tabs.attributes' | translate }}</p-tab>
+        </p-tablist>
+
+        <p-tabpanels>
+            <!-- TAB 1 -->
+            <p-tabpanel value="0">
+
+                <form [formGroup]="groupsFormGroup" class="flex flex-col gap-6">
+
+                    <div class="flex flex-col md:flex-row gap-6">
+                        <div class="flex flex-wrap gap-2 w-full">
+                            <input-form-control label="{{ 'pages.modal_groups.form.company' | translate }}">
+                                <input class="w-full" exposeControl formControlName="distributionCompanyName"
+                                       pInputText
+                                       placeholder="{{ 'pages.modal_groups.form.company_placeholder' | translate }}"/>
+                            </input-form-control>
+                        </div>
+
+                        <div class="flex flex-wrap gap-2 w-full">
+                            <input-form-control label="{{ 'pages.modal_groups.form.group_name' | translate }}">
+                                <input class="w-full" exposeControl formControlName="groupName"
+                                       pInputText
+                                       placeholder="{{ 'pages.modal_groups.form.group_name_placeholder' | translate }}"/>
+                            </input-form-control>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col md:flex-row gap-6">
+                        @if (event == 'create') {
+                            <div class="flex flex-wrap gap-2 w-full">
+                                <input-form-control>
+                                    <div class="flex items-center gap-2">
+                                        <label>
+                                            {{ 'pages.modal_groups.form.subgroup_name' | translate }}
+                                        </label>
+                                        <i class="pi pi-info-circle text-blue-500 cursor-pointer"
+                                           pTooltip="{{ 'pages.modal_groups.form.subgroup_name_tooltip' | translate }}"
+                                           tooltipPosition="right">
+                                        </i>
+                                    </div>
+
+                                    <input class="w-full" exposeControl formControlName="subGroupName" pInputText/>
+                                </input-form-control>
+                            </div>
+                        } @else {
+                            <div class="flex flex-wrap gap-2 w-full">
+                                <input-form-control label="{{ 'pages.modal_groups.form.subgroup_name' | translate }}">
+                                    <input class="w-full" exposeControl formControlName="subGroupName"
+                                           pInputText
+                                           placeholder="{{ 'pages.modal_groups.form.subgroup_name_placeholder' | translate }}"/>
+                                </input-form-control>
+                            </div>
+                        }
+
+                        @switch (event) {
+                            @case ('view') {
+                                <div class="flex flex-wrap gap-2 w-full">
+                                    <input-form-control label="{{ 'pages.modal_groups.form.roles' | translate }}">
+                                        <input class="w-full" exposeControl formControlName="roles" pInputText/>
+                                    </input-form-control>
+                                </div>
+                            }
+                            @default {
+                                <div class="flex flex-wrap gap-2 w-full">
+                                    <input-form-control label="{{ 'pages.modal_groups.form.roles' | translate }}">
+                                        <p-multiSelect [options]="roleList" appendTo="body" class="w-full"
+                                                       exposeControl formControlName="roles"
+                                                       optionLabel="label" optionValue="value"
+                                                       placeholder="{{ 'pages.modal_groups.form.roles_placeholder' | translate }}">
+                                        </p-multiSelect>
+                                    </input-form-control>
+                                </div>
+                            }
+                        }
+                    </div>
+
+                    <!-- BOTTONI -->
+                    @switch (event) {
+                        @case ('edit') {
+                            <div class="flex justify-end gap-2 mt-4">
+                                <button (click)="close()" class="p-button-text" label="{{ 'common.undo' | translate }}"
+                                        pButton
+                                        type="button">
+                                </button>
+                                <button (click)="updateGroups()" [disabled]="groupsFormGroup.invalid" label="{{ 'common.update' | translate }}"
+                                        pButton
+                                        type="button">
+                                </button>
+                            </div>
+                        }
+                        @case ('create') {
+                            <div class="flex justify-end gap-2 mt-4">
+                                <button (click)="close()" class="p-button-text" label="{{ 'common.undo' | translate }}"
+                                        pButton
+                                        type="button">
+                                </button>
+                                <button (click)="createdGroups()" [disabled]="groupsFormGroup.invalid" label="{{ 'common.create' | translate }}"
+                                        pButton
+                                        type="button">
+                                </button>
+                            </div>
+                        }
+                    }
+
+                </form>
+            </p-tabpanel>
+
+            <!-- TAB 2 -->
+            <p-tabpanel value="1">
+                <app-group-attributes-tab [(rows)]="rows" [mode]="event" (save)="onSaveAttributes($event)">
+                </app-group-attributes-tab>
+            </p-tabpanel>
+
+        </p-tabpanels>
+    </p-tabs>
+</p-card>

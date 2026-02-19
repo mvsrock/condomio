@@ -1,0 +1,81 @@
+server:
+  port: 8080
+
+spring:
+  devtools:
+    restart:
+      enabled: false
+ # config:
+ #   import: optional:file:///C:/ciro/daje.yml
+  application:
+    name: keycloak-service
+  main:
+    banner-mode: off
+  security:
+    oauth2:
+      resource-server:
+        jwt:
+       #   issuer-uri: ${keycloak.auth-server-url}/realms/${keycloak.realm}
+          jwk-set-uri: ${keycloak.auth-server-url}/realms/${keycloak.realm}/protocol/openid-connect/certs
+  data:
+    redis:
+      host: localhost
+      port: 6379
+  cache:
+    type: redis
+  datasource:
+    url: jdbc:postgresql://localhost:5432/mimdb?currentSchema=mim
+    username: keycloak
+    password: password
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: true
+
+  cloud:
+    discovery:
+      enabled: true
+
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: http://localhost:8761/eureka
+    register-with-eureka: true
+    fetch-registry: true
+  instance:
+    instance-id: ${spring.application.name}
+    prefer-ip-address: true
+    hostname: ${spring.application.name}
+    nonSecurePort: 8080
+    app-group-name: ${spring.application.name} #quando sta in yml del ide legge questo
+
+
+keycloak:
+  auth-server-url: http://localhost:8082
+  realm: atlantica
+  resource: admin-cli
+  credentials:
+    username: ${KEYCLOAK_USER:admin}
+    password: ${KEYCLOAK_PASS:admin}
+
+app:
+  cors:
+    allowed-origins: "*"
+  cache:
+    enabled: false
+    prefetch-pages: 5
+    default-ttl: PT1H
+  properties:
+    enabled: true
+
+
+logging:
+  level:
+    org.springframework.security: INFO
+    it.atlantica: DEBUG
+    org.springframework.security.oauth2: INFO
+    jboss.resteasy.client: INFO
+    org.springframework.cache: TRACE
+    org.springframework.data.redis.cache: DEBUG
+    org.springframework.data.redis.core: DEBUG
+    org.springframework.boot.context.config: DEBUG

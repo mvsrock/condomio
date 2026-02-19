@@ -1,0 +1,6 @@
+services: {}
+
+networks:
+  keycloak-network:
+    driver: overlay
+    attachable: true

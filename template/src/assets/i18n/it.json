@@ -1,0 +1,346 @@
+{
+  "common": {
+    "search": "Cerca",
+    "undo": "Annulla",
+    "reset": "Reset",
+    "showFilter": "Mostra Filtri",
+    "update": "Aggiorna",
+    "create": "Crea",
+    "actions": "Azioni",
+    "view": "Visualizza dettagli",
+    "edit": "Modifica",
+    "delete": "Elimina",
+    "accept": "Conferma",
+    "reject": "Annulla",
+    "save": "Salva",
+    "success": "Successo",
+    "warning": "Attenzione",
+    "error": "Errore",
+    "add": "Aggiungi",
+    "apply": "Applica",
+    "yes": "Si",
+    "no": "No",
+    "selectDistribution": "Seleziona Società Idrica",
+    "section_recap": "Sezione - Recap",
+    "section_search": "Sezione - Ricerca",
+    "section_send_command": "Sezione- Modifica/Invio Comando",
+    "downloadTemplate": "Scarica Template",
+    "dragAndDrop": "Trascina e rilascia i file qui per caricarli.",
+    "selectFile": "Seleziona File",
+    "uploadCsv": "Carica File CSV",
+    "singleLdnInput": "Inserisci Singolo LDN",
+    "selectOption": "Selezione un' opzione:",
+    "singleLdnLabel": "Singolo LDN:",
+    "selectOperation": "Seleziona un Operazione",
+    "operations": {
+      "singleLdn": "Singolo LDN",
+      "listLdn": "Lista LDN"
+    },
+    "selectProducer": "Seleziona un Produttore",
+    "selectModel": "Seleziona un Modello"
+  },
+  "table": {
+    "paginator": {
+      "currentPageReportTemplate": "Pagina {currentPage} di {totalPages} , {totalRecords} elementi",
+      "noData": "Nessun dato disponibile"
+    }
+  },
+  "sidebar": {
+    "home": "Home",
+    "users": "Utenti",
+    "groups": "Gruppi",
+    "roles": "Ruoli",
+    "menu": "Menu",
+    "admin": "Amministratore"
+  },
+  "pages": {
+    "menu": {
+      "panel_title": "Pannello Menu",
+      "label": "Label",
+      "label_placeholder": "Inserire Label",
+      "parent": "Parent",
+      "parent_placeholder": "Inserire nome Parent",
+      "role": "Ruolo",
+      "role_placeholder": "Seleziona un Ruolo",
+      "description": "Descrizione",
+      "description_placeholder": "Inserisci descrizione",
+      "url": "URL",
+      "url_placeholder": "Inserisci URL",
+      "icon": "Icona",
+      "icon_placeholder": "Seleziona un'icona",
+      "parent_placeholder_box": "Seleziona un Parent",
+      "is_visible": "È visibile?",
+      "is_visible_placeholder": "Il menu è visibile?",
+      "display_order": "Ordine di visualizzazione",
+      "add_menu_placeholder": "Clicca per creare un nuovo Menu",
+      "add_menu": "Crea Menu",
+      "table": {
+        "header_label": "Label",
+        "header_icon": "Icona",
+        "header_description": "Descrizione",
+        "header_url": "Url",
+        "header_parent": "Parent",
+        "header_is_visible": "È visibile?",
+        "header_display_order": "Ordine di Visualizzazione",
+        "header_role": "Ruolo"
+      },
+      "dialog": {
+        "edit": "Modifica Menu",
+        "view": "Dettaglio Menu",
+        "create": "Crea Menu"
+      },
+      "confirm": {
+        "delete_header": "Conferma eliminazione del menu {{label}}",
+        "delete_message": "Sei sicuro di voler eliminare il menu {{label}}?",
+        "delete_branch": "Cancellare tutto il ramo?"
+      },
+      "toast": {
+        "delete_success_summary": "Aggiornato",
+        "delete_success_detail": "Menu eliminato con successo",
+        "error_summary": "Errore",
+        "delete_error_detail": "Si è verificato un errore durante l'eliminazione del Menu",
+        "update_success_summary": "Aggiornato",
+        "update_success_detail": "Menu aggiornato con successo",
+        "create_success_summary": "Creato",
+        "create_success_detail": "Voce di menu creata con successo"
+      }
+    },
+    "user": {
+      "panel_title": "Pannello Utenti",
+      "add_user_title": "Aggiungi utente",
+      "add_user_button_title": "Clicca per aggiungere un utente",
+      "table_title": "Utenti Registrati",
+      "form": {
+        "first_name": "Nome",
+        "first_name_placeholder": "Inserisci Nome",
+        "last_name": "Cognome",
+        "last_name_placeholder": "Inserisci Cognome",
+        "username": "Username",
+        "username_placeholder": "Inserisci Username",
+        "group": "Gruppo",
+        "group_placeholder": "Seleziona Gruppo",
+        "email": "Email",
+        "email_placeholder": "Inserisci email",
+        "company": "Azienda",
+        "company_placeholder": "Seleziona Azienda"
+      },
+      "table": {
+        "header_email": "Email",
+        "header_first_name": "Nome",
+        "header_last_name": "Cognome",
+        "header_username": "Username",
+        "header_group": "Gruppo",
+        "header_provider": "Provider",
+        "header_company": "Azienda",
+        "header_enabled": "Stato Account"
+      },
+      "actions": {
+        "add_company": "Aggiungi Azienda",
+        "block": "Blocca utenza",
+        "remove_group": "Rimuovi gruppo"
+      },
+      "dialog": {
+        "create_user_header": "Crea Utenza",
+        "edit_user_header": "Modifica utente",
+        "add_company_header": "Aggiungi azienda all'utente",
+        "view_user_header": "Dettaglio utente"
+      },
+      "confirm": {
+        "delete_group_message": "Sei sicuro di voler eliminare l'utente <strong>{{username}}</strong> dal gruppo <strong>{{groupName}}</strong> dell'azienda <strong>{{company}}</strong>?",
+        "delete_group_header": "Conferma eliminazione dell'utente {{username}} dal gruppo {{groupName}}",
+        "delete_message": "Sei sicuro di voler eliminare l'utente <strong>{{username}}</strong> dal sistema?",
+        "delete_header": "Conferma eliminazione dell'utente {{username}} dal sistema",
+        "block_message": "Sei sicuro di voler disattivare questo utente? Dopo la disattivazione, l'utente non potrà più accedere al sistema.",
+        "block_header": "Conferma disattivazione"
+      },
+      "toast": {
+        "success_updated": "Aggiornato",
+        "user_removed_from_group_detail": "Utente eliminato dal gruppo con successo",
+        "user_deleted_detail": "Utente eliminato con successo",
+        "user_blocked_summary": "Utente disattivato",
+        "user_blocked_detail": "L’utente è stato disattivato e non potrà più accedere al sistema.",
+        "error_summary": "Errore",
+        "delete_user_error_detail": "Si è verificato un errore durante l'eliminazione dell'utente",
+        "delete_user_from_group_error_detail": "Si è verificato un errore durante l'eliminazione dell'utente dal gruppo",
+        "block_user_error_detail": "Si è verificato un errore durante la disattivazione dell'utente"
+      }
+    },
+    "modal_user": {
+      "first_name": "Nome",
+      "first_name_placeholder": "Inserisci Nome",
+      "last_name": "Cognome",
+      "last_name_placeholder": "Inserisci Cognome",
+      "email": "Email",
+      "email_placeholder": "Inserisci Email",
+      "username": "Username",
+      "username_placeholder": "Inserisci Username",
+      "password": "Password",
+      "password_placeholder": "Inserisci Password",
+      "company": "Azienda Distribuzione",
+      "company_placeholder": "Seleziona un'Azienda",
+      "group": "Gruppo",
+      "group_placeholder": "Seleziona gruppo",
+      "status": "Stato Account",
+      "status_placeholder": "Seleziona Stato",
+      "validation_required": "Campo obbligatorio",
+      "validation_username_minlength": "L'username deve avere almeno 3 caratteri",
+      "validation_password_rules": "La password deve essere lunga almeno 8 caratteri e contenere numeri e simboli speciali",
+      "validation_distribution_required": "L'azienda di distribuzione è obbligatoria",
+      "validation_group_required": "La selezione del gruppo è obbligatoria",
+      "toast": {
+        "success_updated": "Aggiornato",
+        "update_success_detail": "Utente aggiornato con successo",
+        "create_success_detail": "Utente creato con successo",
+        "add_distribution_success_detail": "Aggiunta effettuata con successo"
+      }
+    },
+    "roles": {
+      "panel_title": "Pannello Ruoli",
+      "add_role_title": "Crea Ruolo",
+      "add_role_button_title": "Clicca per creare un nuovo Ruolo",
+      "table_title": "Ruoli",
+      "form": {
+        "role_name": "Nome Ruolo",
+        "role_name_placeholder": "Inserisci Nome Ruolo",
+        "group": "Gruppo",
+        "group_placeholder": "Seleziona Gruppo"
+      },
+      "table": {
+        "header_role_name": "Nome Ruolo",
+        "header_group": "Gruppo"
+      },
+      "dialog": {
+        "edit": "Modifica Ruolo",
+        "view": "Dettaglio Ruolo",
+        "create": "Creazione Ruolo"
+      },
+      "confirm": {
+        "delete_header": "Conferma eliminazione ruolo {{roleName}}",
+        "delete_message": "Sei sicuro di voler eliminare il ruolo <strong>{{roleName}}</strong>?"
+      },
+      "toast": {
+        "update_success_summary": "Aggiornato",
+        "update_success_detail": "Ruolo aggiornato con successo",
+        "create_success_summary": "Creato",
+        "create_success_detail": "Ruolo creato con successo",
+        "delete_success_summary": "Eliminato",
+        "delete_success_detail": "Ruolo eliminato con successo",
+        "error_summary": "Errore",
+        "delete_error_detail": "Si è verificato un errore durante l'eliminazione del ruolo"
+      }
+    },
+    "modal_roles": {
+      "name": "Nome",
+      "name_placeholder": "Inserisci Nome Ruolo",
+      "description": "Descrizione",
+      "description_placeholder": "Inserisci Descrizione",
+      "group": "Gruppi",
+      "group_placeholder": "Seleziona Gruppi",
+      "validation_required": "Campo obbligatorio",
+      "validation_name_minlength": "Il nome del ruolo deve avere almeno 3 caratteri",
+      "toast": {
+        "update_success_summary": "Aggiornato",
+        "update_success_detail": "Ruolo aggiornato con successo",
+        "create_success_summary": "Creato",
+        "create_success_detail": "Ruolo creato con successo",
+        "error_summary": "Errore",
+        "update_error_detail": "Si è verificato un errore durante l'aggiornamento del ruolo",
+        "create_error_detail": "Si è verificato un errore durante la creazione del ruolo"
+      }
+    },
+    "groups": {
+      "panel_title": "Pannello Gruppi",
+      "add_group_title": "Crea Gruppo",
+      "add_group_button_title": "Clicca per creare un nuovo Gruppo",
+      "table_title": "Gruppi",
+      "form": {
+        "group_name": "Nome Gruppo",
+        "group_name_placeholder": "Inserisci Nome Gruppo",
+        "subgroup_name": "Nome Sotto-Gruppo",
+        "subgroup_name_placeholder": "Inserisci Nome Sotto-Gruppo",
+        "role": "Ruolo",
+        "role_placeholder": "Seleziona Ruoli"
+      },
+      "table": {
+        "header_company": "Società",
+        "header_main_group": "Gruppo Principale",
+        "header_subgroup": "Sotto-Gruppo",
+        "header_roles": "Ruoli"
+      },
+      "actions": {
+        "add_subgroup": "Aggiungi Sotto-gruppo"
+      },
+      "dialog": {
+        "edit_group": "Modifica Gruppo",
+        "edit_subgroup": "Modifica Sotto-Gruppo",
+        "view_group": "Dettaglio Gruppo",
+        "create_group": "Crea Gruppo",
+        "create_subgroup": "Aggiungi Sotto-Gruppo"
+      },
+      "confirm": {
+        "delete_group_header": "Conferma eliminazione del gruppo {{groupName}}",
+        "delete_group_message": "Sei sicuro di voler eliminare il gruppo <strong>{{groupName}}</strong>?",
+        "delete_subgroup_header": "Conferma eliminazione del sotto-gruppo {{subGroupName}}",
+        "delete_subgroup_message": "Sei sicuro di voler eliminare il sotto-gruppo <strong>{{subGroupName}}</strong>?"
+      },
+      "toast": {
+        "delete_success_summary": "Eliminato",
+        "delete_success_detail": "Gruppo eliminato con successo",
+        "error_summary": "Errore",
+        "delete_error_detail": "Si è verificato un errore durante l'eliminazione del gruppo"
+      }
+    },
+    "modal_groups": {
+      "tabs": {
+        "data": "Dati Gruppo",
+        "attributes": "Attributi del Gruppo"
+      },
+      "form": {
+        "subgroup_name_tooltip": "Puoi aggiungere i sottogruppi separandoli con il punto e virgola (;)",
+        "company": "Società",
+        "company_placeholder": "Inserisci Società",
+        "group_name": "Nome",
+        "group_name_placeholder": "Inserisci Nome Gruppo",
+        "subgroup_name": "Nome sottoGruppo",
+        "subgroup_name_placeholder": "Inserisci Nome sottoGruppo",
+        "roles": "Ruoli",
+        "roles_placeholder": "Seleziona Ruoli"
+      },
+      "toast": {
+        "update_success_summary": "Aggiornato",
+        "update_success_detail": "Gruppo aggiornato con successo",
+        "create_success_summary": "Creato con successo",
+        "create_success_detail": "Gruppo creato con successo",
+        "warn_summary": "Attenzione",
+        "fill_required_fields": "Compilare tutti i campi richiesti in \"Dati Gruppo\"!"
+      }
+    },
+    "modal_group_subgroup": {
+      "form": {
+        "parent_group_name": "Nome Gruppo Padre",
+        "parent_group_name_placeholder": "Inserisci Nome Gruppo Padre"
+      }
+    },
+    "modal_group_attributes": {
+      "table": {
+        "header_key": "Chiave",
+        "header_value": "Valore",
+        "empty": "Nessun dato disponibile"
+      },
+      "form": {
+        "key_placeholder": "Chiave",
+        "value_placeholder": "Valore"
+      },
+      "actions": {
+        "add_row": "Aggiungi attributi",
+        "update": "Aggiorna attributi",
+        "save": "Salva attributi"
+      }
+    }
+  },
+  "errors": {
+    "server": {
+      "internal": "Errore Generale"
+    }
+  }
+}

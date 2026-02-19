@@ -1,0 +1,15 @@
+services:
+  angular:
+    image: angular
+    ports:
+      - target: 80
+        published: 80
+        mode: host
+    networks:
+      - keycloak-network
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+networks:
+  keycloak-network:

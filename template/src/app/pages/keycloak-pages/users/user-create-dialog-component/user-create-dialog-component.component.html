@@ -1,0 +1,147 @@
+@if (event == 'add') {
+<p-card>
+    <form *ngIf="userFormGroupAdd" [formGroup]="userFormGroupAdd" class="flex flex-col gap-6">
+
+        <div class="flex flex-col md:flex-row gap-6">
+            <div class="flex flex-wrap gap-2 w-full">
+                <input-form-control label="{{ 'pages.modal_user.company' | translate }}">
+                    <p-select (onChange)="onCompaniesChangeAdd($event)" [options]="companies"
+                              [showClear]="true" class="w-full"
+                              exposeControl formControlName="distributionId" optionLabel="name"
+                              optionValue="id" placeholder="{{ 'pages.modal_user.company_placeholder' | translate }}">
+                    </p-select>
+                </input-form-control>
+            </div>
+
+            <div class="flex flex-wrap gap-2 w-full">
+                <input-form-control label="{{ 'pages.modal_user.group' | translate }}">
+                    <p-multiselect [options]="groups" [showClear]="true" appendTo="body" class="w-full"
+                                   exposeControl
+                                   formControlName="groupIds"
+                                   optionLabel="name" optionValue="id" placeholder="{{ 'pages.modal_user.group_placeholder' | translate }}" scrollHeight="auto">
+                    </p-multiselect>
+                </input-form-control>
+            </div>
+        </div>
+
+        <div class="flex justify-end gap-2 mt-4">
+            <button pButton type="button" label="{{ 'common.undo' | translate }}" class="p-button-text"
+                (click)="close()"></button>
+
+            <button (click)="addDistribution()" [disabled]="userFormGroupAdd.invalid" label="{{ 'common.add' | translate }}" pButton
+                    type="button"></button>
+        </div>
+
+    </form>
+</p-card>
+} @else {
+<p-card>
+    <form *ngIf="userFormGroup" [formGroup]="userFormGroup" class="flex flex-col gap-6">
+
+        <div class="flex flex-col md:flex-row gap-6">
+            <div class="flex flex-wrap gap-2 w-full">
+                <input-form-control label="{{ 'pages.modal_user.first_name' | translate }}">
+                    <input autocomplete="given-name" class="w-full" exposeControl
+                           formControlName="firstName"
+                           pInputText placeholder="{{ 'pages.modal_user.first_name_placeholder' | translate }}"/>
+                </input-form-control>
+            </div>
+
+            <div class="flex flex-wrap gap-2 w-full">
+                <input-form-control label="{{ 'pages.modal_user.last_name' | translate }}">
+                    <input autocomplete="family-name" class="w-full" exposeControl
+                           formControlName="lastName"
+                           pInputText placeholder="{{ 'pages.modal_user.last_name_placeholder' | translate }}"/>
+                </input-form-control>
+            </div>
+        </div>
+
+        <div class="flex flex-col md:flex-row gap-6">
+            <div class="flex flex-wrap gap-2 w-full">
+                <input-form-control label="{{ 'pages.modal_user.email' | translate }}">
+                    <input autocomplete="email" class="w-full" exposeControl formControlName="email"
+                           pInputText placeholder="{{ 'pages.modal_user.email_placeholder' | translate }}"
+                           type="email"/>
+                </input-form-control>
+            </div>
+
+            <div class="flex flex-wrap gap-2 w-full">
+                <input-form-control label="{{ 'pages.modal_user.username' | translate }}">
+                    <input autocomplete="username" class="w-full" exposeControl
+                           formControlName="username"
+                           pInputText
+                           placeholder="{{ 'pages.modal_user.username_placeholder' | translate }}"/>
+                </input-form-control>
+            </div>
+        </div>
+
+        <div class="flex flex-col md:flex-row gap-6">
+            <div class="flex flex-wrap gap-2 w-full">
+                <input-form-control label="{{ 'pages.modal_user.password' | translate }}">
+                    <p-password [feedback]="false" [toggleMask]="true"
+                                autocomplete="new-password" class="w-full" exposeControl
+                                formControlName="password"
+                                placeholder="{{ 'pages.modal_user.password_placeholder' | translate }}">
+                    </p-password>
+                </input-form-control>
+            </div>
+
+            <div class="flex flex-wrap gap-2 w-full">
+                <input-form-control label="{{ 'pages.modal_user.company' | translate }}">
+                    <p-select (onChange)="onCompaniesChange($event)" [options]="companies"
+                              class="w-full" exposeControl
+                              formControlName="toDistributionCompanyIds" optionLabel="name"
+                              optionValue="id" placeholder="{{ 'pages.modal_user.company_placeholder' | translate }}">
+                    </p-select>
+                </input-form-control>
+            </div>
+        </div>
+
+        <div class="flex flex-col md:flex-row gap-6">
+            <div class="flex flex-wrap gap-2 w-full">
+                <input-form-control label="{{ 'pages.modal_user.group' | translate }}">
+                    <p-multiselect [options]="groups" appendTo="body" class="w-full" exposeControl
+                                   formControlName="toGroupId"
+                                   optionLabel="name"
+                                   optionValue="id" placeholder="{{ 'pages.modal_user.group_placeholder' | translate }}" scrollHeight="auto">
+                    </p-multiselect>
+                </input-form-control>
+            </div>
+
+            <div class="flex flex-wrap gap-2 w-full">
+                <input-form-control label="{{ 'pages.modal_user.status' | translate }}">
+                    <p-select [options]="statusAccount" class="w-full" exposeControl formControlName="enabled"
+                              optionLabel="name"
+                              optionValue="id"
+                              placeholder="{{ 'pages.modal_user.status_placeholder' | translate }}">
+                    </p-select>
+                </input-form-control>
+            </div>
+        </div>
+
+        @switch (event) {
+        @case ('edit') {
+            <div class="flex justify-end gap-2 mt-4">
+            <button pButton type="button" label="{{ 'common.undo' | translate }}" class="p-button-text"
+                (click)="close()"></button>
+
+                <button [disabled]="userFormGroup.invalid" label="{{ 'common.update' | translate }}" pButton type="button"
+                (click)="updateUser()"></button>
+        </div>
+        }
+        @case ('delete') {}
+        @case ('view') {}
+        @default {
+            <div class="flex justify-end gap-2 mt-4">
+            <button pButton type="button" label="{{ 'common.undo' | translate }}" class="p-button-text"
+                (click)="close()"></button>
+
+                <button [disabled]="userFormGroup.invalid" label="{{ 'common.create' | translate }}" pButton type="button"
+                (click)="createUser()"></button>
+        </div>
+        }
+        }
+
+    </form>
+</p-card>
+}

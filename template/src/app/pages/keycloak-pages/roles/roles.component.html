@@ -1,0 +1,44 @@
+<div class="container-fluid p-4">
+    <h3>{{ 'pages.roles.panel_title' | translate }}</h3>
+
+    <form [formGroup]="rolesFormGroup">
+        <div class="flex flex-wrap gap-x-2 gap-y-3 items-end mt-6">
+            <input-form-control label="{{ 'pages.roles.form.role_name' | translate }}" class="w-[180px]">
+                <input formControlName="roleName" exposeControl type="text" pInputText
+                    class="p-inputtext p-component p-inputtext-fluid"
+                    placeholder="{{ 'pages.roles.form.role_name_placeholder' | translate }}" />
+            </input-form-control>
+
+            <input-form-control label="{{ 'pages.roles.form.group' | translate }}" class="w-[180px]">
+                <p-multiSelect [options]="groupList" exposeControl optionLabel="label" optionValue="value"
+                    class="w-full" formControlName="groupsName"
+                    placeholder="{{ 'pages.roles.form.group_placeholder' | translate }}">
+                </p-multiSelect>
+            </input-form-control>
+
+            <div class="flex gap-2 ml-2">
+                <button pButton type="button" label="{{ 'common.search' | translate }}" icon="pi pi-search"
+                    iconPos="left" [disabled]="rolesFormGroup.invalid" (click)="submit()">
+                </button>
+
+                <button pButton type="button" label="{{ 'common.reset' | translate }}" icon="pi pi-times" iconPos="left"
+                    [disabled]="rolesFormGroup.invalid" (click)="reset()">
+                </button>
+            </div>
+        </div>
+    </form>
+
+    <h4>
+        {{ 'pages.roles.add_role_title' | translate }}
+        <button pButton type="button" icon="pi pi-plus-circle" class="p-button-text p-button-rounded ms-2"
+            [title]="('pages.roles.add_role_button_title' | translate)" (click)="addRole()">
+        </button>
+    </h4>
+    <p-confirmDialog></p-confirmDialog>
+</div>
+
+<app-reusable-table [columns]="tableColumns" [data]="rolesItems" [defaultSortField]="sort"
+    [defaultSortOrder]="direction" [tableTitle]="'pages.roles.table_title' | translate" [rows]="sizePage"
+    [totalRecords]="totalRecords" (onLazyLoad)="handleLazyLoad($event)" [loading]="loading" [totalPages]="totalPage"
+    (onAction)="handleAction($event)" [rowActions]="actions" [rowActionVisibilityFn]="gropusVisibilityFn">
+</app-reusable-table>

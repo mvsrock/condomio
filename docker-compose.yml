@@ -1,0 +1,220 @@
+services:
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.3.0
+    environment:
+      - KEYCLOAK_ADMIN=admin
+      - KEYCLOAK_ADMIN_PASSWORD=admin
+      - KC_DB=postgres
+      - KC_DB_URL=jdbc:postgresql://postgres:5432/mimdb
+      - KC_DB_USERNAME=keycloak
+      - KC_DB_PASSWORD=password
+      - KC_DB_SCHEMA=mim
+      - KC_LOG_LEVEL=INFO
+      - KC_LOG_CONSOLE_OUTPUT=json
+    ports:
+      - "8082:8082"
+    depends_on:
+      - postgres
+    command:
+      - start-dev
+      - "--http-port=8082"
+      - "--features=preview"
+    networks:
+      - keycloak-network
+
+  mongodb:
+    image: mongo
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: myuser
+      MONGO_INITDB_ROOT_PASSWORD: mypassword
+      MONGO_INITDB_DATABASE: mimdb
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - keycloak-network
+
+
+  postgres:
+    image: postgres:17
+    environment:
+      - POSTGRES_DB=mimdb
+      - POSTGRES_USER=keycloak
+      - POSTGRES_PASSWORD=password
+      - PGDATA=/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres-init:/docker-entrypoint-initdb.d
+    networks:
+      - keycloak-network
+
+  redis:
+    image: eqalpha/keydb
+    ports:
+      - "6379:6379"
+    restart: always
+    networks:
+      - keycloak-network
+
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+    ports:
+      - "8081:8081"  
+    depends_on:
+      - redis
+    restart: unless-stopped
+    networks:
+      - keycloak-network
+
+#  admin:
+#      image: admin
+#      environment:
+#        - SERVER_PORT=8080
+#        - SPRING_APPLICATION_NAME=keycloak-service
+#        - SPRING_MAIN_BANNER-MODE=false
+#        -  SPRING_CONFIG_IMPORT=optional:file:/config/daje.yml
+#        - KEYCLOAK_AUTH-SERVER-URL=http://keycloak:8082
+#        - KEYCLOAK_REALM=atlantica
+#        - SPRING_SECURITY_OAUTH2_RESOURCE-SERVER_JWT_ISSUER-URI=http://keycloak:8082/realms/$${keycloak.realm}
+#        - SPRING_SECURITY_OAUTH2_RESOURCE-SERVER_JWT_JWK-SET-URI=http://keycloak:8082/realms/$${keycloak.realm}/protocol/openid-connect/certs
+#
+#        - SPRING_CACHE_TYPE=redis
+#        - SPRING_DATA_REDIS_HOST= redis
+#        - SPRING_DATA_REDIS_PORT= 6379
+#
+#        - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/keycloak?currentSchema=mim
+#        - SPRING_DATASOURCE_USERNAME=keycloak
+#        - SPRING_DATASOURCE_PASSWORD=password
+#        - SPRING_JPA_HIBERNATE_DDL-AUTO=none
+#        - SPRING_JPA_SHOW-SQL=true
+#
+#        - SPRING_CLOUD_DISCOVERY_ENABLED=true
+#        - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery:8761/eureka
+#        - EUREKA_CLIENT_REGISTER-WITH-EUREKA=true
+#        - EUREKA_CLIENT_FETCH-REGISTRY=true
+#        - EUREKA_INSTANCE_INSTANCE-ID=$${spring.application.name}:$${instanceId:$${random.value}}
+#        - EUREKA_INSTANCE_PREFER-IP-ADDRESS=true
+#
+#        - APP_CORS_ALLOWED-ORIGINS=*
+#        - APP_CACHE_ENABLED=false
+#        - APP_CACHE_PREFETCH-PAGES=5
+#        - APP_DYNAMIC_PROPERTIES_ENABLED=true
+#        - APP_DYNAMIC_PROPERTIES_CONFLICT-POLICY=INTERAL_WINS
+#
+#        - LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_SECURITY=INFO
+#        - LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_SECURITY_OAUTH2=INFO
+#        - LOGGING_LEVEL_JBOSS_RESTEASY_CLIENT=INFO
+#        - LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_CACHE=TRACE
+#        - LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_DATA_REDIS_CACHE=DEBUG
+#        - LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_DATA_REDIS_CORE=DEBUG
+#        - LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_BOOT_CONTEXT_CONFIG=DEBUG
+#      ports:
+#        - "8080:8080"
+#      depends_on:
+#        - keycloak
+#        - postgres
+#        - discovery
+#        - gateway
+#      networks:
+#        - keycloak-network
+#      volumes:
+#        - /home/xkyros/config:/config:ro
+#        #Monta la cartella da wsl di ubuntu  ex: \\wsl.localhost\Ubuntu\home\xkyros\config e poi nella properties di java importi il file
+#      extra_hosts:
+#        - "host.docker.internal:host-gateway"
+#
+#
+#  gateway:
+#    image: gateway
+#    environment:
+#      - SERVER_PORT=9090
+#      - SPRING_APPLICATION_NAME=Gateway
+#      - SPRING_MAIN_BANNER-MODE=off
+#      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery:8761/eureka
+#      - EUREKA_INSTANCE_INSTANCE-ID=$${spring.application.name}:$${instanceId:$${random.value}}
+#
+#      - SPRING_APPLICATION_JSON={
+#          "spring":{
+#            "cloud":{
+#              "discovery":{"enabled":true},
+#              "gateway":{
+#                "discovery":{"locator":{"enabled":true,"lowerCaseServiceId":true}},
+#                "default-filters":[
+#                  "DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials, RETAIN_FIRST",
+#                  "RewritePath=/api/(?<remaining>.*), /${remaining}"
+#                ],
+#                "routes":[
+#                  {"id":"force-api-prefix","uri":"lb://keycloak-service","predicates":["Path=/api/**"]}
+#                ],
+#                "globalcors":{
+#                  "corsConfigurations":{
+#                    "[/**]":{
+#                      "allowedOrigins":[
+#                        "http://localhost",
+#                        "http://localhost:80",
+#                        "http://localhost:4200",
+#                        "http://angular",
+#                        "http://angular:80"
+#                      ],
+#                      "allowedMethods":["*"],
+#                      "allowedHeaders":["*"],
+#                      "allowCredentials":true
+#                    }
+#                  }
+#                }
+#              }
+#            }
+#          }
+#        }
+#      - LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_CLOUD_GATEWAY=DEBUG
+#      - LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_WEB=DEBUG
+#    ports:
+#      - "9090:9090"
+#    depends_on:
+#      - discovery
+#    networks:
+#      - keycloak-network
+#
+#
+#
+#  discovery:
+#    image: discovery
+#    environment:
+#        - SPRING_MAIN_BANNER-MODE=off
+#        - SPRING_APPLICATION_NAME=Discovery
+#        - SERVER_PORT=8761
+#        - EUREKA_CLIENT_REGISTER-WITH-EUREKA=false
+#        - EUREKA_CLIENT_FETCH-REGISTRY=false
+#        - EUREKA_INSTANCE_PREFER-IP-ADDRESS=true
+#        - LOGGING_LEVEL_COM_NETFLIX_EUREKA=OFF
+#        - LOGGING_LEVEL_COM_NETFLIX_DISCOVERY=OFF
+#    ports:
+#      - "8761:8761"
+#    networks:
+#      - keycloak-network
+#
+#  angular:
+#    build:
+#      context: ./template
+#      dockerfile: Dockerfile
+#    image: angular
+#    ports:
+#      - "4200:80"
+#    networks:
+#      - keycloak-network
+#
+
+
+volumes:
+  postgres_data:
+  mongo-data:
+    driver: local
+
+networks:
+  keycloak-network:
+    driver: bridge

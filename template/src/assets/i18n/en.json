@@ -1,0 +1,346 @@
+{
+  "common": {
+    "search": "Search",
+    "undo": "Cancel",
+    "reset": "Reset",
+    "showFilter": "Show Filters",
+    "update": "Update",
+    "create": "Create",
+    "actions": "Actions",
+    "view": "View details",
+    "edit": "Edit",
+    "delete": "Delete",
+    "accept": "Confirm",
+    "reject": "Cancel",
+    "save": "Save",
+    "success": "Success",
+    "warning": "Warning",
+    "error": "Error",
+    "add": "Add",
+    "apply": "Apply",
+    "yes": "Yes",
+    "no": "No",
+    "selectDistribution": "Select Water  Company",
+    "section_recap": "Section - Recap",
+    "section_search": "Section - Search",
+    "section_send_command": "Section - Edit/Send Command",
+    "downloadTemplate": "Download Template",
+    "dragAndDrop": "Drag and drop files here to upload them.",
+    "selectFile": "Select File",
+    "uploadCsv": "Upload CSV File",
+    "singleLdnInput": "Enter Single LDN",
+    "selectOption": "Select an option:",
+    "singleLdnLabel": "Single LDN:",
+    "selectOperation": "Select an Operation",
+    "operations": {
+      "singleLdn": "Single LDN",
+      "listLdn": "LDN List"
+    },
+    "selectProducer": "Select a Producer",
+    "selectModel": "Select a Model"
+  },
+  "table": {
+    "paginator": {
+      "currentPageReportTemplate": "Page {currentPage} of {totalPages}, {totalRecords} items",
+      "noData": "No data available"
+    }
+  },
+  "sidebar": {
+    "home": "Home",
+    "users": "Users",
+    "groups": "Groups",
+    "roles": "Roles",
+    "menu": "Menu",
+    "admin": "Administrator"
+  },
+  "pages": {
+    "menu": {
+      "panel_title": "Menu Panel",
+      "label": "Label",
+      "label_placeholder": "Enter Label",
+      "parent": "Parent",
+      "parent_placeholder": "Enter Parent name",
+      "role": "Role",
+      "role_placeholder": "Select a Role",
+      "description": "Description",
+      "description_placeholder": "Enter description",
+      "url": "URL",
+      "url_placeholder": "Enter URL",
+      "icon": "Icon",
+      "icon_placeholder": "Select an icon",
+      "parent_placeholder_box": "Select a Parent",
+      "is_visible": "Is visible?",
+      "is_visible_placeholder": "Is the menu visible?",
+      "display_order": "Display order",
+      "add_menu_placeholder": "Click to create a new Menu",
+      "add_menu": "Create Menu",
+      "table": {
+        "header_label": "Label",
+        "header_icon": "Icon",
+        "header_description": "Description",
+        "header_url": "Url",
+        "header_parent": "Parent",
+        "header_is_visible": "Is visible?",
+        "header_display_order": "Display Order",
+        "header_role": "Role"
+      },
+      "dialog": {
+        "edit": "Edit Menu",
+        "view": "Menu Details",
+        "create": "Create Menu"
+      },
+      "confirm": {
+        "delete_header": "Confirm deletion of menu {{label}}",
+        "delete_message": "Are you sure you want to delete menu {{label}}?",
+        "delete_branch": "Delete the entire branch?"
+      },
+      "toast": {
+        "delete_success_summary": "Updated",
+        "delete_success_detail": "Menu deleted successfully",
+        "error_summary": "Error",
+        "delete_error_detail": "An error occurred while deleting the Menu",
+        "update_success_summary": "Updated",
+        "update_success_detail": "Menu updated successfully",
+        "create_success_summary": "Created",
+        "create_success_detail": "Menu item created successfully"
+      }
+    },
+    "user": {
+      "panel_title": "Users Panel",
+      "add_user_title": "Add user",
+      "add_user_button_title": "Click to add a user",
+      "table_title": "Registered Users",
+      "form": {
+        "first_name": "First Name",
+        "first_name_placeholder": "Enter First Name",
+        "last_name": "Last Name",
+        "last_name_placeholder": "Enter Last Name",
+        "username": "Username",
+        "username_placeholder": "Enter Username",
+        "group": "Group",
+        "group_placeholder": "Select Group",
+        "email": "Email",
+        "email_placeholder": "Enter email",
+        "company": "Company",
+        "company_placeholder": "Select Company"
+      },
+      "table": {
+        "header_email": "Email",
+        "header_first_name": "First Name",
+        "header_last_name": "Last Name",
+        "header_username": "Username",
+        "header_group": "Group",
+        "header_provider": "Provider",
+        "header_company": "Company",
+        "header_enabled": "Account Status"
+      },
+      "actions": {
+        "add_company": "Add Company",
+        "block": "Block user",
+        "remove_group": "Remove from group"
+      },
+      "dialog": {
+        "create_user_header": "Create User",
+        "edit_user_header": "Edit user",
+        "add_company_header": "Add company to user",
+        "view_user_header": "User Details"
+      },
+      "confirm": {
+        "delete_group_message": "Are you sure you want to remove user <strong>{{username}}</strong> from group <strong>{{groupName}}</strong> of company <strong>{{company}}</strong>?",
+        "delete_group_header": "Confirm removal of user {{username}} from group {{groupName}}",
+        "delete_message": "Are you sure you want to delete user <strong>{{username}}</strong> from the system?",
+        "delete_header": "Confirm deletion of user {{username}} from the system",
+        "block_message": "Are you sure you want to deactivate this user? After deactivation, the user will no longer be able to access the system.",
+        "block_header": "Confirm deactivation"
+      },
+      "toast": {
+        "success_updated": "Updated",
+        "user_removed_from_group_detail": "User removed from group successfully",
+        "user_deleted_detail": "User deleted successfully",
+        "user_blocked_summary": "User deactivated",
+        "user_blocked_detail": "The user has been deactivated and will no longer be able to access the system.",
+        "error_summary": "Error",
+        "delete_user_error_detail": "An error occurred while deleting the user",
+        "delete_user_from_group_error_detail": "An error occurred while removing the user from the group",
+        "block_user_error_detail": "An error occurred while deactivating the user"
+      }
+    },
+    "modal_user": {
+      "first_name": "First Name",
+      "first_name_placeholder": "Enter First Name",
+      "last_name": "Last Name",
+      "last_name_placeholder": "Enter Last Name",
+      "email": "Email",
+      "email_placeholder": "Enter Email",
+      "username": "Username",
+      "username_placeholder": "Enter Username",
+      "password": "Password",
+      "password_placeholder": "Enter Password",
+      "company": "Distribution Company",
+      "company_placeholder": "Select a Company",
+      "group": "Group",
+      "group_placeholder": "Select group",
+      "status": "Account Status",
+      "status_placeholder": "Select Status",
+      "validation_required": "Required field",
+      "validation_username_minlength": "Username must be at least 3 characters long",
+      "validation_password_rules": "Password must be at least 8 characters long and include numbers and special symbols",
+      "validation_distribution_required": "Distribution company is required",
+      "validation_group_required": "Group selection is required",
+      "toast": {
+        "success_updated": "Updated",
+        "update_success_detail": "User updated successfully",
+        "create_success_detail": "User created successfully",
+        "add_distribution_success_detail": "Added successfully"
+      }
+    },
+    "roles": {
+      "panel_title": "Roles Panel",
+      "add_role_title": "Create Role",
+      "add_role_button_title": "Click to create a new Role",
+      "table_title": "Roles",
+      "form": {
+        "role_name": "Role Name",
+        "role_name_placeholder": "Enter Role Name",
+        "group": "Group",
+        "group_placeholder": "Select Group"
+      },
+      "table": {
+        "header_role_name": "Role Name",
+        "header_group": "Group"
+      },
+      "dialog": {
+        "edit": "Edit Role",
+        "view": "Role Details",
+        "create": "Create Role"
+      },
+      "confirm": {
+        "delete_header": "Confirm deletion of role {{roleName}}",
+        "delete_message": "Are you sure you want to delete role <strong>{{roleName}}</strong>?"
+      },
+      "toast": {
+        "update_success_summary": "Updated",
+        "update_success_detail": "Role updated successfully",
+        "create_success_summary": "Created",
+        "create_success_detail": "Role created successfully",
+        "delete_success_summary": "Deleted",
+        "delete_success_detail": "Role deleted successfully",
+        "error_summary": "Error",
+        "delete_error_detail": "An error occurred while deleting the role"
+      }
+    },
+    "modal_roles": {
+      "name": "Name",
+      "name_placeholder": "Enter Role Name",
+      "description": "Description",
+      "description_placeholder": "Enter Description",
+      "group": "Groups",
+      "group_placeholder": "Select Groups",
+      "validation_required": "Required field",
+      "validation_name_minlength": "Role name must be at least 3 characters long",
+      "toast": {
+        "update_success_summary": "Updated",
+        "update_success_detail": "Role updated successfully",
+        "create_success_summary": "Created",
+        "create_success_detail": "Role created successfully",
+        "error_summary": "Error",
+        "update_error_detail": "An error occurred while updating the role",
+        "create_error_detail": "An error occurred while creating the role"
+      }
+    },
+    "groups": {
+      "panel_title": "Groups Panel",
+      "add_group_title": "Create Group",
+      "add_group_button_title": "Click to create a new Group",
+      "table_title": "Groups",
+      "form": {
+        "group_name": "Group Name",
+        "group_name_placeholder": "Enter Group Name",
+        "subgroup_name": "Subgroup Name",
+        "subgroup_name_placeholder": "Enter Subgroup Name",
+        "role": "Role",
+        "role_placeholder": "Select Roles"
+      },
+      "table": {
+        "header_company": "Company",
+        "header_main_group": "Main Group",
+        "header_subgroup": "Subgroup",
+        "header_roles": "Roles"
+      },
+      "actions": {
+        "add_subgroup": "Add Subgroup"
+      },
+      "dialog": {
+        "edit_group": "Edit Group",
+        "edit_subgroup": "Edit Subgroup",
+        "view_group": "Group Details",
+        "create_group": "Create Group",
+        "create_subgroup": "Add Subgroup"
+      },
+      "confirm": {
+        "delete_group_header": "Confirm deletion of group {{groupName}}",
+        "delete_group_message": "Are you sure you want to delete group <strong>{{groupName}}</strong>?",
+        "delete_subgroup_header": "Confirm deletion of subgroup {{subGroupName}}",
+        "delete_subgroup_message": "Are you sure you want to delete subgroup <strong>{{subGroupName}}</strong>?"
+      },
+      "toast": {
+        "delete_success_summary": "Deleted",
+        "delete_success_detail": "Group deleted successfully",
+        "error_summary": "Error",
+        "delete_error_detail": "An error occurred while deleting the group"
+      }
+    },
+    "modal_groups": {
+      "tabs": {
+        "data": "Group Data",
+        "attributes": "Group Attributes"
+      },
+      "form": {
+        "subgroup_name_tooltip": "You can add subgroups separated by a semicolon (;)",
+        "company": "Company",
+        "company_placeholder": "Enter Company",
+        "group_name": "Name",
+        "group_name_placeholder": "Enter Group Name",
+        "subgroup_name": "Subgroup Name",
+        "subgroup_name_placeholder": "Enter Subgroup Name",
+        "roles": "Roles",
+        "roles_placeholder": "Select Roles"
+      },
+      "toast": {
+        "update_success_summary": "Updated",
+        "update_success_detail": "Group updated successfully",
+        "create_success_summary": "Created successfully",
+        "create_success_detail": "Group created successfully",
+        "warn_summary": "Warning",
+        "fill_required_fields": "Please fill in all required fields in \"Group Data\"!"
+      }
+    },
+    "modal_group_subgroup": {
+      "form": {
+        "parent_group_name": "Parent Group Name",
+        "parent_group_name_placeholder": "Enter Parent Group Name"
+      }
+    },
+    "modal_group_attributes": {
+      "table": {
+        "header_key": "Key",
+        "header_value": "Value",
+        "empty": "No data available"
+      },
+      "form": {
+        "key_placeholder": "Key",
+        "value_placeholder": "Value"
+      },
+      "actions": {
+        "add_row": "Add attributes",
+        "update": "Update attributes",
+        "save": "Save attributes"
+      }
+    }
+  },
+  "errors": {
+    "server": {
+      "internal": "General Error"
+    }
+  }
+}

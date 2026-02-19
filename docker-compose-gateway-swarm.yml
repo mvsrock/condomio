@@ -1,0 +1,28 @@
+services:
+  gatewayservice:
+    image: gateway
+    environment:
+      - SERVER_PORT=9090
+      - SPRING_APPLICATION_NAME=Gateway
+      - SPRING_MAIN_BANNER-MODE=off
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discoveryservice:8761/eureka
+      - EUREKA_INSTANCE_INSTANCE-ID=$${spring.application.name}:$${instanceId:$${random.value}}
+      - LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_CLOUD_GATEWAY=DEBUG
+      - LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_WEB=DEBUG
+      - SPRING_APPLICATION_JSON={"spring":{"cloud":{"discovery":{"enabled":true},"gateway":{"server":{"webflux":{"globalcors":{"corsConfigurations":{"[/**]":{"allowedOrigins":["https://localhost","https://localhost:4200","http://localhost:80","http://localhost:443","http://localhost"],"allowedMethods":["GET","POST","PUT","DELETE","OPTIONS"],"allowedHeaders":"*","allowCredentials":true}}}}}}}}}
+
+    ports:
+      - target: 9090
+        published: 9090
+        mode: host
+    networks:
+      - keycloak-network
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+    depends_on:
+      - discovery
+      - keycloak-ms
+networks:
+  keycloak-network:

@@ -1,0 +1,112 @@
+<p-card>
+    <form [formGroup]="menuFormGroup" class="flex flex-col gap-6">
+
+        <div class="flex flex-col md:flex-row gap-6">
+            <div class="flex flex-wrap gap-2 w-full">
+                <input-form-control label="pages.menu.label">
+                    <input class="w-full" exposeControl formControlName="label"
+                           pInputText placeholder="{{ 'pages.menu.label_placeholder' | translate }}"/>
+                </input-form-control>
+            </div>
+
+            <div class="flex flex-wrap gap-2 w-full">
+                <input-form-control label="pages.menu.icon">
+                    <p-select (onChange)="getIconObj($event)" [filter]="true" [options]="iconOptions" [showClear]="true" appendTo="body"
+                              class="w-full" exposeControl formControlName="icon"
+                              optionLabel="label"
+                              optionValue="value"
+                              placeholder="{{ 'pages.menu.icon_placeholder' | translate }}">
+                        <ng-template let-option pTemplate="item">
+                            <i [class]="option.value" style="margin-right: 10px"></i> {{ option.label }}
+                        </ng-template>
+                        <ng-template let-option pTemplate="selectedItem">
+                            <i *ngIf="option" [class]="option.value" style="margin-right: 10px"></i>
+                            {{ option?.label || ("pages.menu.icon_placeholder" | translate) }}
+                        </ng-template>
+                    </p-select>
+                </input-form-control>
+            </div>
+        </div>
+
+        <div class="flex flex-col md:flex-row gap-6">
+            <div class="flex flex-wrap gap-2 w-full">
+                <input-form-control label="pages.menu.description">
+                    <input class="w-full" exposeControl formControlName="description"
+                           pInputText placeholder="{{ 'pages.menu.description_placeholder' | translate }}"/>
+                </input-form-control>
+            </div>
+
+            <div class="flex flex-wrap gap-2 w-full">
+                <input-form-control label="pages.menu.url">
+                    <input class="w-full" exposeControl formControlName="uri"
+                           pInputText placeholder="{{ 'pages.menu.url_placeholder' | translate }}"/>
+                </input-form-control>
+            </div>
+        </div>
+
+        <div class="flex flex-col md:flex-row gap-6">
+            <div class="flex flex-wrap gap-2 w-full">
+                <input-form-control label="pages.menu.parent">
+                    <p-select [filter]="true" [options]="parentList" [showClear]="true" appendTo="body" class="w-full"
+                              exposeControl formControlName="parentId"
+                              optionLabel="label" optionValue="value"
+                              placeholder="{{ 'pages.menu.parent_placeholder_box' | translate }}"></p-select>
+                </input-form-control>
+            </div>
+
+            <div class="flex flex-wrap gap-2 w-full">
+                <input-form-control label="pages.menu.is_visible">
+                    <p-select [options]="selectorBoxVisible" [showClear]="true" appendTo="body" class="w-full"
+                              exposeControl formControlName="visible"
+                              optionLabel="label" optionValue="value"
+                              placeholder="{{ 'pages.menu.is_visible_placeholder' | translate }}"></p-select>
+                </input-form-control>
+            </div>
+        </div>
+
+        <div class="flex flex-col md:flex-row gap-6">
+            <div class="flex flex-wrap gap-2 w-full">
+                <input-form-control label="pages.menu.display_order">
+                    <input class="w-full" exposeControl formControlName="visualOrder" min="0"
+                           pInputText placeholder="{{ 'pages.menu.display_order_placeholder' | translate }}" step="1"
+                           type="number"/>
+                </input-form-control>
+            </div>
+
+            <div class="flex flex-wrap gap-2 w-full">
+                <input-form-control label="pages.menu.role">
+                    <p-select [filter]="true" [options]="roleList" [showClear]="true" appendTo="body" class="w-full"
+                              exposeControl formControlName="roleId"
+                              optionLabel="label" optionValue="value"
+                              placeholder="{{ 'pages.menu.role_placeholder' | translate }}"></p-select>
+                </input-form-control>
+            </div>
+        </div>
+
+        @switch (event) {
+            @case ('edit') {
+                <div class="flex justify-end gap-2 mt-4">
+                    <button (click)="close()" class="p-button-text" label="{{ 'common.undo' | translate }}" pButton
+                            type="button">
+                    </button>
+                    <button (click)="update()" [disabled]="menuFormGroup.invalid" label="{{ 'common.update' | translate }}"
+                            pButton
+                            type="button">
+                    </button>
+                </div>
+            }
+            @case ('create') {
+                <div class="flex justify-end gap-2 mt-4">
+                    <button (click)="close()" class="p-button-text" label="{{ 'common.undo' | translate }}" pButton
+                            type="button">
+                    </button>
+                    <button (click)="create()" [disabled]="menuFormGroup.invalid" label="{{ 'common.create' | translate }}"
+                            pButton
+                            type="button">
+                    </button>
+                </div>
+            }
+        }
+
+    </form>
+</p-card>

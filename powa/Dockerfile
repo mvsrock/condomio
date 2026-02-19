@@ -1,0 +1,17 @@
+FROM python:3.11-slim
+
+WORKDIR /usr/local/src
+
+RUN apt-get update && apt-get install -y \
+    libpq5 \
+    libpq-dev \
+    gcc \
+    && pip install "sqlalchemy<2.0.0" \
+    && pip install powa-web \
+    && apt-get purge -y --auto-remove libpq-dev gcc \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY powa-web.conf /etc/
+
+EXPOSE 8888
+CMD ["powa-web"]

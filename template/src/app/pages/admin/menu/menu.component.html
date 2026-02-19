@@ -1,0 +1,64 @@
+<div class="container-fluid p-4">
+    <h3>{{ 'pages.menu.panel_title' | translate }}</h3>
+    <form [formGroup]="menuFormGroup">
+        <div class="flex flex-wrap gap-x-2 gap-y-3 items-end mt-6">
+            <input-form-control label="{{ 'pages.menu.label' | translate }}" class="w-[180px]">
+                <input formControlName="label" exposeControl type="text" pInputText class="p-inputtext p-component p-inputtext-fluid" placeholder="{{ 'pages.menu.label_placeholder' | translate }}" />
+            </input-form-control>
+
+            <input-form-control label="{{ 'pages.menu.parent' | translate }}" class="w-[180px]">
+                <input formControlName="parent" exposeControl type="text" pInputText class="p-inputtext p-component p-inputtext-fluid" placeholder="{{ 'pages.menu.parent_placeholder' | translate }}" />
+            </input-form-control>
+
+            <input-form-control label="{{ 'pages.menu.role' | translate }}" class="w-[180px]">
+                <p-select exposeControl [options]="roleList" optionLabel="label" optionValue="id" formControlName="roleId" [showClear]="true" placeholder="{{ 'pages.menu.role_placeholder' | translate }}"> </p-select>
+            </input-form-control>
+
+            <div class="flex gap-2 ml-2">
+                <button pButton type="button" label="{{ 'common.search' | translate }}" icon="pi pi-search" iconPos="left" [disabled]="menuFormGroup.invalid" (click)="submit()"></button>
+                <button pButton type="button" label="{{ 'common.reset' | translate }}" icon="pi pi-times" iconPos="left" [disabled]="menuFormGroup.invalid" (click)="reset()"></button>
+            </div>
+        </div>
+    </form>
+    <h4>
+        {{ 'pages.menu.add_menu' | translate }}
+        <button pButton type="button" icon="pi pi-plus-circle" class="p-button-text p-button-rounded ms-2" title="{{ 'pages.menu.add_menu_placeholder' | translate }}" (click)="create()"></button>
+    </h4>
+
+    <p-dialog [(visible)]="showDeleteDialog" [header]="'pages.menu.confirm.delete_header' | translate: { label: deleteLabel|translate }" [modal]="true" [style]="{ width: '450px' }">
+        <div class="flex flex-column gap-3 align-items-center justify-content-center text-center">
+            <i class="pi pi-exclamation-triangle mb-2" style="font-size: 2rem"></i>
+
+            <div class="flex align-items-center gap-3 mt-3">
+                <label class="font-semibold">
+                    {{ 'pages.menu.confirm.delete_branch' | translate }}
+                </label>
+                <div class="flex align-items-center gap-2">
+                    <span>{{'common.no'|translate}}</span>
+                    <p-toggleswitch [(ngModel)]="deleteBranch"></p-toggleswitch>
+                    <span>{{'common.yes'|translate}}</span>
+                </div>
+            </div>
+        </div>
+
+        <ng-template pTemplate="footer">
+            <button pButton pRipple icon="pi pi-times" class="p-button-text" label="{{ 'common.reject' | translate }}" (click)="showDeleteDialog = false"></button>
+            <button pButton pRipple icon="pi pi-check" class="p-button-text" label="{{ 'common.accept' | translate }}" (click)="confirmDelete()"></button>
+        </ng-template>
+    </p-dialog>
+</div>
+<app-reusable-table
+    [columns]="tableColumns"
+    [data]="menuTable"
+    [defaultSortField]="sort"
+    [defaultSortOrder]="direction"
+    [tableTitle]="'Menu'"
+    [rows]="sizePage"
+    [totalRecords]="totalRecords"
+    (onLazyLoad)="handleLazyLoad($event)"
+    [loading]="loading"
+    (onAction)="handleAction($event)"
+    [rowActions]="actions"
+    [totalPages]="totalPage"
+>
+</app-reusable-table>

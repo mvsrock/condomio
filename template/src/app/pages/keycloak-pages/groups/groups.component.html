@@ -1,0 +1,48 @@
+<div class="container-fluid p-4">
+    <h3>{{ 'pages.groups.panel_title' | translate }}</h3>
+
+    <form [formGroup]="groupsFormGroup">
+        <div class="flex flex-wrap gap-x-2 gap-y-3 items-end mt-6">
+
+            <input-form-control label="{{ 'pages.groups.form.group_name' | translate }}" class="w-[180px]">
+                <input formControlName="groupName" exposeControl type="text" pInputText
+                    class="p-inputtext p-component p-inputtext-fluid"
+                    placeholder="{{ 'pages.groups.form.group_name_placeholder' | translate }}" />
+            </input-form-control>
+
+            <input-form-control label="{{ 'pages.groups.form.subgroup_name' | translate }}" class="w-[180px]">
+                <input formControlName="groupPath" exposeControl type="text" pInputText
+                    class="p-inputtext p-component p-inputtext-fluid"
+                    placeholder="{{ 'pages.groups.form.subgroup_name_placeholder' | translate }}" />
+            </input-form-control>
+
+            <input-form-control label="{{ 'pages.groups.form.role' | translate }}" class="w-[180px]">
+                <p-multiSelect [options]="roleList" class="w-full" exposeControl optionLabel="label" optionValue="value"
+                    formControlName="roles" placeholder="{{ 'pages.groups.form.role_placeholder' | translate }}">
+                </p-multiSelect>
+            </input-form-control>
+
+            <div class="flex gap-2 ml-2">
+                <button pButton type="button" label="{{ 'common.search' | translate }}" icon="pi pi-search"
+                    iconPos="left" [disabled]="groupsFormGroup.invalid" (click)="submit()"></button>
+
+                <button pButton type="button" label="{{ 'common.reset' | translate }}" icon="pi pi-times" iconPos="left"
+                    [disabled]="groupsFormGroup.invalid" (click)="reset()"></button>
+            </div>
+
+        </div>
+    </form>
+
+    <h4>
+        {{ 'pages.groups.add_group_title' | translate }}
+        <button pButton type="button" icon="pi pi-plus-circle" class="p-button-text p-button-rounded ms-2"
+            [title]="('pages.groups.add_group_button_title' | translate)" (click)="addGroup()"></button>
+    </h4>
+    <p-confirmDialog></p-confirmDialog>
+</div>
+
+<app-reusable-table [columns]="tableColumns" [data]="grousItems" [defaultSortField]="sort"
+    [defaultSortOrder]="direction" [tableTitle]="'pages.groups.table_title' | translate" [rows]="sizePage"
+    [totalRecords]="totalRecords" (onLazyLoad)="handleLazyLoad($event)" [loading]="loading"  [totalPages]="totalPage"
+    (onAction)="handleAction($event)" [rowActions]="registeredUserActions" [rowActionVisibilityFn]="gropusVisibilityFn">
+</app-reusable-table>

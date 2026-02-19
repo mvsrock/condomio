@@ -1,0 +1,60 @@
+
+services:
+  postgres:
+    image: my-postgres-powa
+    #        -c shared_preload_libraries=powa,pg_stat_statements,pg_qualstats
+    command: >
+      postgres
+        -c shared_preload_libraries=powa,pg_stat_statements,pg_qualstats,pg_stat_kcache,pg_wait_sampling,hypopg
+        -c pg_stat_statements.track=all
+        -c pg_stat_statements.max=10000
+        -c pg_qualstats.sample_rate=1
+        -c pg_stat_statements.save=off
+        -c powa.frequency=10s
+        -c track_activity_query_size=2048
+    environment:
+      POSTGRES_DB: mimdb
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: password
+      POSTGRES_MAX_CONNECTIONS: 500
+      PGDATA: /var/lib/postgresql/data
+    ports:
+      - target: 5432
+        published: 5432
+        mode: host
+    volumes:
+      - ./postgres-init:/docker-entrypoint-initdb.d
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - postgres-net
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+      placement:
+        constraints: [node.role == manager]
+  powa-web:
+    image: mypowaweb
+   # volumes:
+   #   - ./powa-web.conf:/etc/powa-web.conf:ro
+    depends_on:
+      - postgres
+    networks:
+      - postgres-net
+    ports:
+      - target: 8888
+        published: 8888
+        mode: host
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+      placement:
+        constraints: [ node.role == manager ]
+networks:
+  postgres-net:
+    driver: overlay
+
+volumes:
+  postgres_data:
+  

@@ -1,0 +1,17 @@
+services: {}
+
+volumes:
+  postgres_data:
+    driver: local
+  mongo-data-config:
+  mongo-data:
+    driver: local
+
+networks:
+  postgres-net:
+    driver: overlay
+    attachable: true
+  mongo-net:
+    driver: overlay
+    attachable: true
+

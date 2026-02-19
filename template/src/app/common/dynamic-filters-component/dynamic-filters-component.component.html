@@ -1,0 +1,59 @@
+<div class="filters-header">
+    <div class="filters-title-wrapper">
+        <h3 class="filters-title">
+            {{ title | translate }}
+        </h3>
+
+        @if (!showFilters) {
+            <i (click)="toggleFilters()" class="pi pi-search filters-icon blue-icon"
+               title="{{ 'common.showFilter' | translate }}"></i>
+        }
+    </div>
+
+    <ng-content select="[filters-right]"></ng-content>
+</div>
+
+<div class="filters-panel" *ngIf="showFilters">
+    <form [formGroup]="formGroup">
+        <div class="filters-grid">
+            <div class="filter-item" *ngFor="let f of filters">
+                <label class="filter-label">
+                    {{ f.label | translate }}
+                </label>
+
+                <ng-container [ngSwitch]="f.type">
+                    <input *ngSwitchCase="'text'" pInputText [placeholder]="f.placeholder ? (f.placeholder | translate) : ''" [formControlName]="f.key" />
+
+                    <input *ngSwitchCase="'number'" type="number" pInputText [placeholder]="f.placeholder ? (f.placeholder | translate) : ''" [formControlName]="f.key" />
+
+                    <p-datepicker *ngSwitchCase="'date'" [formControlName]="f.key"
+                                  [placeholder]="'pages.general-info.form.date_placeholder' | translate"
+                                  [showClear]="true" [showIcon]="true"
+                                  dateFormat="dd/mm/yy"></p-datepicker>
+
+                    <p-select
+                        (onChange)="f.emitOnChange ? onFilterChange(f.key, $event.value) : null"
+                        (onClear)="f.emitOnChange ? onFilterChange(f.key, null) : null"
+                        *ngSwitchCase="'select'"
+                        [formControlName]="f.key"
+                        [options]="f.options || []"
+                        [placeholder]="f.placeholder ? (f.placeholder | translate) : ''"
+                        [showClear]="true"
+                        class="w-full"
+                        optionLabel="label"
+                        optionValue="value"
+                    ></p-select>
+                </ng-container>
+            </div>
+        </div>
+
+        <div class="filters-actions">
+            <button (click)="onApply()" icon="pi pi-filter" label="{{ 'common.search' | translate }}" pButton
+                    type="button"></button>
+
+            <button (click)="onReset()" class="p-button-text" icon="pi pi-times"
+                    label="{{ 'common.reset' | translate }}"
+                    pButton type="button"></button>
+        </div>
+    </form>
+</div>

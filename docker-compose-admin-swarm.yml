@@ -1,0 +1,73 @@
+services:
+  keycloak-ms:
+    image: admin
+    #env_file:
+    # - ./configSwarm/admin.env
+    #  - ./configSwarm/authenticator.env
+    environment:
+      SERVER_PORT: 8080
+      SPRING_APPLICATION_NAME: keycloak-service #quando sta nel container legge questo
+      SPRING_MAIN_BANNER-MODE: "false"
+    #  SPRING_CONFIG_IMPORT: "optional:file:/config/application.properties,optional:file:/config/daje.yml"
+      SPRING_DATA_MONGODB_URI: mongodb://myuser:mypassword@mongodb:27017/mimdb?authSource=admin&replicaSet=rs0
+      SPRING_DATA_MONGODB_HOST: mongodb
+      SPRING_DATA_MONGODB_PORT: 27017
+      SPRING_DATA_MONGODB_DATABASE: mimdb
+      SPRING_DATA_MONGODB_USERNAME: myuser
+      SPRING_DATA_MONGODB_PASSWORD: mypassword
+      KEYCLOAK_AUTH-SERVER-URL: http://keycloak:8082
+      KEYCLOAK_REALM: atlantica
+     # SPRING_SECURITY_OAUTH2_RESOURCE-SERVER_JWT_ISSUER-URI: "http://keycloak:8082/realms/$${KEYCLOAK_REALM}"
+      SPRING_SECURITY_OAUTH2_RESOURCE-SERVER_JWT_JWK-SET-URI: "http://keycloak:8082/realms/$${KEYCLOAK_REALM}/protocol/openid-connect/certs"
+      SPRING_CACHE_TYPE: redis
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/mimdb?currentSchema=mim
+      SPRING_DATASOURCE_USERNAME: keycloak
+      SPRING_DATASOURCE_PASSWORD: password
+      SPRING_JPA_HIBERNATE_DDL-AUTO: none
+      SPRING_JPA_SHOW-SQL: "true"
+      SPRING_CLOUD_DISCOVERY_ENABLED: "true"
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discoveryservice:8761/eureka
+      EUREKA_CLIENT_REGISTER-WITH-EUREKA: "true"
+      EUREKA_CLIENT_FETCH-REGISTRY: "true"
+      #EUREKA_INSTANCE_INSTANCE-ID: $${spring.application.name}:$${instanceId:$${random.value}}
+      APP_CORS_ALLOWED-ORIGINS: '*'
+      APP_CACHE_ENABLED: "false"
+      APP_CACHE_PREFETCH-PAGES: 5
+      APP_PROPERTIES_ENABLED: "true"
+      LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_SECURITY: DEBUG
+      LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_SECURITY_OAUTH2: DEBUG
+      LOGGING_LEVEL_JBOSS_RESTEASY_CLIENT: DEBUG
+      LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_CACHE: TRACE
+      LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_DATA_REDIS_CACHE: DEBUG
+      LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_DATA_REDIS_CORE: DEBUG
+      LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_BOOT_CONTEXT_CONFIG: DEBUG
+      EUREKA_INSTANCE_HOSTNAME: keycloak-ms
+      EUREKA_INSTANCE_PREFER-IP-ADDRESS: "false"
+      EUREKA_INSTANCE_NON-SECURE-PORT: 8080
+
+    ports:
+      - target: 8080
+        published: 8080
+        mode: host
+    networks:
+      - keycloak-network
+      - postgres-net
+      - mongo-net
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+    depends_on:
+      - discovery
+   # volumes:
+    #  - /home/xkyros/config:/config:ro
+networks:
+  keycloak-network:
+  postgres-net:
+    external:
+      name: DB_postgres-net
+  mongo-net:
+    external:
+      name: DB_mongo-net

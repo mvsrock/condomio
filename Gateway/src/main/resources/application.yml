@@ -1,0 +1,51 @@
+server:
+  port: 9090
+
+
+# api-gateway configurations
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: http://localhost:8761/eureka
+  instance:
+    instance-id: ${spring.application.name}:${instanceId:${random.value}}
+
+spring:
+  main:
+    banner-mode: off
+  application:
+    name: Gateway
+  cloud:
+    discovery:
+      enabled: true
+    gateway:
+      server:
+        webflux:
+          default-filters:
+            - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials, RETAIN_FIRST
+         #   - RewritePath=/api/(?<remaining>.*), /${remaining}
+          #routes:
+          #  - id: force-api-prefix
+          #    uri: lb://keycloak-service
+          #    predicates:
+          #      - Path=/api/**
+          globalcors:
+            cors-configurations:
+              '[/**]':
+                allowed-origins: [ "http://localhost:4200"]
+                allowed-methods: "*"
+                allowed-headers: "*"
+                allow-credentials: true
+          discovery:
+            locator:
+              enabled: true
+              lower-case-service-id: true
+
+logging:
+  level:
+    it.atlantica.mim.gateway.filter.LoggingFilter: DEBUG
+    org:
+      springframework:
+        cloud:
+          gateway: DEBUG
+        web: DEBUG

@@ -1,0 +1,95 @@
+.table-title {
+  font-weight: bold;
+  font-size: 1.2rem;
+  margin-bottom: 0.5rem;
+}
+
+:host ::ng-deep .p-datatable .p-datatable-thead>tr>th,
+:host ::ng-deep .p-datatable .p-datatable-thead>tr>th .p-column-title {
+  white-space: nowrap;
+}
+
+::ng-deep .cell-link {
+  background: none;
+  border: none;
+  padding: 0;
+  text-decoration: underline;
+  cursor: pointer;
+  color: var(--primary-color, inherit);
+
+  &:focus {
+    outline: 2px solid var(--primary-color, #3b82f6);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+}
+
+.paginator-wrapper.is-loading {
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+
+//STILE SCROLLBAR SUPERIORE
+.table-wrapper {
+  position: relative;
+  width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+}
+
+.scrollbar-container {
+  overflow-x: auto;
+  overflow-y: hidden;
+  height: 16px;
+  margin-right: 5px;
+  width: 100%;
+}
+
+.scrollbar-content {
+  height: 1px;
+}
+
+.p-datatable-wrapper {
+  overflow-x: auto;
+  width: 100%;
+}
+
+.p-datatable-scrollable-body {
+  overflow-x: hidden;
+}
+
+.cell-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  white-space: nowrap;
+  text-decoration: none;
+  border-bottom: 1px solid currentColor;
+  color: var(--primary-color);
+  transition: border-color 0.2s ease;
+}
+
+.cell-link:hover {
+  border-color: #005b9f;
+}
+
+.cell-link i {
+  line-height: 1;
+  font-size: 0.95em;
+}
+
+a.cell-link {
+  color: #007ad9;
+}
+
+a.cell-link:hover {
+  border-color: var(--primary-color);
+}
+
+.cell-disabled {
+  color: #888;
+  cursor: default;
+  border-bottom-style: dotted;
+}

@@ -1,0 +1,13 @@
+services: {}
+
+volumes:
+  zookeeper_data:
+  zookeeper_data_log:
+  zookeeper_data_secret:
+  kafka_data:
+  kafka_data_secrets:
+
+networks:
+  kafka-net:
+    driver: overlay
+    attachable: true

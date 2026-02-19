@@ -1,0 +1,19 @@
+in caso di prima installazione su windows, potrebbe essere necessari i seguenti prerequisiti
+- wsl ubuntu (se si ha già una wsl -> wsl --install -d Ubuntu)
+- aggiornare linux -> sudo apt update && sudo apt upgrade
+- sudo apt install openjdk-25-jdk -y
+
+se nel file ~/.docker/config.json c'è questo tipo di configurazione { "credsStore": "desktop.exe" } togliere la properties credsStore
+
+se i file script non si avviano potrebbe semplicemente essere necessario fare ./dos2unix file.sh (sudo apt install dos2unix)
+
+per mongo in replica
+openssl rand -base64 756 > mongodb-keyfile spostare il file in /mongo-config
+chmod 600 mongodb-keyfile
+ 
+
+per angular l'utenza è username:test  pass:test
+su keycloak l'utenza è username:admin pass:admin
+
+
+ordine dei servizi discovery -> gateway ->il resto dei servizi che si appoggi a discovery

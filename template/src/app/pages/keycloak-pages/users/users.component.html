@@ -1,0 +1,70 @@
+<div class="container-fluid p-4">
+    <h3>{{ 'pages.user.panel_title' | translate }}</h3>
+
+    <form [formGroup]="userFormGroup">
+        <div class="flex flex-wrap gap-x-2 gap-y-3 items-end mt-6">
+            <input-form-control label="{{ 'pages.user.form.first_name' | translate }}">
+                <input formControlName="firstName" exposeControl type="text"
+                    placeholder="{{ 'pages.user.form.first_name_placeholder' | translate }}" pInputText
+                    class="p-inputtext p-component p-inputtext-fluid" />
+            </input-form-control>
+
+            <input-form-control label="{{ 'pages.user.form.last_name' | translate }}">
+                <input formControlName="lastName" exposeControl type="text"
+                    placeholder="{{ 'pages.user.form.last_name_placeholder' | translate }}" pInputText
+                    class="p-inputtext p-component p-inputtext-fluid" />
+            </input-form-control>
+
+            <input-form-control label="{{ 'pages.user.form.username' | translate }}">
+                <input formControlName="username" exposeControl type="text"
+                    placeholder="{{ 'pages.user.form.username_placeholder' | translate }}" pInputText
+                    class="p-inputtext p-component p-inputtext-fluid" />
+            </input-form-control>
+
+            <input-form-control label="{{ 'pages.user.form.group' | translate }}">
+                <p-select [options]="groups" exposeControl optionLabel="label" optionValue="name"
+                    placeholder="{{ 'pages.user.form.group_placeholder' | translate }}" formControlName="groupName"
+                    [showClear]="true">
+                </p-select>
+            </input-form-control>
+
+            <input-form-control label="{{ 'pages.user.form.email' | translate }}">
+                <input formControlName="email" exposeControl type="email" pInputText
+                    placeholder="{{ 'pages.user.form.email_placeholder' | translate }}"
+                    class="p-inputtext p-component p-inputtext-fluid" />
+            </input-form-control>
+
+            <input-form-control label="{{ 'pages.user.form.company' | translate }}">
+                <p-select [options]="distributionCompany" exposeControl optionLabel="name" optionValue="name"
+                    formControlName="distributionCompany" [showClear]="true"
+                    placeholder="{{ 'pages.user.form.company_placeholder' | translate }}">
+                </p-select>
+            </input-form-control>
+
+            <div class="flex gap-2 ml-2">
+                <button pButton type="button" label="{{ 'common.search' | translate }}" icon="pi pi-search"
+                    iconPos="left" [disabled]="userFormGroup.invalid" (click)="submit()">
+                </button>
+
+                <button pButton type="button" label="{{ 'common.reset' | translate }}" icon="pi pi-times" iconPos="left"
+                    [disabled]="userFormGroup.invalid" (click)="reset()">
+                </button>
+            </div>
+        </div>
+    </form>
+
+    <h4>
+        {{ 'pages.user.add_user_title' | translate }}
+        <button pButton type="button" icon="pi pi-plus-circle" class="p-button-text p-button-rounded ms-2"
+            [title]="('pages.user.add_user_button_title' | translate)" (click)="onAddUser()">
+        </button>
+    </h4>
+    <p-confirmDialog></p-confirmDialog>
+</div>
+
+<app-reusable-table [columns]="tableColumns" [data]="item" [defaultSortField]="sort" [defaultSortOrder]="direction"
+    [tableTitle]="'pages.user.table_title' | translate" [rows]="sizePage" [totalRecords]="totalRecords"
+    (onLazyLoad)="handleLazyLoad($event)" [loading]="loading" (onAction)="handleAction($event)"
+    [rowActions]="registeredUserActions" [rowActionVisibilityFn]="registeredUserVisibilityFn" [totalPages]="totalPage"
+    [isCellClickable]="canClickCell" (cellActivated)="handleCell($event)">
+</app-reusable-table>

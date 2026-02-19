@@ -1,0 +1,20 @@
+<div *ngIf="!loading">
+
+    <ng-container *ngIf="companyOptions.length === 0">
+    </ng-container>
+
+    <ng-container *ngIf="companyOptions.length === 1">
+        
+        <span class="company-label">
+            {{ companyOptions[0].description }}
+        </span>
+    </ng-container>
+
+    <ng-container *ngIf="companyOptions.length > 1">
+        <p-select [options]="companyOptions" [showClear]="true" [(ngModel)]="selectedCompany" (onChange)="onSelect($event)"
+            optionLabel="description"  placeholder="{{'common.selectDistribution'|translate}}" styleClass="w-full">
+        </p-select>
+    </ng-container>
+
+</div>
+

@@ -1,0 +1,5 @@
+{"properties": [{
+  "name": "mim-api-gateway.auth.service-code",
+  "type": "java.lang.String",
+  "description": "A description for 'mim-api-gateway.auth.service-code'"
+}]}

@@ -1,0 +1,18 @@
+:host ::ng-deep input.p-inputtext:disabled {
+  cursor: not-allowed;
+  background: var(--surface-200);
+  color: var(--text-color-secondary);
+  border-color: transparent;
+}
+
+.pointer-events-none {
+  pointer-events: none;
+}
+
+:host ::ng-deep .p-datatable-wrapper {
+    overflow-x: auto;
+}
+
+:host ::ng-deep .p-datatable-table {
+    width: max(36rem, 100%);
+}

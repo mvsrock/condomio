@@ -1,0 +1,25 @@
+services:
+  discoveryservice:
+    image: discovery
+    environment:
+      "SPRING_MAIN_BANNER-MODE": "off"
+      "SPRING_APPLICATION_NAME": "Discovery"
+      "SERVER_PORT": "8761"
+      "EUREKA_CLIENT_REGISTER-WITH-EUREKA": "false"
+      "EUREKA_CLIENT_FETCH-REGISTRY": "false"
+      "EUREKA_INSTANCE_PREFER-IP-ADDRESS": "true"
+      "LOGGING_LEVEL_COM_NETFLIX_EUREKA": "OFF"
+      "LOGGING_LEVEL_COM_NETFLIX_DISCOVERY": "OFF"
+    ports:
+      - target: 8761
+        published: 8761
+        mode: host
+    networks:
+      - keycloak-network
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+
+networks:
+  keycloak-network:

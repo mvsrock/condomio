@@ -1,0 +1,9 @@
+registry:
+  url: http://localhost:5000
+  name: My Docker Registry
+
+auth:
+  enabled: false
+
+ui:
+  title: Docker Registry UI

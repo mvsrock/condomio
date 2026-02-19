@@ -1,0 +1,70 @@
+.filters-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.filters-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0;
+}
+
+.filters-icon {
+  cursor: pointer;
+  font-size: 1rem;
+}
+
+.filters-panel {
+  margin-top: 0.5rem;
+}
+
+.filters-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.filter-item {
+  display: flex;
+  flex-direction: column;
+  min-width: 160px;
+}
+
+.filter-label {
+  font-weight: 500;
+  margin-bottom: 0.25rem;
+}
+
+.filters-actions {
+  margin-top: 1rem;
+  display: flex;
+  gap: 0.5rem;
+}
+.blue-icon {
+  color: #007bff !important; 
+  cursor: pointer;
+  font-size: 1.2rem;
+}
+
+.filters-header {
+  display: flex;
+  align-items: center;
+  justify-content: unset; 
+  gap: 1rem;
+}
+
+.filters-title-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.filters-title {
+  margin: 0;
+}
+
+.filters-icon {
+  cursor: pointer;
+}

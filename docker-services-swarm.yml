@@ -1,0 +1,87 @@
+services:
+  registry:
+    image: registry:latest
+    ports:
+      - 5000:5000
+    environment:
+      REGISTRY_STORAGE_DELETE_ENABLED: "true"
+    volumes:
+      - registry_data:/var/lib/registry
+#      - ./config-registry/registry.config.yml:/etc/docker/registry/config.yml
+      - ./config-registry/credentials.yml:/etc/docker/registry/config.yml
+#      - ./config-registry/htpasswd:/etc/docker/registry/htpasswd
+    networks:
+      - services
+    deploy:
+      mode: replicated
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+
+  registry-ui:
+    image: joxit/docker-registry-ui:latest
+    ports:
+      - 5080:80
+    environment:
+      - REGISTRY_TITLE=My Private Docker Registry
+      - NGINX_PROXY_PASS_URL=http://registry:5000
+      - SINGLE_REGISTRY=true
+      - DELETE_IMAGES=true
+    depends_on:
+      - registry
+    networks:
+      - services
+
+  #nexus:
+  #  image: sonatype/nexus3:3.30.0
+  #  volumes:
+  #    - nexus_data:/nexus-data
+  #  networks:
+  #   - services
+  #  ports:
+  #    - 5081:8081
+  #    - 5082:5082
+  #  deploy:
+  #    mode: replicated
+  #    replicas: 1
+  #    restart_policy:
+  #      condition: on-failure
+
+  portainer:
+    image: portainer/portainer-ce:latest
+    command: -H tcp://tasks.agent:9001 --tlsskipverify
+    volumes:
+      - portainer_data:/data
+    networks:
+      - services
+    ports:
+      - 9000:9000
+      - 8000:8000
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints: [node.role == manager]
+
+  agent:
+    image: portainer/agent:latest
+    environment:
+      AGENT_CLUSTER_ADDR: tasks.agent
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /var/lib/docker/volumes:/var/lib/docker/volumes
+    networks:
+      - services
+    deploy:
+      mode: global
+      placement:
+        constraints: [node.platform.os == linux]
+
+volumes:
+  registry_data:
+  portainer_data:
+
+networks:
+  services:
+    driver: overlay
+    attachable: true

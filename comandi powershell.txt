@@ -1,0 +1,9 @@
+backup:
+docker run --rm -v mim-atlantica_postgres_data:/data -v "${PWD}:/backup" alpine tar czf /backup/keycloak_postgres_data_backup.tar.gz -C /data .
+
+
+ripristino:
+docker run --rm -v mim-atlantica_postgres_data:/data -v "${PWD}:/backup" alpine sh -c "cd /data && tar xzf /backup/keycloak_postgres_data_backup.tar.gz"
+
+
+ mim-atlantica_postgres_data:/data= nome volume dove deve andare a finire i dati

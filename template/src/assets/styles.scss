@@ -1,0 +1,12 @@
+/* You can add global styles to this file, and also import other style files */
+@use './tailwind.css';
+@use './layout/layout.scss';
+@use 'primeicons/primeicons.css';
+@use './demo/demo.scss';
+
+.blue-line{
+    border: none;
+    height: 2px;
+    background-color: #0168ab;
+    margin-top: 20px;
+}
