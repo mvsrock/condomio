@@ -12,6 +12,16 @@ import '../config/keycloak_config.dart';
 import '../platform/desktop_auth.dart';
 import '../platform/web_platform.dart';
 
+/// Servizio centrale di autenticazione usato da provider e UI.
+///
+/// Architettura:
+/// - Web + Desktop: flusso OAuth2 Authorization Code + PKCE gestito manualmente.
+///   Qui costruiamo URL di authorize, validiamo callback, facciamo token exchange.
+/// - Mobile: flusso delegato a `keycloak_wrapper` (basato su AppAuth nativo).
+///
+/// Perche' due flussi:
+/// - Su web/desktop serve controllo esplicito di redirect URI e callback.
+/// - Su mobile e' preferibile il canale nativo gia' gestito dal wrapper.
 class KeycloakService {
   static final KeycloakService _instance = KeycloakService._internal();
 
@@ -44,14 +54,25 @@ class KeycloakService {
 
   bool get _usesManualFlow => kIsWeb || _isDesktop;
 
+  /// Inizializza il servizio una sola volta per ciclo di vita app.
+  ///
+  /// - Web: ripristina token da localStorage.
+  /// - Desktop: nessun persist locale (token in memoria).
+  /// - Mobile: inizializza wrapper nativo.
   Future<void> init() async {
     if (_initialized) return;
 
+    // Nel flusso manuale solo il web persiste token su storage browser.
+    // Desktop resta in memoria per la sessione corrente del processo.
     if (_usesManualFlow) {
       if (kIsWeb) {
-        _manualAccessToken = webPlatform.localStorageGetItem(_accessTokenStorageKey);
+        _manualAccessToken = webPlatform.localStorageGetItem(
+          _accessTokenStorageKey,
+        );
         _manualIdToken = webPlatform.localStorageGetItem(_idTokenStorageKey);
-        _manualRefreshToken = webPlatform.localStorageGetItem(_refreshTokenStorageKey);
+        _manualRefreshToken = webPlatform.localStorageGetItem(
+          _refreshTokenStorageKey,
+        );
         _parseAndSetManualTokens();
       }
     } else {
@@ -61,28 +82,43 @@ class KeycloakService {
     _initialized = true;
   }
 
+  /// Verifica rapida dello stato sessione corrente.
+  ///
+  /// Nota: sul flusso manuale controlla anche la scadenza (`exp`) del token.
   bool hasValidSession() {
     if (_usesManualFlow) return _hasValidManualSession();
-    return _mobileKeycloak?.accessToken != null && _mobileKeycloak?.idToken != null;
+    return _mobileKeycloak?.accessToken != null &&
+        _mobileKeycloak?.idToken != null;
   }
 
+  /// Ripristina token da localStorage web.
+  /// Usato quando vuoi forzare un re-hydration senza reinizializzare tutto.
   void restoreSessionFromStorage() {
     if (!kIsWeb) return;
-    _manualAccessToken = webPlatform.localStorageGetItem(_accessTokenStorageKey);
+    _manualAccessToken = webPlatform.localStorageGetItem(
+      _accessTokenStorageKey,
+    );
     _manualIdToken = webPlatform.localStorageGetItem(_idTokenStorageKey);
-    _manualRefreshToken = webPlatform.localStorageGetItem(_refreshTokenStorageKey);
+    _manualRefreshToken = webPlatform.localStorageGetItem(
+      _refreshTokenStorageKey,
+    );
     _parseAndSetManualTokens();
   }
 
+  /// Alias semantico per la UI: vero se l'utente e' autenticato.
   bool get isAuthenticated {
     if (_usesManualFlow) return _hasValidManualSession();
-    return _mobileKeycloak?.accessToken != null && _mobileKeycloak?.idToken != null;
+    return _mobileKeycloak?.accessToken != null &&
+        _mobileKeycloak?.idToken != null;
   }
 
-  String? get accessToken => _usesManualFlow ? _manualAccessToken : _mobileKeycloak?.accessToken;
+  String? get accessToken =>
+      _usesManualFlow ? _manualAccessToken : _mobileKeycloak?.accessToken;
 
-  String? get idToken => _usesManualFlow ? _manualIdToken : _mobileKeycloak?.idToken;
+  String? get idToken =>
+      _usesManualFlow ? _manualIdToken : _mobileKeycloak?.idToken;
 
+  /// Payload JWT dell'access token, utile per claims/ruoli in UI.
   Map<String, dynamic>? get tokenParsed {
     if (_usesManualFlow) return _manualTokenParsed;
     if (_mobileKeycloak?.accessToken == null) return null;
@@ -93,6 +129,7 @@ class KeycloakService {
     }
   }
 
+  /// Payload JWT dell'id token, utile per dati utente/identita'.
   Map<String, dynamic>? get idTokenParsed {
     if (_usesManualFlow) return _manualIdTokenParsed;
     if (_mobileKeycloak?.idToken == null) return null;
@@ -103,9 +140,11 @@ class KeycloakService {
     }
   }
 
+  /// Avvia login delegando al flusso specifico della piattaforma.
   Future<void> login() async {
     if (!_initialized) await init();
 
+    // Un solo punto di ingresso pubblico, implementazioni diverse per piattaforma.
     if (kIsWeb) {
       await _webLogin();
       return;
@@ -118,9 +157,11 @@ class KeycloakService {
     await _mobileKeycloak!.login();
   }
 
+  /// Esegue logout locale + server secondo piattaforma.
   Future<void> logout() async {
     if (!_initialized) await init();
 
+    // Un solo punto di ingresso pubblico, implementazioni diverse per piattaforma.
     if (kIsWeb) {
       await _webLogout();
       return;
@@ -133,6 +174,7 @@ class KeycloakService {
     await _mobileKeycloak!.logout();
   }
 
+  /// Tenta refresh token senza richiedere nuovo login interattivo.
   Future<bool> refreshToken() async {
     try {
       if (_usesManualFlow) {
@@ -146,6 +188,9 @@ class KeycloakService {
     }
   }
 
+  /// Restituisce informazioni utente:
+  /// - manual flow: claims del token locale
+  /// - mobile: chiamata getUserInfo del wrapper
   Future<Map<String, dynamic>?> getUserInfo() async {
     try {
       if (_usesManualFlow) return _manualTokenParsed;
@@ -156,8 +201,12 @@ class KeycloakService {
     }
   }
 
+  /// Inizializza (o riusa) il client Keycloak mobile.
+  ///
+  /// Se init fallisce lancia eccezione per impedire login in stato incoerente.
   Future<void> _ensureMobileInitialized() async {
     if (_mobileKeycloak == null) {
+      // Config del wrapper nativo (client/realm/server/bundle id).
       final config = KeycloakConfig(
         bundleIdentifier: KeycloakAppConfig.bundleIdentifier,
         clientId: KeycloakAppConfig.clientId,
@@ -178,17 +227,25 @@ class KeycloakService {
     }
   }
 
+  /// Callback web: riceve `code`, valida stato PKCE/state e salva i token.
   Future<void> storeTokensFromCallback(String code) async {
     if (!kIsWeb) return;
 
+    // Verifiche integrita' callback:
+    // - code_verifier PKCE deve esistere e combaciare con authorize iniziale.
+    // - state deve coincidere per mitigare CSRF/replay.
     final verifier = webPlatform.localStorageGetItem(_codeVerifierStorageKey);
-    final expectedState = webPlatform.localStorageGetItem(_oauthStateStorageKey);
+    final expectedState = webPlatform.localStorageGetItem(
+      _oauthStateStorageKey,
+    );
     final callbackState = Uri.base.queryParameters['state'];
 
     if (verifier == null) {
       throw Exception('Code verifier not found in localStorage');
     }
-    if (expectedState == null || callbackState == null || expectedState != callbackState) {
+    if (expectedState == null ||
+        callbackState == null ||
+        expectedState != callbackState) {
       throw Exception('Invalid OAuth state in web callback');
     }
 
@@ -207,6 +264,7 @@ class KeycloakService {
   }
 
   Future<void> _webLogin() async {
+    // Costruisce richiesta OAuth2 + PKCE e reindirizza il browser.
     final verifier = _generateCodeVerifier();
     final challenge = _generateCodeChallenge(verifier);
     final oauthState = _generateState();
@@ -230,7 +288,11 @@ class KeycloakService {
   }
 
   Future<void> _webLogout() async {
-    await _logoutOnServer(_manualRefreshToken ?? webPlatform.localStorageGetItem(_refreshTokenStorageKey));
+    // Logout server best-effort, poi cleanup locale e redirect home applicazione.
+    await _logoutOnServer(
+      _manualRefreshToken ??
+          webPlatform.localStorageGetItem(_refreshTokenStorageKey),
+    );
 
     webPlatform.localStorageRemoveItem(_accessTokenStorageKey);
     webPlatform.localStorageRemoveItem(_idTokenStorageKey);
@@ -243,6 +305,8 @@ class KeycloakService {
   }
 
   Future<void> _desktopLogin() async {
+    // Desktop usa PKCE come il web, ma la callback e' catturata da listener locale
+    // implementato in `runDesktopAuthorizationCodeFlow`.
     final verifier = _generateCodeVerifier();
     final challenge = _generateCodeChallenge(verifier);
     final oauthState = _generateState();
@@ -284,6 +348,7 @@ class KeycloakService {
   }
 
   Future<void> _desktopLogout() async {
+    // Su desktop i token sono in memoria: dopo logout server puliamo stato locale.
     await _logoutOnServer(_manualRefreshToken);
     _clearManualTokens();
   }
@@ -294,6 +359,7 @@ class KeycloakService {
     required String redirectUri,
     required bool persistWebTokens,
   }) async {
+    // Scambio OAuth: authorization_code -> access/id/refresh tokens.
     final response = await http.post(
       Uri.parse(KeycloakAppConfig.tokenEndpoint),
       headers: {'Content-Type': 'application/x-www-form-urlencoded'},
@@ -307,7 +373,9 @@ class KeycloakService {
     );
 
     if (response.statusCode != 200) {
-      throw Exception('Token exchange failed: ${response.statusCode} - ${response.body}');
+      throw Exception(
+        'Token exchange failed: ${response.statusCode} - ${response.body}',
+      );
     }
 
     final tokenData = jsonDecode(response.body) as Map<String, dynamic>;
@@ -316,8 +384,12 @@ class KeycloakService {
   }
 
   Future<bool> _refreshManualTokens() async {
-    final refreshToken = _manualRefreshToken ??
-        (kIsWeb ? webPlatform.localStorageGetItem(_refreshTokenStorageKey) : null);
+    // Se c'e' refresh token valido, rinnova sessione senza login interattivo.
+    final refreshToken =
+        _manualRefreshToken ??
+        (kIsWeb
+            ? webPlatform.localStorageGetItem(_refreshTokenStorageKey)
+            : null);
     if (refreshToken == null || refreshToken.isEmpty) return false;
 
     final response = await http.post(
@@ -340,6 +412,7 @@ class KeycloakService {
   Future<void> _logoutOnServer(String? refreshToken) async {
     if (refreshToken == null || refreshToken.isEmpty) return;
     try {
+      // Non bloccare UX in caso di errore rete/server durante logout remoto.
       await http
           .post(
             Uri.parse(KeycloakAppConfig.logoutEndpoint),
@@ -357,6 +430,7 @@ class KeycloakService {
   }
 
   void _applyManualTokens(Map<String, dynamic> tokenData) {
+    // Applica token raw e aggiorna anche i payload decodificati.
     _manualAccessToken = tokenData['access_token'] as String?;
     _manualIdToken = tokenData['id_token'] as String?;
     _manualRefreshToken = tokenData['refresh_token'] as String?;
@@ -364,23 +438,36 @@ class KeycloakService {
   }
 
   void _persistWebTokens() {
+    // Persistenza solo web: consente restore sessione dopo refresh pagina.
     if (_manualAccessToken != null) {
-      webPlatform.localStorageSetItem(_accessTokenStorageKey, _manualAccessToken!);
+      webPlatform.localStorageSetItem(
+        _accessTokenStorageKey,
+        _manualAccessToken!,
+      );
     }
     if (_manualIdToken != null) {
       webPlatform.localStorageSetItem(_idTokenStorageKey, _manualIdToken!);
     }
     if (_manualRefreshToken != null && _manualRefreshToken!.isNotEmpty) {
-      webPlatform.localStorageSetItem(_refreshTokenStorageKey, _manualRefreshToken!);
+      webPlatform.localStorageSetItem(
+        _refreshTokenStorageKey,
+        _manualRefreshToken!,
+      );
     }
   }
 
   void _parseAndSetManualTokens() {
-    _manualTokenParsed = _manualAccessToken != null ? _parseJwt(_manualAccessToken!) : null;
-    _manualIdTokenParsed = _manualIdToken != null ? _parseJwt(_manualIdToken!) : null;
+    // Manteniamo payload JWT pre-parsato per controlli rapidi (es. exp/claims).
+    _manualTokenParsed = _manualAccessToken != null
+        ? _parseJwt(_manualAccessToken!)
+        : null;
+    _manualIdTokenParsed = _manualIdToken != null
+        ? _parseJwt(_manualIdToken!)
+        : null;
   }
 
   void _clearManualTokens() {
+    // Reset completo dello stato auth locale.
     _manualAccessToken = null;
     _manualIdToken = null;
     _manualRefreshToken = null;
@@ -389,6 +476,8 @@ class KeycloakService {
   }
 
   bool _hasValidManualSession() {
+    // Sessione valida se access/id token presenti e access token non vicino a scadenza.
+    // `tokenExpirationBuffer` evita race durante chiamate API imminenti.
     if (_manualAccessToken == null || _manualIdToken == null) return false;
     final exp = _manualTokenParsed?['exp'];
     if (exp is int) {
@@ -400,7 +489,9 @@ class KeycloakService {
   }
 
   String _generateCodeVerifier() {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
+    // PKCE code_verifier RFC 7636: stringa ad alta entropia.
+    const chars =
+        'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
     final random = Random.secure();
     return List.generate(
       KeycloakAppConfig.codeVerifierLength,
@@ -409,19 +500,23 @@ class KeycloakService {
   }
 
   String _generateCodeChallenge(String verifier) {
+    // PKCE code_challenge = BASE64URL(SHA256(code_verifier)).
     final bytes = utf8.encode(verifier);
     final digest = sha256.convert(bytes);
     return base64Url.encode(digest.bytes).replaceAll('=', '');
   }
 
   String _generateState() {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    // Parametro `state` anti-CSRF per correlare authorize e callback.
+    const chars =
+        'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
     final random = Random.secure();
     return List.generate(32, (_) => chars[random.nextInt(chars.length)]).join();
   }
 
   Map<String, dynamic>? _parseJwt(String token) {
     try {
+      // Parsing JWT client-side: usato solo per leggere claims, NON per trust crittografico.
       final parts = token.split('.');
       if (parts.length != 3) return null;
 

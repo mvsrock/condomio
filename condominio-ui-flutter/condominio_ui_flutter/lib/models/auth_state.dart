@@ -1,42 +1,35 @@
-/// Modello dello stato di autenticazione
-/// 
-/// Rappresenta gli stati possibili dell'autenticazione:
-/// - AuthState.unauthenticated: Utente non loggato (stato iniziale)
-/// - AuthState.loading: Login in corso, aspetta Keycloak
-/// - AuthState.authenticated: Utente loggato, token disponibili
-/// - AuthState.error: Errore durante il login
+/// Stati possibili della macchina di autenticazione UI.
+///
+/// Usato da Riverpod (`AuthNotifier`) per decidere quale schermata mostrare.
 enum AuthState {
-  /// Utente non autenticato, mostra LoginScreen
+  /// Utente non autenticato: mostra LoginScreen.
   unauthenticated,
-  
-  /// Login in corso (redirect a Keycloak), mostra loading spinner
+
+  /// Flusso di login in corso: mostra loading.
   loading,
-  
-  /// Utente autenticato, mostra HomeScreen con token
+
+  /// Utente autenticato: mostra HomeScreen.
   authenticated,
-  
-  /// Errore durante l'autenticazione, mostra messaggio di errore
+
+  /// Errore in fase auth: mostra schermata errore/retry.
   error;
 
-  /// Ritorna true se lo stato è authenticated
+  /// Helper per UI: true solo quando utente autenticato.
   bool get isAuthenticated => this == authenticated;
-  
-  /// Ritorna true se lo stato è loading
+
+  /// Helper per UI: true solo quando e' in corso operazione auth.
   bool get isLoading => this == loading;
-  
-  /// Ritorna true se lo stato è error
+
+  /// Helper per UI: true solo in stato errore.
   bool get isError => this == error;
 }
 
-/// Classe che rappresenta un errore di autenticazione
+/// Modello semplice errore auth, utile per log/debug o messaggi estesi.
 class AuthError {
+  AuthError({required this.message, this.details});
+
   final String message;
   final String? details;
-
-  AuthError({
-    required this.message,
-    this.details,
-  });
 
   @override
   String toString() => details != null ? '$message\n$details' : message;

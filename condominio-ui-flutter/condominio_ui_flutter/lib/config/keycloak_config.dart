@@ -1,47 +1,78 @@
 import 'package:flutter/foundation.dart';
 
-/// CONFIGURAZIONE KEYCLOAK - Valori centralizzati
-/// 
-/// Tutte le configurazioni sono qui:
-/// - Non valori hardcoded nel codice
-/// - Facile da modificare in un posto solo
-/// - Facile da gestire per env diversi (dev, staging, prod)
+/// Configurazione centralizzata Keycloak/OAuth.
+///
+/// Obiettivi:
+/// - evitare valori hardcoded sparsi
+/// - supportare profili multipiattaforma con `--dart-define`
+/// - calcolare endpoint e redirect in un solo punto
 class KeycloakAppConfig {
-  /// Profili supportati:
-  /// - auto (default): web -> web, non-web -> android-emulator
+  /// Profilo applicativo attivo.
+  ///
+  /// Valori supportati:
+  /// - auto (default): decide in base alla piattaforma
   /// - web
   /// - android-emulator
   /// - android-device
-  static const String _profile =
-      String.fromEnvironment('APP_PROFILE', defaultValue: 'auto');
+  /// - ios
+  /// - desktop
+  static const String _profile = String.fromEnvironment(
+    'APP_PROFILE',
+    defaultValue: 'auto',
+  );
 
-  /// Override opzionali via --dart-define (utile per CI o ambienti custom)
-  static const String _serverUrlOverride =
-      String.fromEnvironment('KEYCLOAK_SERVER_URL', defaultValue: '');
-  static const String _redirectUriOverride =
-      String.fromEnvironment('APP_REDIRECT_URI', defaultValue: '');
-  static const String _logoutRedirectUriOverride =
-      String.fromEnvironment('APP_LOGOUT_REDIRECT_URI', defaultValue: '');
-  static const String _homeUriOverride =
-      String.fromEnvironment('APP_HOME_URI', defaultValue: '');
-  static const String _desktopRedirectUriOverride =
-      String.fromEnvironment('APP_DESKTOP_REDIRECT_URI', defaultValue: '');
-  static const String _bundleOverride =
-      String.fromEnvironment('APP_BUNDLE_ID', defaultValue: '');
-  static const String _clientIdOverride =
-      String.fromEnvironment('KEYCLOAK_CLIENT_ID', defaultValue: '');
-  static const String _realmOverride =
-      String.fromEnvironment('KEYCLOAK_REALM', defaultValue: '');
+  /// Override opzionali via `--dart-define`.
+  ///
+  /// Permettono di cambiare configurazione senza modificare il codice.
+  static const String _serverUrlOverride = String.fromEnvironment(
+    'KEYCLOAK_SERVER_URL',
+    defaultValue: '',
+  );
+  static const String _redirectUriOverride = String.fromEnvironment(
+    'APP_REDIRECT_URI',
+    defaultValue: '',
+  );
+  static const String _logoutRedirectUriOverride = String.fromEnvironment(
+    'APP_LOGOUT_REDIRECT_URI',
+    defaultValue: '',
+  );
+  static const String _homeUriOverride = String.fromEnvironment(
+    'APP_HOME_URI',
+    defaultValue: '',
+  );
+  static const String _desktopRedirectUriOverride = String.fromEnvironment(
+    'APP_DESKTOP_REDIRECT_URI',
+    defaultValue: '',
+  );
+  static const String _bundleOverride = String.fromEnvironment(
+    'APP_BUNDLE_ID',
+    defaultValue: '',
+  );
+  static const String _clientIdOverride = String.fromEnvironment(
+    'KEYCLOAK_CLIENT_ID',
+    defaultValue: '',
+  );
+  static const String _realmOverride = String.fromEnvironment(
+    'KEYCLOAK_REALM',
+    defaultValue: '',
+  );
 
-  /// Keycloak realm e client
-  static String get realm => _realmOverride.isNotEmpty ? _realmOverride : 'condominio';
+  /// Nome realm Keycloak.
+  static String get realm =>
+      _realmOverride.isNotEmpty ? _realmOverride : 'condominio';
+
+  /// Client ID Keycloak.
   static String get clientId =>
       _clientIdOverride.isNotEmpty ? _clientIdOverride : 'condominio';
 
-  /// Mobile app config (iOS/Android)
-  static String get bundleIdentifier =>
-      _bundleOverride.isNotEmpty ? _bundleOverride : 'it.mvs.condominiouiflutter';
+  /// Identificatore app mobile (used for custom URI scheme).
+  static String get bundleIdentifier => _bundleOverride.isNotEmpty
+      ? _bundleOverride
+      : 'it.mvs.condominiouiflutter';
 
+  /// Profilo risolto finale.
+  ///
+  /// Se `APP_PROFILE` e' `auto`, deduce il profilo dalla piattaforma runtime.
   static String get activeProfile {
     if (_profile != 'auto') return _profile;
     if (kIsWeb) return 'web';
@@ -55,11 +86,14 @@ class KeycloakAppConfig {
     };
   }
 
+  /// URL base server Keycloak.
+  ///
+  /// Nota: per `android-device` richiede override esplicito LAN IP.
   static String get keycloakServerUrl {
     if (_serverUrlOverride.isNotEmpty) return _serverUrlOverride;
     if (activeProfile == 'android-device') {
       throw StateError(
-        'APP_PROFILE=android-device requires --dart-define=KEYCLOAK_SERVER_URL=http://<LAN_IP>:<PORT>',
+        'APP_PROFILE=android-device richiede --dart-define=KEYCLOAK_SERVER_URL=http://<LAN_IP>:<PORT>',
       );
     }
     return switch (activeProfile) {
@@ -71,6 +105,7 @@ class KeycloakAppConfig {
     };
   }
 
+  /// Redirect URI applicativo usato nel flusso OAuth login.
   static String get appRedirectUri {
     if (_redirectUriOverride.isNotEmpty) return _redirectUriOverride;
     if (activeProfile == 'desktop' && _desktopRedirectUriOverride.isNotEmpty) {
@@ -83,14 +118,18 @@ class KeycloakAppConfig {
     };
   }
 
+  /// Redirect URI di ritorno dopo logout.
   static String get appLogoutRedirectUri {
-    if (_logoutRedirectUriOverride.isNotEmpty) return _logoutRedirectUriOverride;
+    if (_logoutRedirectUriOverride.isNotEmpty) {
+      return _logoutRedirectUriOverride;
+    }
     return switch (activeProfile) {
       'web' => 'http://localhost:8089/',
       _ => '$bundleIdentifier:/logout',
     };
   }
 
+  /// Home URI locale applicazione (usata dopo logout web).
   static String get appHomeUri {
     if (_homeUriOverride.isNotEmpty) return _homeUriOverride;
     return switch (activeProfile) {
@@ -99,7 +138,7 @@ class KeycloakAppConfig {
     };
   }
 
-  /// OAuth2 endpoints (generati da keycloakServerUrl/realm)
+  /// Endpoint OAuth/OpenID costruiti da `keycloakServerUrl` + `realm`.
   static String get authEndpoint =>
       '$keycloakServerUrl/realms/$realm/protocol/openid-connect/auth';
 
@@ -112,16 +151,15 @@ class KeycloakAppConfig {
   static String get userInfoEndpoint =>
       '$keycloakServerUrl/realms/$realm/protocol/openid-connect/userinfo';
 
-  /// OAuth2 config
+  /// Parametri OAuth.
   static const String responseType = 'code';
   static const String grantType = 'authorization_code';
   static const List<String> scopes = ['openid', 'profile', 'email'];
   static const String codeChallengeMethod = 'S256';
 
-  /// PKCE code verifier length (43-128 chars, RFC 7636)
-  /// 64 = massima security senza essere troppo lungo
+  /// Lunghezza code verifier PKCE (RFC 7636: tra 43 e 128).
   static const int codeVerifierLength = 64;
 
-  /// Token expiration check: refresh se expira in meno di 60 secondi
+  /// Margine sicurezza sul controllo scadenza token.
   static const Duration tokenExpirationBuffer = Duration(seconds: 60);
 }

@@ -4,29 +4,28 @@ import '../models/auth_state.dart';
 import '../services/keycloak_service.dart';
 import 'keycloak_provider.dart';
 
-/// StateNotifier per gestire lo stato di autenticazione
-/// 
-/// Responsabilità:
-/// - Traccia lo stato corrente (authenticated, loading, error, unauthenticated)
-/// - Fornisce metodi per login() e logout()
-/// - Comunica con KeycloakService per le operazioni OAuth2
-/// - Emette i cambiamenti di stato a Riverpod
+/// StateNotifier che governa la macchina a stati di autenticazione della UI.
+///
+/// Responsabilita':
+/// - espone lo stato corrente (`AuthState`)
+/// - gestisce transizioni login/logout/error
+/// - coordina le operazioni con [KeycloakService]
 class AuthNotifier extends StateNotifier<AuthState> {
   final KeycloakService _keycloakService;
 
   AuthNotifier(this._keycloakService) : super(AuthState.unauthenticated) {
-    // Quando il notifier si inizializza, controlla se l'utente è già loggato
+    // Al bootstrap sincronizza subito lo stato con eventuale sessione gia' valida.
     _checkExistingSession();
   }
 
-  /// Controlla se esiste già una sessione valida dal localStorage
-  /// Se sì, passa a authenticated (SENZA reload di init, perché usato solo qui)
+  /// Se esiste una sessione valida, evita passaggi inutili e porta subito a authenticated.
   Future<void> _checkExistingSession() async {
     try {
-      // Carica i token da localStorage
       final hasTokens = _keycloakService.hasValidSession();
       if (hasTokens) {
-        print('[AuthNotifier._checkExistingSession] Found valid session, setting to authenticated');
+        print(
+          '[AuthNotifier._checkExistingSession] Found valid session, setting to authenticated',
+        );
         state = AuthState.authenticated;
       }
     } catch (e) {
@@ -35,22 +34,28 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
-  /// Avvia il flusso di login OAuth2
-  /// 
-  /// FLUSSO:
-  /// 1. Setta stato a loading
-  /// 2. Chiama _webLogin() che reindirizza a Keycloak
-  /// 3. Quando l'utente torna dal callback, processToken() riporterà a authenticated
+  /// Avvia il login e aggiorna lo stato in base all'esito del flusso.
+  ///
+  /// Nota:
+  /// - Web: `login()` innesca redirect; il completamento avviene nel callback.
+  /// - Mobile/Desktop: al ritorno dal browser possiamo gia' validare sessione.
   Future<void> login() async {
     try {
       state = AuthState.loading;
       print('[AuthNotifier.login] Starting login flow...');
       await _keycloakService.login();
+
       if (kIsWeb) {
-        print('[AuthNotifier.login] Login redirect done, waiting for web callback');
+        // Flusso web redirect-based: la transizione finale avviene nel callback.
+        print(
+          '[AuthNotifier.login] Login redirect done, waiting for web callback',
+        );
       } else if (_keycloakService.hasValidSession()) {
+        // Mobile/Desktop: in questo punto il token puo' gia' essere disponibile.
         state = AuthState.authenticated;
-        print('[AuthNotifier.login] Login complete on non-web, state = authenticated');
+        print(
+          '[AuthNotifier.login] Login complete on non-web, state = authenticated',
+        );
       } else {
         state = AuthState.error;
         print('[AuthNotifier.login] Login completed without a valid session');
@@ -61,13 +66,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
-  /// Processa il token ricevuto dal callback di Keycloak
-  /// Chiamato da main.dart dopo che il code è stato estratto
-  /// 
-  /// FLUSSO:
-  /// 1. Scambia il code per token
-  /// 2. Salva i token in localStorage
-  /// 3. Setta stato a authenticated (così le screenshows la HomeScreen)
+  /// Completa login web: scambia authorization code con token e autentica sessione.
+  ///
+  /// Chiamato da `MainApp._initializeKeycloak()` quando il browser torna con `?code=...`.
   Future<void> processToken(String code) async {
     try {
       state = AuthState.loading;
@@ -81,12 +82,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
-  /// Logout e pulizia della sessione
-  /// 
-  /// FLUSSO:
-  /// 1. Cancella i token da localStorage
-  /// 2. Reindirizza a Keycloak logout endpoint (opzionale)
-  /// 3. Setta stato a unauthenticated
+  /// Esegue logout (locale/remoto tramite service) e riporta stato a unauthenticated.
   Future<void> logout() async {
     try {
       print('[AuthNotifier.logout] Logging out...');
@@ -99,38 +95,22 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
-  /// Resetta lo stato di autenticazione a 'unauthenticated'
-  /// Usato quando l'utente vuole riprovare dopo un errore
+  /// Permette retry dopo errore auth senza riavviare l'app.
   void resetAuthState() {
     print('[AuthNotifier.resetAuthState] Resetting to unauthenticated');
     state = AuthState.unauthenticated;
   }
 
-  /// Ripristina lo stato a authenticated quando il token è trovato in localStorage
-  /// Chiamato da main.dart quando init() trova token validi
+  /// Imposta stato autenticato dopo verifica positiva durante bootstrap.
   void restoreSession() {
     print('[AuthNotifier.restoreSession] Restoring authenticated session');
     state = AuthState.authenticated;
   }
-
 }
 
-/// Provider per lo stato di autenticazione
-/// 
-/// Questo provider usa StateNotifierProvider che:
-/// 1. Crea un'istanza di AuthNotifier (che controlla la sessione esistente)
-/// 2. Espone lo stato corrente (AuthState)
-/// 3. Fornisce accesso ai metodi login(), logout(), processToken()
-/// 
-/// USO in una Widget:
-/// ```dart
-/// final authState = ref.watch(authStateProvider);
-/// if (authState.isAuthenticated) {
-///   return HomeScreen();
-/// } else {
-///   return LoginScreen();
-/// }
-/// ```
+/// Provider Riverpod che espone:
+/// - valore stato corrente `AuthState` via `ref.watch(authStateProvider)`
+/// - azioni `login/logout/processToken/...` via `ref.read(authStateProvider.notifier)`
 final authStateProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
   final keycloakService = ref.watch(keycloakServiceProvider);
   return AuthNotifier(keycloakService);

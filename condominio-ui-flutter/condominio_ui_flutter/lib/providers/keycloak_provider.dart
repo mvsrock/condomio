@@ -1,10 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../services/keycloak_service.dart';
 
-/// Provider per il servizio Keycloak
-/// 
-/// Ritorna un'istanza singleton di KeycloakService
-/// Questo provider è usato dagli altri provider per accedere al servizio
+/// Provider singleton del servizio Keycloak.
+///
+/// Tutti i notifier/widget che devono fare operazioni auth leggono da qui,
+/// evitando istanze duplicate del servizio.
 final keycloakServiceProvider = Provider<KeycloakService>((ref) {
   return KeycloakService();
 });

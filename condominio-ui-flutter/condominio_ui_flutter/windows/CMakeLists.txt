@@ -66,6 +66,11 @@ if(TARGET flutter_secure_storage_windows_plugin)
     "${FLUTTER_MANAGED_DIR}/ephemeral/.plugin_symlinks/flutter_secure_storage_windows/windows"
   )
 endif()
+target_include_directories(
+  ${BINARY_NAME}
+  PRIVATE
+  "${FLUTTER_MANAGED_DIR}/ephemeral/.plugin_symlinks/flutter_secure_storage_windows/windows/include"
+)
 
 
 # === Installation ===
