@@ -1,14 +1,29 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../models/condomino.dart';
+import '../../../providers/registry_table_provider.dart';
+import 'registry_filters_bar.dart';
+import 'registry_info_chip.dart';
+import 'registry_pagination_bar.dart';
+import 'registry_row.dart';
+import 'registry_table_header.dart';
+import 'registry_types.dart';
 
-class RegistryPage extends StatelessWidget {
+/// Pagina anagrafica:
+/// - osserva dati dominio (`condomini`) via parametro
+/// - osserva stato tabella (search/sort/filter/pagination) via Riverpod
+/// - delega rendering a widget UI separati
+///
+/// Strategia rebuild:
+/// - questa pagina si ricostruisce quando cambia `registryTableProvider`
+///   o quando cambia lista `condomini` passata dal parent.
+/// - ogni riga resta isolata in `RegistryRow` (stato espansione locale di riga).
+class RegistryPage extends ConsumerWidget {
   const RegistryPage({
     super.key,
     required this.condomini,
     required this.selectedCondominoId,
-    required this.hoveredCondominoId,
-    required this.onHoverChanged,
     required this.onCondominoRowTap,
     required this.onCondominoTap,
     required this.onCondominoEdit,
@@ -16,19 +31,33 @@ class RegistryPage extends StatelessWidget {
 
   final List<Condomino> condomini;
   final String? selectedCondominoId;
-  final String? hoveredCondominoId;
-  final ValueChanged<String?> onHoverChanged;
   final ValueChanged<Condomino> onCondominoRowTap;
   final ValueChanged<Condomino> onCondominoTap;
   final ValueChanged<Condomino> onCondominoEdit;
 
   @override
-  Widget build(BuildContext context) {
-    // Questa pagina riceve gia' i dati filtrati dal parent (`HomeScreen` + Consumer locale).
-    // Rebuild tipici:
-    // - update lista condomini
-    // - cambio riga selezionata / hover
-    final residenti = condomini.where((c) => c.residente).length;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tableState = ref.watch(registryTableProvider);
+    final tableNotifier = ref.read(registryTableProvider.notifier);
+
+    final filteredSorted = _buildFilteredSorted(
+      source: condomini,
+      tableState: tableState,
+    );
+    final totalItems = filteredSorted.length;
+    final totalPages =
+        totalItems == 0 ? 1 : (totalItems / tableState.rowsPerPage).ceil();
+
+    // Evitiamo mutazioni di stato in build: usiamo un indice pagina "safe" locale.
+    final safePageIndex = tableState.pageIndex
+        .clamp(0, totalPages - 1)
+        .toInt();
+    final start = (safePageIndex * tableState.rowsPerPage)
+        .clamp(0, totalItems)
+        .toInt();
+    final end = (start + tableState.rowsPerPage).clamp(0, totalItems).toInt();
+    final paged = filteredSorted.sublist(start, end);
+    final residenti = filteredSorted.where((c) => c.residente).length;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -44,40 +73,74 @@ class RegistryPage extends StatelessWidget {
           spacing: 8,
           runSpacing: 8,
           children: [
-            _InfoChip(
-              label: 'Totale condomini: ${condomini.length}',
+            RegistryInfoChip(
+              label: 'Totale visibili: ${filteredSorted.length}',
               icon: Icons.people_alt_outlined,
             ),
-            _InfoChip(label: 'Residenti: $residenti', icon: Icons.home_outlined),
-            _InfoChip(
-              label: 'Non residenti: ${condomini.length - residenti}',
+            RegistryInfoChip(
+              label: 'Residenti: $residenti',
+              icon: Icons.home_outlined,
+            ),
+            RegistryInfoChip(
+              label: 'Non residenti: ${filteredSorted.length - residenti}',
               icon: Icons.business_center_outlined,
             ),
           ],
         ),
         const SizedBox(height: 12),
+        RegistryFiltersBar(
+          searchQuery: tableState.searchQuery,
+          onSearchChanged: tableNotifier.setSearchQuery,
+          residentFilter: tableState.residentFilter,
+          onSetResidentFilter: tableNotifier.setResidentFilter,
+          onClearSearch: tableNotifier.clearSearch,
+        ),
+        const SizedBox(height: 12),
         Expanded(
           child: Column(
             children: [
-              const _RegistryTableHeader(),
+              RegistryTableHeader(
+                sortField: tableState.sortField,
+                sortAscending: tableState.sortAscending,
+                onSort: tableNotifier.toggleSort,
+              ),
               const SizedBox(height: 8),
               Expanded(
-                child: ListView.separated(
-                  itemCount: condomini.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 6),
-                  itemBuilder: (context, index) {
-                    final condomino = condomini[index];
-                    return _RegistryRow(
-                      condomino: condomino,
-                      isSelected: selectedCondominoId == condomino.id,
-                      isHovered: hoveredCondominoId == condomino.id,
-                      onHoverChanged: onHoverChanged,
-                      onRowTap: () => onCondominoRowTap(condomino),
-                      onViewDetail: () => onCondominoTap(condomino),
-                      onEdit: () => onCondominoEdit(condomino),
-                    );
-                  },
-                ),
+                child: paged.isEmpty
+                    ? const Center(
+                        child: Text('Nessun risultato per i filtri impostati.'),
+                      )
+                    : ListView.separated(
+                        itemCount: paged.length,
+                        separatorBuilder: (_, _) => const SizedBox(height: 6),
+                        itemBuilder: (context, index) {
+                          final condomino = paged[index];
+                          return RegistryRow(
+                            key: ValueKey(condomino.id),
+                            condomino: condomino,
+                            isSelected: selectedCondominoId == condomino.id,
+                            onRowTap: () => onCondominoRowTap(condomino),
+                            onViewDetail: () => onCondominoTap(condomino),
+                            onEdit: () => onCondominoEdit(condomino),
+                          );
+                        },
+                      ),
+              ),
+              const SizedBox(height: 8),
+              RegistryPaginationBar(
+                totalItems: totalItems,
+                start: start,
+                end: end,
+                totalPages: totalPages,
+                pageIndex: safePageIndex,
+                rowsPerPage: tableState.rowsPerPage,
+                onRowsPerPageChanged: tableNotifier.setRowsPerPage,
+                onPrevPage: safePageIndex == 0
+                    ? null
+                    : tableNotifier.prevPage,
+                onNextPage: safePageIndex >= totalPages - 1
+                    ? null
+                    : () => tableNotifier.nextPage(totalPages),
               ),
             ],
           ),
@@ -85,227 +148,48 @@ class RegistryPage extends StatelessWidget {
       ],
     );
   }
-}
 
-class _RegistryTableHeader extends StatelessWidget {
-  const _RegistryTableHeader();
+  /// Pipeline dati tabella:
+  /// 1) filtro residente
+  /// 2) filtro testuale
+  /// 3) ordinamento opzionale
+  List<Condomino> _buildFilteredSorted({
+    required List<Condomino> source,
+    required RegistryTableState tableState,
+  }) {
+    final query = tableState.searchQuery.trim().toLowerCase();
+    final result = source.where((c) {
+      if (tableState.residentFilter != null &&
+          c.residente != tableState.residentFilter) {
+        return false;
+      }
+      if (query.isEmpty) return true;
+      return c.nominativo.toLowerCase().contains(query) ||
+          c.unita.toLowerCase().contains(query) ||
+          c.email.toLowerCase().contains(query) ||
+          c.telefono.toLowerCase().contains(query);
+    }).toList(growable: false);
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFD9E2EC)),
-      ),
-      child: const Row(
-        children: [
-          Expanded(
-            flex: 3,
-            child: Text(
-              'Nominativo',
-              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
-            ),
-          ),
-          Expanded(
-            flex: 2,
-            child: Text(
-              'Unita',
-              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              'Millesimi',
-              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              'Stato',
-              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
-            ),
-          ),
-          SizedBox(width: 44),
-        ],
-      ),
-    );
-  }
-}
-
-class _RegistryRow extends StatefulWidget {
-  const _RegistryRow({
-    required this.condomino,
-    required this.isSelected,
-    required this.isHovered,
-    required this.onHoverChanged,
-    required this.onRowTap,
-    required this.onViewDetail,
-    required this.onEdit,
-  });
-
-  final Condomino condomino;
-  final bool isSelected;
-  final bool isHovered;
-  final ValueChanged<String?> onHoverChanged;
-  final VoidCallback onRowTap;
-  final VoidCallback onViewDetail;
-  final VoidCallback onEdit;
-
-  @override
-  State<_RegistryRow> createState() => _RegistryRowState();
-}
-
-class _RegistryRowState extends State<_RegistryRow> {
-  // Stato SOLO locale alla riga:
-  // espansione azioni non tocca provider e non richiede rebuild della lista intera.
-  bool _isActionsExpanded = false;
-
-  @override
-  Widget build(BuildContext context) {
-    Color rowColor = Colors.white;
-    if (widget.isSelected) {
-      rowColor = const Color(0xFFDCECF3);
-    } else if (widget.isHovered) {
-      rowColor = const Color(0xFFF1F5F9);
+    if (tableState.sortField != null) {
+      result.sort((a, b) {
+        int cmp;
+        switch (tableState.sortField!) {
+          case RegistrySortField.nominativo:
+            cmp = a.nominativo.compareTo(b.nominativo);
+            break;
+          case RegistrySortField.unita:
+            cmp = a.unita.compareTo(b.unita);
+            break;
+          case RegistrySortField.millesimi:
+            cmp = a.millesimi.compareTo(b.millesimi);
+            break;
+          case RegistrySortField.stato:
+            cmp = (a.residente ? 1 : 0).compareTo(b.residente ? 1 : 0);
+            break;
+        }
+        return tableState.sortAscending ? cmp : -cmp;
+      });
     }
-
-    return MouseRegion(
-      // Hover propagato al parent per evidenziare riga.
-      onEnter: (_) => widget.onHoverChanged(widget.condomino.id),
-      onExit: (_) => widget.onHoverChanged(null),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 120),
-        decoration: BoxDecoration(
-          color: rowColor,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: widget.isSelected
-                ? const Color(0xFF155E75)
-                : const Color(0xFFD9E2EC),
-          ),
-        ),
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(10),
-                      onTap: () {
-                        widget.onRowTap();
-                        setState(() => _isActionsExpanded = !_isActionsExpanded);
-                      },
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 4),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              flex: 3,
-                              child: Text(
-                                widget.condomino.nominativo,
-                                style: const TextStyle(fontWeight: FontWeight.w600),
-                              ),
-                            ),
-                            Expanded(flex: 2, child: Text(widget.condomino.unita)),
-                            Expanded(
-                              child: Text(widget.condomino.millesimi.toStringAsFixed(2)),
-                            ),
-                            Expanded(
-                              child: Text(
-                                widget.condomino.residente
-                                    ? 'Residente'
-                                    : 'Non residente',
-                                style: TextStyle(
-                                  color: widget.condomino.residente
-                                      ? const Color(0xFF147D64)
-                                      : const Color(0xFFB9770E),
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    tooltip: 'Azioni',
-                    onPressed: () {
-                      // Questo setState rebuilda solo questa riga.
-                      setState(() => _isActionsExpanded = !_isActionsExpanded);
-                    },
-                    icon: Icon(
-                      _isActionsExpanded
-                          ? Icons.keyboard_arrow_up
-                          : Icons.keyboard_arrow_down,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            AnimatedCrossFade(
-              duration: const Duration(milliseconds: 160),
-              firstChild: const SizedBox.shrink(),
-              secondChild: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
-                child: Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    OutlinedButton.icon(
-                      // Apre la schermata dettaglio full-screen.
-                      onPressed: widget.onViewDetail,
-                      icon: const Icon(Icons.visibility_outlined),
-                      label: const Text('Vedi dettaglio'),
-                    ),
-                    FilledButton.tonalIcon(
-                      // Apre dialog edit nel parent.
-                      onPressed: widget.onEdit,
-                      icon: const Icon(Icons.edit_outlined),
-                      label: const Text('Modifica'),
-                    ),
-                  ],
-                ),
-              ),
-              crossFadeState: _isActionsExpanded
-                  ? CrossFadeState.showSecond
-                  : CrossFadeState.showFirst,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _InfoChip extends StatelessWidget {
-  const _InfoChip({required this.label, required this.icon});
-
-  final String label;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: const Color(0xFFD9E2EC)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 16, color: const Color(0xFF334E68)),
-          const SizedBox(width: 6),
-          Text(label, style: const TextStyle(fontSize: 12)),
-        ],
-      ),
-    );
+    return result;
   }
 }

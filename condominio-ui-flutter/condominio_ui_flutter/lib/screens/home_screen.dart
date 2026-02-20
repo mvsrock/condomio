@@ -26,7 +26,7 @@ import '../widgets/home/pages/session_page.dart';
 /// Strategia rebuild (importante):
 /// 1) Root `HomeScreen.build()` osserva SOLO `selectedIndex`.
 ///    Quindi questa root si ricostruisce quando cambi tab, non quando cambi hover riga.
-/// 2) Lo stato anagrafica (`condomini`, `selectedCondominoId`, `hoveredCondominoId`)
+/// 2) Lo stato anagrafica (`condomini`, `selectedCondominoId`)
 ///    viene osservato nel `Consumer` locale del case `2`.
 ///    Questo confina il refresh alla sola pagina anagrafica.
 /// 3) Espansione azioni riga usa stato locale della riga (`StatefulWidget`),
@@ -39,9 +39,6 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
-  /// Mostra overlay/spinner mentre e' in corso il logout.
-  bool _isLoading = false;
-
   @override
   void initState() {
     super.initState();
@@ -53,7 +50,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Future<void> _logout() async {
-    setState(() => _isLoading = true);
+    ref.read(homeUiProvider.notifier).setLoggingOut(true);
     try {
       appLog('[HomeScreen] Initiating logout...');
       await ref.read(authStateProvider.notifier).logout();
@@ -63,7 +60,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Logout error: $e')));
-        setState(() => _isLoading = false);
+        ref.read(homeUiProvider.notifier).setLoggingOut(false);
       }
     }
   }
@@ -72,16 +69,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget build(BuildContext context) {
     // Trigger rebuild DI QUESTA ROOT:
     // - SI: quando cambia `state.selectedIndex` (es. click su rail/nav bottom)
-    // - NO: quando cambia `selectedCondominoId` o `hoveredCondominoId`
+    // - NO: quando cambia `selectedCondominoId`
     //       perche' qui non osserviamo l'intero provider ma solo il campo selezionato.
     final selectedIndex = ref.watch(
       homeUiProvider.select((state) => state.selectedIndex),
+    );
+    final isLoggingOut = ref.watch(
+      homeUiProvider.select((state) => state.isLoggingOut),
     );
     final uiNotifier = ref.read(homeUiProvider.notifier);
     final size = MediaQuery.of(context).size;
     final isWide = size.width >= 960;
 
-    if (_isLoading) {
+    if (isLoggingOut) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
@@ -165,14 +165,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             final selectedCondominoId = ref.watch(
               homeUiProvider.select((state) => state.selectedCondominoId),
             );
-            final hoveredCondominoId = ref.watch(
-              homeUiProvider.select((state) => state.hoveredCondominoId),
-            );
             return RegistryPage(
               condomini: condomini,
               selectedCondominoId: selectedCondominoId,
-              hoveredCondominoId: hoveredCondominoId,
-              onHoverChanged: uiNotifier.setHoveredCondomino,
               onCondominoRowTap: (selected) {
                 uiNotifier.selectCondomino(selected.id);
               },
@@ -231,6 +226,10 @@ class _CondominoDetailScreen extends StatefulWidget {
 }
 
 class _CondominoDetailScreenState extends State<_CondominoDetailScreen> {
+  /// Snapshot locale del record mostrato in questa pagina.
+  ///
+  /// E' stato di vista temporaneo (solo dettaglio corrente), quindi resta locale
+  /// e non viene messo in provider globale.
   late Condomino _current;
 
   @override
@@ -431,6 +430,9 @@ class _CondominoEditScreenState extends State<_CondominoEditScreen> {
   late final TextEditingController _emailController;
   late final TextEditingController _telefonoController;
   late final TextEditingController _millesimiController;
+  /// Stato form locale della switch residente.
+  ///
+  /// Non e' condiviso tra schermate: usarlo in `setState` evita rumore nel layer provider.
   late bool _residente;
 
   @override

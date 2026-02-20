@@ -114,6 +114,14 @@ class KeycloakService {
   String? get idToken =>
       _usesManualFlow ? _manualIdToken : _mobileKeycloak?.idToken;
 
+  /// Refresh token corrente (se disponibile).
+  ///
+  /// Nota sicurezza:
+  /// - puo' non essere disponibile su web dopo reload,
+  ///   per scelta di non persisterlo in sessionStorage.
+  String? get refreshToken =>
+      _usesManualFlow ? _manualRefreshToken : null;
+
   /// Payload JWT dell'access token, utile per claims/ruoli in UI.
   Map<String, dynamic>? get tokenParsed {
     if (_usesManualFlow) return _manualTokenParsed;
@@ -171,7 +179,7 @@ class KeycloakService {
   }
 
   /// Tenta refresh token senza richiedere nuovo login interattivo.
-  Future<bool> refreshToken() async {
+  Future<bool> refreshSession() async {
     try {
       if (_usesManualFlow) {
         return await _refreshManualTokens();
@@ -401,7 +409,7 @@ class KeycloakService {
         'redirect_uri': redirectUri,
         'code_verifier': codeVerifier,
       },
-    );
+    ).timeout(const Duration(seconds: 12));
 
     if (response.statusCode != 200) {
       throw Exception(
@@ -433,7 +441,7 @@ class KeycloakService {
         'client_id': KeycloakAppConfig.clientId,
         'refresh_token': refreshToken,
       },
-    );
+    ).timeout(const Duration(seconds: 12));
     if (response.statusCode != 200) return false;
 
     final tokenData = jsonDecode(response.body) as Map<String, dynamic>;

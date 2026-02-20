@@ -9,27 +9,26 @@ class HomeUiState {
   const HomeUiState({
     required this.selectedIndex,
     required this.selectedCondominoId,
-    required this.hoveredCondominoId,
+    required this.isLoggingOut,
   });
 
   factory HomeUiState.initial() {
     return const HomeUiState(
       selectedIndex: 0,
       selectedCondominoId: null,
-      hoveredCondominoId: null,
+      isLoggingOut: false,
     );
   }
 
   final int selectedIndex;
   final String? selectedCondominoId;
-  final String? hoveredCondominoId;
+  final bool isLoggingOut;
 
   HomeUiState copyWith({
     int? selectedIndex,
     String? selectedCondominoId,
     bool clearSelectedCondominoId = false,
-    String? hoveredCondominoId,
-    bool clearHoveredCondominoId = false,
+    bool? isLoggingOut,
   }) {
     // `clear*` serve per distinguere:
     // - "mantieni valore corrente"
@@ -39,9 +38,7 @@ class HomeUiState {
       selectedCondominoId: clearSelectedCondominoId
           ? null
           : (selectedCondominoId ?? this.selectedCondominoId),
-      hoveredCondominoId: clearHoveredCondominoId
-          ? null
-          : (hoveredCondominoId ?? this.hoveredCondominoId),
+      isLoggingOut: isLoggingOut ?? this.isLoggingOut,
     );
   }
 }
@@ -65,15 +62,9 @@ class HomeUiNotifier extends StateNotifier<HomeUiState> {
     state = state.copyWith(selectedCondominoId: id);
   }
 
-  /// Hover desktop/web sulla riga anagrafica.
-  ///
-  /// Effetto rebuild:
-  /// - in questo progetto viene letto nel solo subtree anagrafica,
-  ///   quindi il refresh resta confinato a quel ramo.
-  void setHoveredCondomino(String? id) {
-    state = id == null
-        ? state.copyWith(clearHoveredCondominoId: true)
-        : state.copyWith(hoveredCondominoId: id);
+  /// Flag UI per overlay durante logout in corso.
+  void setLoggingOut(bool value) {
+    state = state.copyWith(isLoggingOut: value);
   }
 }
 
