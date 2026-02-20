@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../models/condomino.dart';
 import '../providers/auth_provider.dart';
 import '../providers/condomini_provider.dart';
 import '../providers/keycloak_provider.dart';
@@ -13,16 +14,9 @@ import '../widgets/openlayers_map.dart';
 /// Schermata visibile quando la sessione e' autenticata.
 ///
 /// Layout:
-/// - menu di navigazione interno (`Dashboard`, `Mappa`, `Sessione`)
+/// - menu di navigazione interno (`Dashboard`, `Mappa`, `Anagrafica`, `Sessione`)
 /// - contenuto principale reattivo alla voce selezionata
 /// - azione logout sempre disponibile
-///
-/// FLUSSO STEP-BY-STEP (logout):
-/// 1. Utente preme `Logout`.
-/// 2. `_logout()` chiama `authStateProvider.notifier.logout()`.
-/// 3. Il notifier chiama `KeycloakService.logout()`.
-/// 4. Lo stato passa a `unauthenticated`.
-/// 5. `MainApp` ricostruisce la home e mostra `LoginScreen`.
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
@@ -38,6 +32,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   /// 0 = Dashboard, 1 = Mappa, 2 = Anagrafica, 3 = Sessione.
   int _selectedIndex = 0;
 
+  /// Riga anagrafica selezionata (click/tap).
+  String? _selectedCondominoId;
+
+  /// Riga anagrafica in hover (desktop/web).
+  String? _hoveredCondominoId;
+
   @override
   void initState() {
     super.initState();
@@ -49,7 +49,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Future<void> _logout() async {
-    // Blocca UI durante logout per evitare doppio tap.
     setState(() => _isLoading = true);
     try {
       print('[HomeScreen] Initiating logout...');
@@ -69,8 +68,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget build(BuildContext context) {
     final keycloak = ref.watch(keycloakServiceProvider);
     final size = MediaQuery.of(context).size;
-
-    // Breakpoint principale: oltre 960 usiamo rail desktop, altrimenti bottom nav.
     final isWide = size.width >= 960;
 
     if (_isLoading) {
@@ -79,7 +76,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     return Scaffold(
       body: Container(
-        // Sfondo gradient per dare profondita' visiva alla dashboard.
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
@@ -90,24 +86,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         child: SafeArea(
           child: Row(
             children: [
-              // Navigazione laterale solo su layout larghi (desktop/tablet landscape).
               if (isWide) _buildRail(context),
               Expanded(
                 child: Padding(
-                  padding: const EdgeInsets.all(20),
+                  padding: EdgeInsets.fromLTRB(isWide ? 0 : 20, 20, 20, 20),
                   child: Column(
                     children: [
-                      // Header fisso con branding + action logout.
-                      _buildHeader(context),
+                      _buildHeader(context, isWide),
                       const SizedBox(height: 16),
                       Expanded(
-                        child: AnimatedSwitcher(
-                          // Transizione dolce tra pagine menu.
-                          duration: const Duration(milliseconds: 220),
-                          child: KeyedSubtree(
-                            // Chiave legata all'indice per forzare il cambio child.
-                            key: ValueKey(_selectedIndex),
-                            child: _buildPage(keycloak),
+                        child: Padding(
+                          padding: EdgeInsets.only(left: isWide ? 20 : 0),
+                          child: AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 220),
+                            child: KeyedSubtree(
+                              key: ValueKey(_selectedIndex),
+                              child: _buildPage(keycloak),
+                            ),
                           ),
                         ),
                       ),
@@ -121,44 +116,64 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
       bottomNavigationBar: isWide
           ? null
-          : NavigationBar(
-              // Variante mobile della navigazione.
-              selectedIndex: _selectedIndex,
-              onDestinationSelected: (index) {
-                setState(() => _selectedIndex = index);
-              },
-              destinations: const [
-                NavigationDestination(
-                  icon: Icon(Icons.dashboard_outlined),
-                  selectedIcon: Icon(Icons.dashboard),
-                  label: 'Dashboard',
+          : Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                border: Border(top: BorderSide(color: Color(0xFFD9E2EC))),
+                boxShadow: [
+                  BoxShadow(
+                    color: Color(0x22000000),
+                    blurRadius: 14,
+                    offset: Offset(0, -2),
+                  ),
+                ],
+              ),
+              child: SafeArea(
+                top: false,
+                child: NavigationBar(
+                  backgroundColor: Colors.transparent,
+                  selectedIndex: _selectedIndex,
+                  onDestinationSelected: (index) {
+                    setState(() => _selectedIndex = index);
+                  },
+                  destinations: const [
+                    NavigationDestination(
+                      icon: Icon(Icons.dashboard_outlined),
+                      selectedIcon: Icon(Icons.dashboard),
+                      label: 'Dashboard',
+                    ),
+                    NavigationDestination(
+                      icon: Icon(Icons.map_outlined),
+                      selectedIcon: Icon(Icons.map),
+                      label: 'Mappa',
+                    ),
+                    NavigationDestination(
+                      icon: Icon(Icons.badge_outlined),
+                      selectedIcon: Icon(Icons.badge),
+                      label: 'Anagrafica',
+                    ),
+                    NavigationDestination(
+                      icon: Icon(Icons.receipt_long_outlined),
+                      selectedIcon: Icon(Icons.receipt_long),
+                      label: 'Sessione',
+                    ),
+                  ],
                 ),
-                NavigationDestination(
-                  icon: Icon(Icons.map_outlined),
-                  selectedIcon: Icon(Icons.map),
-                  label: 'Mappa',
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.badge_outlined),
-                  selectedIcon: Icon(Icons.badge),
-                  label: 'Anagrafica',
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.receipt_long_outlined),
-                  selectedIcon: Icon(Icons.receipt_long),
-                  label: 'Sessione',
-                ),
-              ],
+              ),
             ),
     );
   }
 
   Widget _buildRail(BuildContext context) {
-    // Variante desktop/tablet: rail con etichette sempre visibili.
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 20, 0, 20),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(24),
+          bottomLeft: Radius.circular(24),
+          topRight: Radius.circular(0),
+          bottomRight: Radius.circular(24),
+        ),
         child: NavigationRail(
           selectedIndex: _selectedIndex,
           onDestinationSelected: (index) {
@@ -194,15 +209,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _buildHeader(BuildContext context) {
+  Widget _buildHeader(BuildContext context, bool isWide) {
     final theme = Theme.of(context);
-
-    // Header informativo principale della dashboard autenticata.
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: isWide
+            ? const BorderRadius.only(
+                topLeft: Radius.circular(0),
+                bottomLeft: Radius.circular(0),
+                topRight: Radius.circular(20),
+                bottomRight: Radius.circular(20),
+              )
+            : BorderRadius.circular(20),
       ),
       child: Row(
         children: [
@@ -218,17 +238,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                Text(
-                  'Interfaccia professionale multi piattaforma',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: const Color(0xFF486581),
-                  ),
-                ),
               ],
             ),
           ),
           FilledButton.icon(
-            // Logout disponibile da qualsiasi sezione.
             onPressed: _logout,
             icon: const Icon(Icons.logout),
             label: const Text('Logout'),
@@ -239,7 +252,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Widget _buildPage(KeycloakService keycloak) {
-    // Router interno della home basato su indice menu selezionato.
     return switch (_selectedIndex) {
       0 => _buildDashboardPage(keycloak),
       1 => _buildMapPage(),
@@ -249,7 +261,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Widget _buildDashboardPage(KeycloakService keycloak) {
-    // Lettura claims token per popolare KPI rapidi.
     final tokenPayload = keycloak.tokenParsed;
     final username =
         tokenPayload?['preferred_username'] ??
@@ -271,7 +282,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         const SizedBox(height: 12),
         Expanded(
           child: GridView.count(
-            // Card responsive: 3 colonne su schermi ampi, 1 colonna su schermi stretti.
             crossAxisCount: MediaQuery.of(context).size.width >= 1280 ? 3 : 1,
             crossAxisSpacing: 14,
             mainAxisSpacing: 14,
@@ -303,7 +313,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Widget _buildMapPage() {
-    // Pagina mappa: dati mappa da provider comune, rendering delegato al widget cross-platform.
     final mapState = ref.watch(mapStateProvider);
     final mapNotifier = ref.read(mapStateProvider.notifier);
 
@@ -314,7 +323,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           children: [
             Expanded(
               child: Text(
-                'Mappa OpenLayers',
+                'Mappa Condominio',
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.w700,
                 ),
@@ -342,65 +351,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _buildSessionPage(KeycloakService keycloak) {
-    // Pagina di ispezione sessione: espone payload token in JSON.
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Sessione',
-          style: Theme.of(
-            context,
-          ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
-        ),
-        const SizedBox(height: 12),
-        Expanded(
-          child: Card(
-            child: Padding(
-              padding: const EdgeInsets.all(18),
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Access Token (parsed JSON)',
-                      style: TextStyle(fontWeight: FontWeight.w700),
-                    ),
-                    const SizedBox(height: 8),
-                    SelectableText(
-                      // JSON leggibile per debug claims access token.
-                      const JsonEncoder.withIndent(
-                        '  ',
-                      ).convert(keycloak.tokenParsed ?? const {'token': 'N/A'}),
-                      style: const TextStyle(fontSize: 12),
-                    ),
-                    const SizedBox(height: 20),
-                    const Text(
-                      'ID Token (parsed JSON)',
-                      style: TextStyle(fontWeight: FontWeight.w700),
-                    ),
-                    const SizedBox(height: 8),
-                    SelectableText(
-                      // JSON leggibile per debug claims id token.
-                      const JsonEncoder.withIndent('  ').convert(
-                        keycloak.idTokenParsed ?? const {'id_token': 'N/A'},
-                      ),
-                      style: const TextStyle(fontSize: 12),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  /// Pagina anagrafica condomini.
-  ///
-  /// I dati arrivano da Riverpod (`condominiProvider`), cosi' in futuro
-  /// si puo' passare a repository/API senza cambiare la UI.
   Widget _buildRegistryPage() {
     final condomini = ref.watch(condominiProvider);
     final residenti = condomini.where((c) => c.residente).length;
@@ -435,78 +385,328 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
         const SizedBox(height: 12),
         Expanded(
-          child: ListView.separated(
-            itemCount: condomini.length,
-            separatorBuilder: (_, _) => const SizedBox(height: 10),
-            itemBuilder: (context, index) {
-              final c = condomini[index];
-              return Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(14),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFE6F0F4),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(
-                          Icons.person_outline,
-                          color: Color(0xFF155E75),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              c.nominativo,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w700,
-                                fontSize: 16,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              '${c.unita} • Millesimi ${c.millesimi.toStringAsFixed(2)}',
-                              style: const TextStyle(color: Color(0xFF52606D)),
-                            ),
-                            const SizedBox(height: 3),
-                            Text(
-                              '${c.email} • ${c.telefono}',
-                              style: const TextStyle(
-                                color: Color(0xFF7B8794),
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Chip(
-                        label: Text(
-                          c.residente ? 'Residente' : 'Non residente',
-                        ),
-                        backgroundColor: c.residente
-                            ? const Color(0xFFE3FCEF)
-                            : const Color(0xFFFFF4E5),
-                        side: BorderSide.none,
-                      ),
-                    ],
-                  ),
+          child: Column(
+            children: [
+              _buildRegistryTableHeader(),
+              const SizedBox(height: 8),
+              Expanded(
+                child: ListView.separated(
+                  itemCount: condomini.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 6),
+                  itemBuilder: (context, index) {
+                    final c = condomini[index];
+                    return _buildRegistryRow(c);
+                  },
                 ),
-              );
-            },
+              ),
+            ],
           ),
         ),
       ],
     );
   }
 
-  /// Chip info riusabile per testata anagrafica.
+  Widget _buildRegistryTableHeader() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFD9E2EC)),
+      ),
+      child: const Row(
+        children: [
+          Expanded(
+            flex: 3,
+            child: Text(
+              'Nominativo',
+              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
+            ),
+          ),
+          Expanded(
+            flex: 2,
+            child: Text(
+              'Unita',
+              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              'Millesimi',
+              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              'Stato',
+              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRegistryRow(Condomino c) {
+    final isSelected = _selectedCondominoId == c.id;
+    final isHovered = _hoveredCondominoId == c.id;
+
+    Color rowColor = Colors.white;
+    if (isSelected) {
+      rowColor = const Color(0xFFDCECF3);
+    } else if (isHovered) {
+      rowColor = const Color(0xFFF1F5F9);
+    }
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hoveredCondominoId = c.id),
+      onExit: (_) => setState(() => _hoveredCondominoId = null),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () {
+          setState(() => _selectedCondominoId = c.id);
+          _openCondominoDetailOverlay(c);
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 120),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: rowColor,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isSelected
+                  ? const Color(0xFF155E75)
+                  : const Color(0xFFD9E2EC),
+            ),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                flex: 3,
+                child: Text(
+                  c.nominativo,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ),
+              Expanded(flex: 2, child: Text(c.unita)),
+              Expanded(child: Text(c.millesimi.toStringAsFixed(2))),
+              Expanded(
+                child: Text(
+                  c.residente ? 'Residente' : 'Non residente',
+                  style: TextStyle(
+                    color: c.residente
+                        ? const Color(0xFF147D64)
+                        : const Color(0xFFB9770E),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Overlay dettaglio condomino:
+  /// compare solo dopo click/tap su una riga anagrafica.
+  void _openCondominoDetailOverlay(Condomino selected) {
+    final isWide = MediaQuery.of(context).size.width >= 960;
+
+    if (!isWide) {
+      showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        showDragHandle: true,
+        backgroundColor: Colors.transparent,
+        builder: (context) {
+          return _buildDetailSheetContainer(
+            selected: selected,
+            isBottomSheet: true,
+          );
+        },
+      );
+      return;
+    }
+
+    showGeneralDialog<void>(
+      context: context,
+      barrierLabel: 'Dettaglio condomino',
+      barrierDismissible: true,
+      barrierColor: const Color(0x55000000),
+      transitionDuration: const Duration(milliseconds: 220),
+      pageBuilder: (context, animation, secondaryAnimation) {
+        return Align(
+          alignment: Alignment.centerRight,
+          child: _buildDetailSheetContainer(
+            selected: selected,
+            isBottomSheet: false,
+          ),
+        );
+      },
+      transitionBuilder: (context, animation, secondaryAnimation, child) {
+        final slide = Tween<Offset>(
+          begin: const Offset(1, 0),
+          end: Offset.zero,
+        ).animate(animation);
+        final fade = Tween<double>(begin: 0, end: 1).animate(animation);
+        return FadeTransition(
+          opacity: fade,
+          child: SlideTransition(position: slide, child: child),
+        );
+      },
+    );
+  }
+
+  /// Contenitore visuale della scheda dettaglio.
+  Widget _buildDetailSheetContainer({
+    required Condomino selected,
+    required bool isBottomSheet,
+  }) {
+    final radius = isBottomSheet
+        ? const BorderRadius.vertical(top: Radius.circular(24))
+        : const BorderRadius.only(
+            topLeft: Radius.circular(24),
+            bottomLeft: Radius.circular(24),
+          );
+
+    final width = isBottomSheet ? double.infinity : 460.0;
+
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        width: width,
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.92,
+        ),
+        margin: isBottomSheet
+            ? EdgeInsets.zero
+            : const EdgeInsets.fromLTRB(0, 20, 20, 20),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: radius,
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x33000000),
+              blurRadius: 24,
+              offset: Offset(-2, 8),
+            ),
+          ],
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Scheda Dettaglio',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              _detailRow('ID', selected.id),
+              _detailRow('Nominativo', selected.nominativo),
+              _detailRow('Unita', selected.unita),
+              _detailRow('Email', selected.email),
+              _detailRow('Telefono', selected.telefono),
+              _detailRow('Millesimi', selected.millesimi.toStringAsFixed(2)),
+              _detailRow(
+                'Stato',
+                selected.residente ? 'Residente' : 'Non residente',
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _detailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 110,
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: Color(0xFF52606D),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          Expanded(child: Text(value)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSessionPage(KeycloakService keycloak) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Sessione',
+          style: Theme.of(
+            context,
+          ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 12),
+        Expanded(
+          child: Card(
+            child: Padding(
+              padding: const EdgeInsets.all(18),
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Access Token (parsed JSON)',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 8),
+                    SelectableText(
+                      const JsonEncoder.withIndent(
+                        '  ',
+                      ).convert(keycloak.tokenParsed ?? const {'token': 'N/A'}),
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    const SizedBox(height: 20),
+                    const Text(
+                      'ID Token (parsed JSON)',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 8),
+                    SelectableText(
+                      const JsonEncoder.withIndent('  ').convert(
+                        keycloak.idTokenParsed ?? const {'id_token': 'N/A'},
+                      ),
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _infoChip({required String label, required IconData icon}) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -532,7 +732,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     required String subtitle,
     required IconData icon,
   }) {
-    // Componente riusabile per le card KPI della dashboard.
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(18),

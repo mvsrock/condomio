@@ -4,6 +4,7 @@ import 'dart:math';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:keycloak_wrapper/keycloak_wrapper.dart'
     show JWT, KeycloakConfig, KeycloakWrapper;
@@ -24,6 +25,7 @@ import '../platform/web_platform.dart';
 /// - Su mobile e' preferibile il canale nativo gia' gestito dal wrapper.
 class KeycloakService {
   static final KeycloakService _instance = KeycloakService._internal();
+  static const FlutterSecureStorage _desktopStorage = FlutterSecureStorage();
 
   KeycloakWrapper? _mobileKeycloak;
 
@@ -62,19 +64,16 @@ class KeycloakService {
   Future<void> init() async {
     if (_initialized) return;
 
-    // Nel flusso manuale solo il web persiste token su storage browser.
-    // Desktop resta in memoria per la sessione corrente del processo.
+    // Nel flusso manuale i token vengono persistiti su:
+    // - web: localStorage browser
+    // - desktop: secure storage locale
     if (_usesManualFlow) {
-      if (kIsWeb) {
-        _manualAccessToken = webPlatform.localStorageGetItem(
-          _accessTokenStorageKey,
-        );
-        _manualIdToken = webPlatform.localStorageGetItem(_idTokenStorageKey);
-        _manualRefreshToken = webPlatform.localStorageGetItem(
-          _refreshTokenStorageKey,
-        );
-        _parseAndSetManualTokens();
-      }
+      _manualAccessToken = await _readStoredManualToken(_accessTokenStorageKey);
+      _manualIdToken = await _readStoredManualToken(_idTokenStorageKey);
+      _manualRefreshToken = await _readStoredManualToken(
+        _refreshTokenStorageKey,
+      );
+      _parseAndSetManualTokens();
     } else {
       await _ensureMobileInitialized();
     }
@@ -93,15 +92,11 @@ class KeycloakService {
 
   /// Ripristina token da localStorage web.
   /// Usato quando vuoi forzare un re-hydration senza reinizializzare tutto.
-  void restoreSessionFromStorage() {
-    if (!kIsWeb) return;
-    _manualAccessToken = webPlatform.localStorageGetItem(
-      _accessTokenStorageKey,
-    );
-    _manualIdToken = webPlatform.localStorageGetItem(_idTokenStorageKey);
-    _manualRefreshToken = webPlatform.localStorageGetItem(
-      _refreshTokenStorageKey,
-    );
+  Future<void> restoreSessionFromStorage() async {
+    if (!_usesManualFlow) return;
+    _manualAccessToken = await _readStoredManualToken(_accessTokenStorageKey);
+    _manualIdToken = await _readStoredManualToken(_idTokenStorageKey);
+    _manualRefreshToken = await _readStoredManualToken(_refreshTokenStorageKey);
     _parseAndSetManualTokens();
   }
 
@@ -294,9 +289,7 @@ class KeycloakService {
           webPlatform.localStorageGetItem(_refreshTokenStorageKey),
     );
 
-    webPlatform.localStorageRemoveItem(_accessTokenStorageKey);
-    webPlatform.localStorageRemoveItem(_idTokenStorageKey);
-    webPlatform.localStorageRemoveItem(_refreshTokenStorageKey);
+    await _clearStoredManualTokens();
     webPlatform.localStorageRemoveItem(_codeVerifierStorageKey);
     webPlatform.localStorageRemoveItem(_oauthStateStorageKey);
 
@@ -350,6 +343,7 @@ class KeycloakService {
   Future<void> _desktopLogout() async {
     // Su desktop i token sono in memoria: dopo logout server puliamo stato locale.
     await _logoutOnServer(_manualRefreshToken);
+    await _clearStoredManualTokens();
     _clearManualTokens();
   }
 
@@ -380,7 +374,9 @@ class KeycloakService {
 
     final tokenData = jsonDecode(response.body) as Map<String, dynamic>;
     _applyManualTokens(tokenData);
-    if (persistWebTokens) _persistWebTokens();
+    if (persistWebTokens || _isDesktop) {
+      await _persistManualTokens();
+    }
   }
 
   Future<bool> _refreshManualTokens() async {
@@ -405,7 +401,9 @@ class KeycloakService {
 
     final tokenData = jsonDecode(response.body) as Map<String, dynamic>;
     _applyManualTokens(tokenData);
-    if (kIsWeb) _persistWebTokens();
+    if (kIsWeb || _isDesktop) {
+      await _persistManualTokens();
+    }
     return true;
   }
 
@@ -437,19 +435,19 @@ class KeycloakService {
     _parseAndSetManualTokens();
   }
 
-  void _persistWebTokens() {
-    // Persistenza solo web: consente restore sessione dopo refresh pagina.
+  Future<void> _persistManualTokens() async {
+    // Persistenza uniforme per manual flow (web + desktop).
     if (_manualAccessToken != null) {
-      webPlatform.localStorageSetItem(
+      await _writeStoredManualToken(
         _accessTokenStorageKey,
         _manualAccessToken!,
       );
     }
     if (_manualIdToken != null) {
-      webPlatform.localStorageSetItem(_idTokenStorageKey, _manualIdToken!);
+      await _writeStoredManualToken(_idTokenStorageKey, _manualIdToken!);
     }
     if (_manualRefreshToken != null && _manualRefreshToken!.isNotEmpty) {
-      webPlatform.localStorageSetItem(
+      await _writeStoredManualToken(
         _refreshTokenStorageKey,
         _manualRefreshToken!,
       );
@@ -473,6 +471,38 @@ class KeycloakService {
     _manualRefreshToken = null;
     _manualTokenParsed = null;
     _manualIdTokenParsed = null;
+  }
+
+  Future<String?> _readStoredManualToken(String key) async {
+    if (kIsWeb) return webPlatform.localStorageGetItem(key);
+    if (_isDesktop) return _desktopStorage.read(key: key);
+    return null;
+  }
+
+  Future<void> _writeStoredManualToken(String key, String value) async {
+    if (kIsWeb) {
+      webPlatform.localStorageSetItem(key, value);
+      return;
+    }
+    if (_isDesktop) {
+      await _desktopStorage.write(key: key, value: value);
+    }
+  }
+
+  Future<void> _clearStoredManualTokens() async {
+    await _deleteStoredManualToken(_accessTokenStorageKey);
+    await _deleteStoredManualToken(_idTokenStorageKey);
+    await _deleteStoredManualToken(_refreshTokenStorageKey);
+  }
+
+  Future<void> _deleteStoredManualToken(String key) async {
+    if (kIsWeb) {
+      webPlatform.localStorageRemoveItem(key);
+      return;
+    }
+    if (_isDesktop) {
+      await _desktopStorage.delete(key: key);
+    }
   }
 
   bool _hasValidManualSession() {
