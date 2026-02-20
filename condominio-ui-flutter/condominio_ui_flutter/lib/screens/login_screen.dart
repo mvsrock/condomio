@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/auth_provider.dart';
+import '../utils/app_logger.dart';
 
 /// Schermata di accesso.
 ///
@@ -24,11 +25,11 @@ class LoginScreen extends ConsumerWidget {
   /// Tutta la logica auth resta nel notifier; qui orchestration UI soltanto.
   void _handleLogin(WidgetRef ref) async {
     try {
-      print('[LoginScreen] Starting OAuth2 flow with Keycloak...');
+      appLog('[LoginScreen] Starting OAuth2 flow with Keycloak...');
       await ref.read(authStateProvider.notifier).login();
-      print('[LoginScreen] Login redirect done, waiting for callback...');
+      appLog('[LoginScreen] Login redirect done, waiting for callback...');
     } catch (e) {
-      print('[LoginScreen] Login error: $e');
+      appLog('[LoginScreen] Login error: $e');
     }
   }
 

@@ -1,22 +1,36 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/condomino.dart';
 import '../providers/auth_provider.dart';
 import '../providers/condomini_provider.dart';
+import '../providers/home_ui_provider.dart';
 import '../providers/keycloak_provider.dart';
-import '../providers/map_provider.dart';
-import '../services/keycloak_service.dart';
-import '../widgets/openlayers_map.dart';
+import '../utils/app_logger.dart';
+import '../widgets/home/home_bottom_navigation.dart';
+import '../widgets/home/home_content_surface.dart';
+import '../widgets/home/home_header.dart';
+import '../widgets/home/home_navigation_rail.dart';
+import '../widgets/home/pages/dashboard_page.dart';
+import '../widgets/home/pages/map_page.dart';
+import '../widgets/home/pages/registry_page.dart';
+import '../widgets/home/pages/session_page.dart';
 
 /// Schermata visibile quando la sessione e' autenticata.
 ///
 /// Layout:
-/// - menu di navigazione interno (`Dashboard`, `Mappa`, `Anagrafica`, `Sessione`)
+/// - header in alto a tutta larghezza
+/// - navigazione interna (`Dashboard`, `Mappa`, `Anagrafica`, `Sessione`)
 /// - contenuto principale reattivo alla voce selezionata
-/// - azione logout sempre disponibile
+///
+/// Strategia rebuild (importante):
+/// 1) Root `HomeScreen.build()` osserva SOLO `selectedIndex`.
+///    Quindi questa root si ricostruisce quando cambi tab, non quando cambi hover riga.
+/// 2) Lo stato anagrafica (`condomini`, `selectedCondominoId`, `hoveredCondominoId`)
+///    viene osservato nel `Consumer` locale del case `2`.
+///    Questo confina il refresh alla sola pagina anagrafica.
+/// 3) Espansione azioni riga usa stato locale della riga (`StatefulWidget`),
+///    quindi rebuilda solo quella singola riga.
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
@@ -28,33 +42,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   /// Mostra overlay/spinner mentre e' in corso il logout.
   bool _isLoading = false;
 
-  /// Tab corrente della UI:
-  /// 0 = Dashboard, 1 = Mappa, 2 = Anagrafica, 3 = Sessione.
-  int _selectedIndex = 0;
-
-  /// Riga anagrafica selezionata (click/tap).
-  String? _selectedCondominoId;
-
-  /// Riga anagrafica in hover (desktop/web).
-  String? _hoveredCondominoId;
-
   @override
   void initState() {
     super.initState();
 
     final keycloak = ref.read(keycloakServiceProvider);
-    print('[HomeScreen] User is authenticated: ${keycloak.isAuthenticated}');
-    print('[HomeScreen] Has access token: ${keycloak.accessToken != null}');
-    print('[HomeScreen] Has ID token: ${keycloak.idToken != null}');
+    appLog('[HomeScreen] User is authenticated: ${keycloak.isAuthenticated}');
+    appLog('[HomeScreen] Has access token: ${keycloak.accessToken != null}');
+    appLog('[HomeScreen] Has ID token: ${keycloak.idToken != null}');
   }
 
   Future<void> _logout() async {
     setState(() => _isLoading = true);
     try {
-      print('[HomeScreen] Initiating logout...');
+      appLog('[HomeScreen] Initiating logout...');
       await ref.read(authStateProvider.notifier).logout();
     } catch (e) {
-      print('[HomeScreen] Logout error: $e');
+      appLog('[HomeScreen] Logout error: $e');
       if (mounted) {
         ScaffoldMessenger.of(
           context,
@@ -66,7 +70,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final keycloak = ref.watch(keycloakServiceProvider);
+    // Trigger rebuild DI QUESTA ROOT:
+    // - SI: quando cambia `state.selectedIndex` (es. click su rail/nav bottom)
+    // - NO: quando cambia `selectedCondominoId` o `hoveredCondominoId`
+    //       perche' qui non osserviamo l'intero provider ma solo il campo selezionato.
+    final selectedIndex = ref.watch(
+      homeUiProvider.select((state) => state.selectedIndex),
+    );
+    final uiNotifier = ref.read(homeUiProvider.notifier);
     final size = MediaQuery.of(context).size;
     final isWide = size.width >= 960;
 
@@ -75,6 +86,174 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
 
     return Scaffold(
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: Column(
+          children: [
+            HomeHeader(onLogout: _logout),
+            Expanded(
+              child: isWide
+                  ? Row(
+                      children: [
+                        HomeNavigationRail(
+                          selectedIndex: selectedIndex,
+                          onDestinationSelected: uiNotifier.selectTab,
+                        ),
+                        Expanded(
+                          child: HomeContentSurface(
+                            isWide: isWide,
+                            child: AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 220),
+                              child: KeyedSubtree(
+                                key: ValueKey(selectedIndex),
+                                child: _buildPage(
+                                  selectedIndex: selectedIndex,
+                                  uiNotifier: uiNotifier,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    )
+                  : HomeContentSurface(
+                      isWide: isWide,
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 220),
+                        child: KeyedSubtree(
+                          key: ValueKey(selectedIndex),
+                          child: _buildPage(
+                            selectedIndex: selectedIndex,
+                            uiNotifier: uiNotifier,
+                          ),
+                        ),
+                      ),
+                    ),
+            ),
+          ],
+        ),
+      ),
+      bottomNavigationBar: isWide
+          ? null
+          : HomeBottomNavigation(
+              selectedIndex: selectedIndex,
+              onDestinationSelected: uiNotifier.selectTab,
+            ),
+    );
+  }
+
+  Widget _buildPage({
+    required int selectedIndex,
+    required HomeUiNotifier uiNotifier,
+  }) {
+    // Switch tab:
+    // - `selectedIndex` determina quale pagina istanziare.
+    // - `AnimatedSwitcher` anima la sostituzione del body.
+    // - Header e navigazione restano fuori dallo switch: non vengono ricreati
+    //   da cambi interni alla singola pagina.
+    return switch (selectedIndex) {
+      // Rebuild Dashboard solo su cambio dati Keycloak o cambio tab.
+      0 => DashboardPage(keycloak: ref.watch(keycloakServiceProvider)),
+      1 => const MapPage(),
+      // Consumer locale della pagina anagrafica:
+      // - osserva SOLO provider usati da questa pagina.
+      // - se cambia anagrafica, non viene ricostruito il layout globale della home.
+      2 => Consumer(
+          builder: (context, ref, child) {
+            final condomini = ref.watch(condominiProvider);
+            // Ogni `select` ascolta un singolo campo, non l'intero stato home UI.
+            final selectedCondominoId = ref.watch(
+              homeUiProvider.select((state) => state.selectedCondominoId),
+            );
+            final hoveredCondominoId = ref.watch(
+              homeUiProvider.select((state) => state.hoveredCondominoId),
+            );
+            return RegistryPage(
+              condomini: condomini,
+              selectedCondominoId: selectedCondominoId,
+              hoveredCondominoId: hoveredCondominoId,
+              onHoverChanged: uiNotifier.setHoveredCondomino,
+              onCondominoRowTap: (selected) {
+                uiNotifier.selectCondomino(selected.id);
+              },
+              onCondominoTap: (selected) {
+                _openCondominoDetailScreen(selected);
+              },
+              onCondominoEdit: _openCondominoEditScreen,
+            );
+          },
+        ),
+      _ => SessionPage(keycloak: ref.watch(keycloakServiceProvider)),
+    };
+  }
+
+  Future<void> _openCondominoDetailScreen(Condomino selected) async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => _CondominoDetailScreen(
+          condomino: selected,
+          onUpdated: (updated) {
+            ref.read(condominiProvider.notifier).updateCondomino(updated);
+          },
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openCondominoEditScreen(Condomino condomino) async {
+    final updated = await Navigator.of(context).push<Condomino>(
+      MaterialPageRoute(
+        builder: (_) => _CondominoEditScreen(condomino: condomino),
+      ),
+    );
+    if (updated != null) {
+      ref.read(condominiProvider.notifier).updateCondomino(updated);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Modifica salvata.')),
+        );
+      }
+    }
+  }
+}
+
+class _CondominoDetailScreen extends StatefulWidget {
+  const _CondominoDetailScreen({
+    required this.condomino,
+    required this.onUpdated,
+  });
+
+  final Condomino condomino;
+  final ValueChanged<Condomino> onUpdated;
+
+  @override
+  State<_CondominoDetailScreen> createState() => _CondominoDetailScreenState();
+}
+
+class _CondominoDetailScreenState extends State<_CondominoDetailScreen> {
+  late Condomino _current;
+
+  @override
+  void initState() {
+    super.initState();
+    _current = widget.condomino;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Dettaglio condomino'),
+        actions: [
+          FilledButton.tonalIcon(
+            onPressed: _openEdit,
+            icon: const Icon(Icons.edit_outlined),
+            label: const Text('Modifica'),
+          ),
+          const SizedBox(width: 12),
+        ],
+      ),
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
@@ -84,563 +263,118 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
         ),
         child: SafeArea(
-          child: Row(
-            children: [
-              if (isWide) _buildRail(context),
-              Expanded(
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(isWide ? 0 : 20, 20, 20, 20),
-                  child: Column(
-                    children: [
-                      _buildHeader(context, isWide),
-                      const SizedBox(height: 16),
-                      Expanded(
-                        child: Padding(
-                          padding: EdgeInsets.only(left: isWide ? 20 : 0),
-                          child: AnimatedSwitcher(
-                            duration: const Duration(milliseconds: 220),
-                            child: KeyedSubtree(
-                              key: ValueKey(_selectedIndex),
-                              child: _buildPage(keycloak),
-                            ),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 900),
+                child: Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(18),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE6F0F4),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Row(
+                            children: [
+                              const CircleAvatar(
+                                radius: 24,
+                                backgroundColor: Color(0xFF155E75),
+                                child: Icon(Icons.person, color: Colors.white),
+                              ),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      _current.nominativo,
+                                      style: theme.textTheme.titleLarge?.copyWith(
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      _current.unita,
+                                      style: const TextStyle(
+                                        color: Color(0xFF486581),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 18),
+                        Wrap(
+                          spacing: 10,
+                          runSpacing: 10,
+                          children: [
+                            _ValuePill(
+                              label: 'ID',
+                              value: _current.id,
+                            ),
+                            _ValuePill(
+                              label: 'Millesimi',
+                              value: _current.millesimi.toStringAsFixed(2),
+                            ),
+                            _ValuePill(
+                              label: 'Stato',
+                              value: _current.residente
+                                  ? 'Residente'
+                                  : 'Non residente',
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 18),
+                        _DetailRow(label: 'Email', value: _current.email),
+                        _DetailRow(label: 'Telefono', value: _current.telefono),
+                      ],
+                    ),
                   ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-      bottomNavigationBar: isWide
-          ? null
-          : Container(
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                border: Border(top: BorderSide(color: Color(0xFFD9E2EC))),
-                boxShadow: [
-                  BoxShadow(
-                    color: Color(0x22000000),
-                    blurRadius: 14,
-                    offset: Offset(0, -2),
-                  ),
-                ],
-              ),
-              child: SafeArea(
-                top: false,
-                child: NavigationBar(
-                  backgroundColor: Colors.transparent,
-                  selectedIndex: _selectedIndex,
-                  onDestinationSelected: (index) {
-                    setState(() => _selectedIndex = index);
-                  },
-                  destinations: const [
-                    NavigationDestination(
-                      icon: Icon(Icons.dashboard_outlined),
-                      selectedIcon: Icon(Icons.dashboard),
-                      label: 'Dashboard',
-                    ),
-                    NavigationDestination(
-                      icon: Icon(Icons.map_outlined),
-                      selectedIcon: Icon(Icons.map),
-                      label: 'Mappa',
-                    ),
-                    NavigationDestination(
-                      icon: Icon(Icons.badge_outlined),
-                      selectedIcon: Icon(Icons.badge),
-                      label: 'Anagrafica',
-                    ),
-                    NavigationDestination(
-                      icon: Icon(Icons.receipt_long_outlined),
-                      selectedIcon: Icon(Icons.receipt_long),
-                      label: 'Sessione',
-                    ),
-                  ],
                 ),
               ),
             ),
+          ),
+        ),
+      ),
     );
   }
 
-  Widget _buildRail(BuildContext context) {
+  Future<void> _openEdit() async {
+    final updated = await Navigator.of(context).push<Condomino>(
+      MaterialPageRoute(
+        builder: (_) => _CondominoEditScreen(condomino: _current),
+      ),
+    );
+    if (updated == null) return;
+    widget.onUpdated(updated);
+    if (!mounted) return;
+    setState(() => _current = updated);
+  }
+}
+
+class _DetailRow extends StatelessWidget {
+  const _DetailRow({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 20, 0, 20),
-      child: ClipRRect(
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(24),
-          bottomLeft: Radius.circular(24),
-          topRight: Radius.circular(0),
-          bottomRight: Radius.circular(24),
-        ),
-        child: NavigationRail(
-          selectedIndex: _selectedIndex,
-          onDestinationSelected: (index) {
-            setState(() => _selectedIndex = index);
-          },
-          labelType: NavigationRailLabelType.all,
-          minWidth: 92,
-          backgroundColor: Colors.white,
-          destinations: const [
-            NavigationRailDestination(
-              icon: Icon(Icons.dashboard_outlined),
-              selectedIcon: Icon(Icons.dashboard),
-              label: Text('Dashboard'),
-            ),
-            NavigationRailDestination(
-              icon: Icon(Icons.map_outlined),
-              selectedIcon: Icon(Icons.map),
-              label: Text('Mappa'),
-            ),
-            NavigationRailDestination(
-              icon: Icon(Icons.badge_outlined),
-              selectedIcon: Icon(Icons.badge),
-              label: Text('Anagrafica'),
-            ),
-            NavigationRailDestination(
-              icon: Icon(Icons.receipt_long_outlined),
-              selectedIcon: Icon(Icons.receipt_long),
-              label: Text('Sessione'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHeader(BuildContext context, bool isWide) {
-    final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: isWide
-            ? const BorderRadius.only(
-                topLeft: Radius.circular(0),
-                bottomLeft: Radius.circular(0),
-                topRight: Radius.circular(20),
-                bottomRight: Radius.circular(20),
-              )
-            : BorderRadius.circular(20),
-      ),
+      padding: const EdgeInsets.only(bottom: 10),
       child: Row(
-        children: [
-          Icon(Icons.apartment_rounded, color: theme.colorScheme.primary),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Condominio Control Center',
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          FilledButton.icon(
-            onPressed: _logout,
-            icon: const Icon(Icons.logout),
-            label: const Text('Logout'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPage(KeycloakService keycloak) {
-    return switch (_selectedIndex) {
-      0 => _buildDashboardPage(keycloak),
-      1 => _buildMapPage(),
-      2 => _buildRegistryPage(),
-      _ => _buildSessionPage(keycloak),
-    };
-  }
-
-  Widget _buildDashboardPage(KeycloakService keycloak) {
-    final tokenPayload = keycloak.tokenParsed;
-    final username =
-        tokenPayload?['preferred_username'] ??
-        tokenPayload?['name'] ??
-        tokenPayload?['email'] ??
-        'Utente';
-    final roleCount =
-        (tokenPayload?['realm_access']?['roles'] as List?)?.length ?? 0;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Dashboard',
-          style: Theme.of(
-            context,
-          ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
-        ),
-        const SizedBox(height: 12),
-        Expanded(
-          child: GridView.count(
-            crossAxisCount: MediaQuery.of(context).size.width >= 1280 ? 3 : 1,
-            crossAxisSpacing: 14,
-            mainAxisSpacing: 14,
-            childAspectRatio: 2.6,
-            children: [
-              _statCard(
-                title: 'Utente autenticato',
-                value: '$username',
-                subtitle: 'Sessione attiva su Keycloak',
-                icon: Icons.verified_user,
-              ),
-              _statCard(
-                title: 'Ruoli rilevati',
-                value: '$roleCount',
-                subtitle: 'Dai claims del token',
-                icon: Icons.security,
-              ),
-              _statCard(
-                title: 'Piattaforma',
-                value: Theme.of(context).platform.name,
-                subtitle: 'Build multi piattaforma',
-                icon: Icons.devices,
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildMapPage() {
-    final mapState = ref.watch(mapStateProvider);
-    final mapNotifier = ref.read(mapStateProvider.notifier);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                'Mappa Condominio',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-            OutlinedButton.icon(
-              onPressed: mapState.isLoadingLocation
-                  ? null
-                  : () => mapNotifier.refreshCurrentLocation(),
-              icon: const Icon(Icons.my_location),
-              label: const Text('Aggiorna posizione'),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Text(
-          mapState.statusMessage,
-          style: Theme.of(
-            context,
-          ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF486581)),
-        ),
-        const SizedBox(height: 12),
-        Expanded(child: OpenLayersMap(mapState: mapState)),
-      ],
-    );
-  }
-
-  Widget _buildRegistryPage() {
-    final condomini = ref.watch(condominiProvider);
-    final residenti = condomini.where((c) => c.residente).length;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Anagrafica Condomini',
-          style: Theme.of(
-            context,
-          ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
-        ),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            _infoChip(
-              label: 'Totale condomini: ${condomini.length}',
-              icon: Icons.people_alt_outlined,
-            ),
-            _infoChip(
-              label: 'Residenti: $residenti',
-              icon: Icons.home_outlined,
-            ),
-            _infoChip(
-              label: 'Non residenti: ${condomini.length - residenti}',
-              icon: Icons.business_center_outlined,
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Expanded(
-          child: Column(
-            children: [
-              _buildRegistryTableHeader(),
-              const SizedBox(height: 8),
-              Expanded(
-                child: ListView.separated(
-                  itemCount: condomini.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 6),
-                  itemBuilder: (context, index) {
-                    final c = condomini[index];
-                    return _buildRegistryRow(c);
-                  },
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildRegistryTableHeader() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFD9E2EC)),
-      ),
-      child: const Row(
-        children: [
-          Expanded(
-            flex: 3,
-            child: Text(
-              'Nominativo',
-              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
-            ),
-          ),
-          Expanded(
-            flex: 2,
-            child: Text(
-              'Unita',
-              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              'Millesimi',
-              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              'Stato',
-              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRegistryRow(Condomino c) {
-    final isSelected = _selectedCondominoId == c.id;
-    final isHovered = _hoveredCondominoId == c.id;
-
-    Color rowColor = Colors.white;
-    if (isSelected) {
-      rowColor = const Color(0xFFDCECF3);
-    } else if (isHovered) {
-      rowColor = const Color(0xFFF1F5F9);
-    }
-
-    return MouseRegion(
-      onEnter: (_) => setState(() => _hoveredCondominoId = c.id),
-      onExit: (_) => setState(() => _hoveredCondominoId = null),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: () {
-          setState(() => _selectedCondominoId = c.id);
-          _openCondominoDetailOverlay(c);
-        },
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 120),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          decoration: BoxDecoration(
-            color: rowColor,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: isSelected
-                  ? const Color(0xFF155E75)
-                  : const Color(0xFFD9E2EC),
-            ),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                flex: 3,
-                child: Text(
-                  c.nominativo,
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
-              ),
-              Expanded(flex: 2, child: Text(c.unita)),
-              Expanded(child: Text(c.millesimi.toStringAsFixed(2))),
-              Expanded(
-                child: Text(
-                  c.residente ? 'Residente' : 'Non residente',
-                  style: TextStyle(
-                    color: c.residente
-                        ? const Color(0xFF147D64)
-                        : const Color(0xFFB9770E),
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// Overlay dettaglio condomino:
-  /// compare solo dopo click/tap su una riga anagrafica.
-  void _openCondominoDetailOverlay(Condomino selected) {
-    final isWide = MediaQuery.of(context).size.width >= 960;
-
-    if (!isWide) {
-      showModalBottomSheet<void>(
-        context: context,
-        isScrollControlled: true,
-        showDragHandle: true,
-        backgroundColor: Colors.transparent,
-        builder: (context) {
-          return _buildDetailSheetContainer(
-            selected: selected,
-            isBottomSheet: true,
-          );
-        },
-      );
-      return;
-    }
-
-    showGeneralDialog<void>(
-      context: context,
-      barrierLabel: 'Dettaglio condomino',
-      barrierDismissible: true,
-      barrierColor: const Color(0x55000000),
-      transitionDuration: const Duration(milliseconds: 220),
-      pageBuilder: (context, animation, secondaryAnimation) {
-        return Align(
-          alignment: Alignment.centerRight,
-          child: _buildDetailSheetContainer(
-            selected: selected,
-            isBottomSheet: false,
-          ),
-        );
-      },
-      transitionBuilder: (context, animation, secondaryAnimation, child) {
-        final slide = Tween<Offset>(
-          begin: const Offset(1, 0),
-          end: Offset.zero,
-        ).animate(animation);
-        final fade = Tween<double>(begin: 0, end: 1).animate(animation);
-        return FadeTransition(
-          opacity: fade,
-          child: SlideTransition(position: slide, child: child),
-        );
-      },
-    );
-  }
-
-  /// Contenitore visuale della scheda dettaglio.
-  Widget _buildDetailSheetContainer({
-    required Condomino selected,
-    required bool isBottomSheet,
-  }) {
-    final radius = isBottomSheet
-        ? const BorderRadius.vertical(top: Radius.circular(24))
-        : const BorderRadius.only(
-            topLeft: Radius.circular(24),
-            bottomLeft: Radius.circular(24),
-          );
-
-    final width = isBottomSheet ? double.infinity : 460.0;
-
-    return Material(
-      color: Colors.transparent,
-      child: Container(
-        width: width,
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.92,
-        ),
-        margin: isBottomSheet
-            ? EdgeInsets.zero
-            : const EdgeInsets.fromLTRB(0, 20, 20, 20),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: radius,
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x33000000),
-              blurRadius: 24,
-              offset: Offset(-2, 8),
-            ),
-          ],
-        ),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Scheda Dettaglio',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              _detailRow('ID', selected.id),
-              _detailRow('Nominativo', selected.nominativo),
-              _detailRow('Unita', selected.unita),
-              _detailRow('Email', selected.email),
-              _detailRow('Telefono', selected.telefono),
-              _detailRow('Millesimi', selected.millesimi.toStringAsFixed(2)),
-              _detailRow(
-                'Stato',
-                selected.residente ? 'Residente' : 'Non residente',
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _detailRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 110,
+            width: 120,
             child: Text(
               label,
               style: const TextStyle(
@@ -654,133 +388,260 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
     );
   }
+}
 
-  Widget _buildSessionPage(KeycloakService keycloak) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Sessione',
-          style: Theme.of(
-            context,
-          ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
-        ),
-        const SizedBox(height: 12),
-        Expanded(
-          child: Card(
-            child: Padding(
-              padding: const EdgeInsets.all(18),
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Access Token (parsed JSON)',
-                      style: TextStyle(fontWeight: FontWeight.w700),
-                    ),
-                    const SizedBox(height: 8),
-                    SelectableText(
-                      const JsonEncoder.withIndent(
-                        '  ',
-                      ).convert(keycloak.tokenParsed ?? const {'token': 'N/A'}),
-                      style: const TextStyle(fontSize: 12),
-                    ),
-                    const SizedBox(height: 20),
-                    const Text(
-                      'ID Token (parsed JSON)',
-                      style: TextStyle(fontWeight: FontWeight.w700),
-                    ),
-                    const SizedBox(height: 8),
-                    SelectableText(
-                      const JsonEncoder.withIndent('  ').convert(
-                        keycloak.idTokenParsed ?? const {'id_token': 'N/A'},
-                      ),
-                      style: const TextStyle(fontSize: 12),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
+class _ValuePill extends StatelessWidget {
+  const _ValuePill({required this.label, required this.value});
 
-  Widget _infoChip({required String label, required IconData icon}) {
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(999),
         border: Border.all(color: const Color(0xFFD9E2EC)),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 16, color: const Color(0xFF334E68)),
-          const SizedBox(width: 6),
-          Text(label, style: const TextStyle(fontSize: 12)),
+      child: Text(
+        '$label: $value',
+        style: const TextStyle(fontWeight: FontWeight.w600),
+      ),
+    );
+  }
+}
+
+class _CondominoEditScreen extends StatefulWidget {
+  const _CondominoEditScreen({required this.condomino});
+
+  final Condomino condomino;
+
+  @override
+  State<_CondominoEditScreen> createState() => _CondominoEditScreenState();
+}
+
+class _CondominoEditScreenState extends State<_CondominoEditScreen> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _nomeController;
+  late final TextEditingController _cognomeController;
+  late final TextEditingController _scalaController;
+  late final TextEditingController _internoController;
+  late final TextEditingController _emailController;
+  late final TextEditingController _telefonoController;
+  late final TextEditingController _millesimiController;
+  late bool _residente;
+
+  @override
+  void initState() {
+    super.initState();
+    _nomeController = TextEditingController(text: widget.condomino.nome);
+    _cognomeController = TextEditingController(text: widget.condomino.cognome);
+    _scalaController = TextEditingController(text: widget.condomino.scala);
+    _internoController = TextEditingController(text: widget.condomino.interno);
+    _emailController = TextEditingController(text: widget.condomino.email);
+    _telefonoController = TextEditingController(text: widget.condomino.telefono);
+    _millesimiController = TextEditingController(
+      text: widget.condomino.millesimi.toStringAsFixed(2),
+    );
+    _residente = widget.condomino.residente;
+  }
+
+  @override
+  void dispose() {
+    _nomeController.dispose();
+    _cognomeController.dispose();
+    _scalaController.dispose();
+    _internoController.dispose();
+    _emailController.dispose();
+    _telefonoController.dispose();
+    _millesimiController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Modifica condomino'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Annulla'),
+          ),
+          const SizedBox(width: 8),
         ],
+      ),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFFF2F6FA), Color(0xFFE7EEF5)],
+          ),
+        ),
+        child: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 920),
+                child: Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Dati anagrafici',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextFormField(
+                                  controller: _nomeController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Nome',
+                                  ),
+                                  validator: (value) =>
+                                      (value == null || value.trim().isEmpty)
+                                      ? 'Campo obbligatorio'
+                                      : null,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: TextFormField(
+                                  controller: _cognomeController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Cognome',
+                                  ),
+                                  validator: (value) =>
+                                      (value == null || value.trim().isEmpty)
+                                      ? 'Campo obbligatorio'
+                                      : null,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextFormField(
+                                  controller: _scalaController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Scala',
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: TextFormField(
+                                  controller: _internoController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Interno',
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          const Text(
+                            'Contatti e quote',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          TextFormField(
+                            controller: _emailController,
+                            decoration: const InputDecoration(labelText: 'Email'),
+                          ),
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: _telefonoController,
+                            decoration: const InputDecoration(labelText: 'Telefono'),
+                          ),
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: _millesimiController,
+                            decoration: const InputDecoration(
+                              labelText: 'Millesimi',
+                            ),
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return 'Campo obbligatorio';
+                              }
+                              final parsed = double.tryParse(
+                                value.trim().replaceAll(',', '.'),
+                              );
+                              if (parsed == null) {
+                                return 'Valore non valido';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          SwitchListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: const Text('Residente'),
+                            value: _residente,
+                            onChanged: (value) {
+                              setState(() => _residente = value);
+                            },
+                          ),
+                          const SizedBox(height: 18),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: FilledButton.icon(
+                              onPressed: _save,
+                              icon: const Icon(Icons.save_outlined),
+                              label: const Text('Salva modifiche'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
 
-  Widget _statCard({
-    required String title,
-    required String value,
-    required String subtitle,
-    required IconData icon,
-  }) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Row(
-          children: [
-            Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                color: const Color(0xFFE6F0F4),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(icon, color: const Color(0xFF155E75)),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: Color(0xFF486581),
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    value,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Color(0xFF7B8794),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+  void _save() {
+    if (!(_formKey.currentState?.validate() ?? false)) {
+      return;
+    }
+    final parsedMillesimi = double.parse(
+      _millesimiController.text.trim().replaceAll(',', '.'),
+    );
+    Navigator.of(context).pop(
+      widget.condomino.copyWith(
+        nome: _nomeController.text.trim(),
+        cognome: _cognomeController.text.trim(),
+        scala: _scalaController.text.trim(),
+        interno: _internoController.text.trim(),
+        email: _emailController.text.trim(),
+        telefono: _telefonoController.text.trim(),
+        millesimi: parsedMillesimi,
+        residente: _residente,
       ),
     );
   }

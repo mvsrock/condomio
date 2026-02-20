@@ -12,6 +12,15 @@ class WebPlatform {
   /// Simula remove localStorage.
   void localStorageRemoveItem(String key) {}
 
+  /// Simula read sessionStorage.
+  String? sessionStorageGetItem(String key) => null;
+
+  /// Simula write sessionStorage.
+  void sessionStorageSetItem(String key, String value) {}
+
+  /// Simula remove sessionStorage.
+  void sessionStorageRemoveItem(String key) {}
+
   /// URL corrente non disponibile su non-web.
   String get locationHref => '';
 
@@ -26,6 +35,9 @@ class WebPlatform {
 
   /// Simula replaceState.
   void historyReplaceState(String url) {}
+
+  /// Simula chiamata GET in background.
+  bool backgroundGet(String url) => false;
 }
 
 /// Singleton helper usato dal resto dell'app.

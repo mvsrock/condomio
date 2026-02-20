@@ -8,8 +8,8 @@ import '../models/map_state.dart';
 /// - produce centro + marker comuni a tutte le piattaforme
 ///
 /// PERCHE' ESISTE:
-/// - I renderer (`openlayers_map_web` e `openlayers_map_io`) sono diversi.
-/// - La logica mappa invece deve vivere in un solo posto.
+/// - Il renderer UI (`OpenLayersMap`) puo' cambiare nel tempo.
+/// - La logica mappa deve vivere in un solo posto.
 /// - Qui decidiamo *cosa* mostrare (centro, marker, stato), non *come* disegnarlo.
 class MapNotifier extends StateNotifier<MapState> {
   /// Costruttore:

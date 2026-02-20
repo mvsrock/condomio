@@ -1,7 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../models/auth_state.dart';
 import '../services/keycloak_service.dart';
+import '../utils/app_logger.dart';
 import 'keycloak_provider.dart';
 
 /// StateNotifier che governa la macchina a stati di autenticazione della UI.
@@ -23,13 +25,13 @@ class AuthNotifier extends StateNotifier<AuthState> {
     try {
       final hasTokens = _keycloakService.hasValidSession();
       if (hasTokens) {
-        print(
+        appLog(
           '[AuthNotifier._checkExistingSession] Found valid session, setting to authenticated',
         );
         state = AuthState.authenticated;
       }
     } catch (e) {
-      print('[AuthNotifier._checkExistingSession] Error checking session: $e');
+      appLog('[AuthNotifier._checkExistingSession] Error checking session: $e');
       state = AuthState.error;
     }
   }
@@ -42,26 +44,26 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<void> login() async {
     try {
       state = AuthState.loading;
-      print('[AuthNotifier.login] Starting login flow...');
+      appLog('[AuthNotifier.login] Starting login flow...');
       await _keycloakService.login();
 
       if (kIsWeb) {
         // Flusso web redirect-based: la transizione finale avviene nel callback.
-        print(
+        appLog(
           '[AuthNotifier.login] Login redirect done, waiting for web callback',
         );
       } else if (_keycloakService.hasValidSession()) {
         // Mobile/Desktop: in questo punto il token puo' gia' essere disponibile.
         state = AuthState.authenticated;
-        print(
+        appLog(
           '[AuthNotifier.login] Login complete on non-web, state = authenticated',
         );
       } else {
         state = AuthState.error;
-        print('[AuthNotifier.login] Login completed without a valid session');
+        appLog('[AuthNotifier.login] Login completed without a valid session');
       }
     } catch (e) {
-      print('[AuthNotifier.login] Login error: $e');
+      appLog('[AuthNotifier.login] Login error: $e');
       state = AuthState.error;
     }
   }
@@ -72,12 +74,12 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<void> processToken(String code) async {
     try {
       state = AuthState.loading;
-      print('[AuthNotifier.processToken] Processing authorization code...');
+      appLog('[AuthNotifier.processToken] Processing authorization code...');
       await _keycloakService.storeTokensFromCallback(code);
-      print('[AuthNotifier.processToken] Token stored successfully');
+      appLog('[AuthNotifier.processToken] Token stored successfully');
       state = AuthState.authenticated;
     } catch (e) {
-      print('[AuthNotifier.processToken] Token processing error: $e');
+      appLog('[AuthNotifier.processToken] Token processing error: $e');
       state = AuthState.error;
     }
   }
@@ -85,25 +87,25 @@ class AuthNotifier extends StateNotifier<AuthState> {
   /// Esegue logout (locale/remoto tramite service) e riporta stato a unauthenticated.
   Future<void> logout() async {
     try {
-      print('[AuthNotifier.logout] Logging out...');
+      appLog('[AuthNotifier.logout] Logging out...');
       await _keycloakService.logout();
-      print('[AuthNotifier.logout] Logout complete');
+      appLog('[AuthNotifier.logout] Logout complete');
       state = AuthState.unauthenticated;
     } catch (e) {
-      print('[AuthNotifier.logout] Logout error: $e');
+      appLog('[AuthNotifier.logout] Logout error: $e');
       state = AuthState.error;
     }
   }
 
   /// Permette retry dopo errore auth senza riavviare l'app.
   void resetAuthState() {
-    print('[AuthNotifier.resetAuthState] Resetting to unauthenticated');
+    appLog('[AuthNotifier.resetAuthState] Resetting to unauthenticated');
     state = AuthState.unauthenticated;
   }
 
   /// Imposta stato autenticato dopo verifica positiva durante bootstrap.
   void restoreSession() {
-    print('[AuthNotifier.restoreSession] Restoring authenticated session');
+    appLog('[AuthNotifier.restoreSession] Restoring authenticated session');
     state = AuthState.authenticated;
   }
 }

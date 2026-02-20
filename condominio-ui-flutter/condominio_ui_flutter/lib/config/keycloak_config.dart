@@ -52,6 +52,10 @@ class KeycloakAppConfig {
     'KEYCLOAK_CLIENT_ID',
     defaultValue: '',
   );
+  static const bool _enablePostLogoutRedirect = bool.fromEnvironment(
+    'KEYCLOAK_ENABLE_POST_LOGOUT_REDIRECT',
+    defaultValue: false,
+  );
   static const String _realmOverride = String.fromEnvironment(
     'KEYCLOAK_REALM',
     defaultValue: '',
@@ -124,10 +128,20 @@ class KeycloakAppConfig {
       return _logoutRedirectUriOverride;
     }
     return switch (activeProfile) {
-      'web' => 'http://localhost:8089/',
+      // Web: usiamo la stessa URI "home" dell'app per ridurre mismatch
+      // con i valori registrati lato Keycloak (errore tipico: invalid logout uri).
+      'web' => appHomeUri,
       _ => '$bundleIdentifier:/logout',
     };
   }
+
+  /// Se true, il logout web include `post_logout_redirect_uri`.
+  ///
+  /// Default false per compatibilita': evita errori "invalid redirect uri"
+  /// quando il client Keycloak non ha URI di logout perfettamente allineate.
+  /// Abilitare solo dopo configurazione Keycloak:
+  /// `--dart-define=KEYCLOAK_ENABLE_POST_LOGOUT_REDIRECT=true`.
+  static bool get enablePostLogoutRedirect => _enablePostLogoutRedirect;
 
   /// Home URI locale applicazione (usata dopo logout web).
   static String get appHomeUri {

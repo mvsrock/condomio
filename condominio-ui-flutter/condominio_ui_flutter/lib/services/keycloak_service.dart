@@ -12,6 +12,7 @@ import 'package:keycloak_wrapper/keycloak_wrapper.dart'
 import '../config/keycloak_config.dart';
 import '../platform/desktop_auth.dart';
 import '../platform/web_platform.dart';
+import '../utils/app_logger.dart';
 
 /// Servizio centrale di autenticazione usato da provider e UI.
 ///
@@ -58,14 +59,14 @@ class KeycloakService {
 
   /// Inizializza il servizio una sola volta per ciclo di vita app.
   ///
-  /// - Web: ripristina token da localStorage.
+  /// - Web: ripristina token da sessionStorage.
   /// - Desktop: nessun persist locale (token in memoria).
   /// - Mobile: inizializza wrapper nativo.
   Future<void> init() async {
     if (_initialized) return;
 
     // Nel flusso manuale i token vengono persistiti su:
-    // - web: localStorage browser
+    // - web: sessionStorage browser
     // - desktop: secure storage locale
     if (_usesManualFlow) {
       _manualAccessToken = await _readStoredManualToken(_accessTokenStorageKey);
@@ -90,7 +91,7 @@ class KeycloakService {
         _mobileKeycloak?.idToken != null;
   }
 
-  /// Ripristina token da localStorage web.
+  /// Ripristina token da sessionStorage web.
   /// Usato quando vuoi forzare un re-hydration senza reinizializzare tutto.
   Future<void> restoreSessionFromStorage() async {
     if (!_usesManualFlow) return;
@@ -210,7 +211,7 @@ class KeycloakService {
       );
       _mobileKeycloak = KeycloakWrapper(config: config);
       _mobileKeycloak!.onError = (message, error, stackTrace) {
-        print('[KeycloakService.mobile] $message: $error');
+        appLog('[KeycloakService.mobile] $message: $error');
       };
     }
     await _mobileKeycloak!.initialize();
@@ -229,14 +230,16 @@ class KeycloakService {
     // Verifiche integrita' callback:
     // - code_verifier PKCE deve esistere e combaciare con authorize iniziale.
     // - state deve coincidere per mitigare CSRF/replay.
-    final verifier = webPlatform.localStorageGetItem(_codeVerifierStorageKey);
-    final expectedState = webPlatform.localStorageGetItem(
+    // Su web usiamo sessionStorage per i dati temporanei PKCE:
+    // sopravvivono al redirect OAuth ma non restano persistenti tra sessioni.
+    final verifier = webPlatform.sessionStorageGetItem(_codeVerifierStorageKey);
+    final expectedState = webPlatform.sessionStorageGetItem(
       _oauthStateStorageKey,
     );
     final callbackState = Uri.base.queryParameters['state'];
 
     if (verifier == null) {
-      throw Exception('Code verifier not found in localStorage');
+      throw Exception('Code verifier not found in sessionStorage');
     }
     if (expectedState == null ||
         callbackState == null ||
@@ -251,8 +254,8 @@ class KeycloakService {
       persistWebTokens: true,
     );
 
-    webPlatform.localStorageRemoveItem(_codeVerifierStorageKey);
-    webPlatform.localStorageRemoveItem(_oauthStateStorageKey);
+    webPlatform.sessionStorageRemoveItem(_codeVerifierStorageKey);
+    webPlatform.sessionStorageRemoveItem(_oauthStateStorageKey);
     try {
       webPlatform.historyReplaceState('/');
     } catch (_) {}
@@ -264,8 +267,8 @@ class KeycloakService {
     final challenge = _generateCodeChallenge(verifier);
     final oauthState = _generateState();
 
-    webPlatform.localStorageSetItem(_codeVerifierStorageKey, verifier);
-    webPlatform.localStorageSetItem(_oauthStateStorageKey, oauthState);
+    webPlatform.sessionStorageSetItem(_codeVerifierStorageKey, verifier);
+    webPlatform.sessionStorageSetItem(_oauthStateStorageKey, oauthState);
 
     final authUrl = Uri.parse(KeycloakAppConfig.authEndpoint).replace(
       queryParameters: {
@@ -283,18 +286,52 @@ class KeycloakService {
   }
 
   Future<void> _webLogout() async {
-    // Logout server best-effort, poi cleanup locale e redirect home applicazione.
+    final idTokenHint = _manualIdToken;
+
+    // Logout server best-effort per revoca refresh token.
     await _logoutOnServer(
       _manualRefreshToken ??
-          webPlatform.localStorageGetItem(_refreshTokenStorageKey),
+          webPlatform.sessionStorageGetItem(_refreshTokenStorageKey),
     );
 
     await _clearStoredManualTokens();
-    webPlatform.localStorageRemoveItem(_codeVerifierStorageKey);
-    webPlatform.localStorageRemoveItem(_oauthStateStorageKey);
+    webPlatform.sessionStorageRemoveItem(_codeVerifierStorageKey);
+    webPlatform.sessionStorageRemoveItem(_oauthStateStorageKey);
 
     _clearManualTokens();
-    webPlatform.setLocationHref(KeycloakAppConfig.appHomeUri);
+
+    // Logout browser-side della sessione SSO Keycloak.
+    //
+    // Compatibilita' Keycloak:
+    // - provider recenti: `post_logout_redirect_uri`
+    // - provider legacy: `redirect_uri`
+    //
+    // Se `post_logout_redirect_uri` non e' abilitato via config, inviamo
+    // `redirect_uri` come fallback per evitare di restare sulla pagina
+    // "You are logged out" a fine logout.
+    final params = <String, String>{
+      'client_id': KeycloakAppConfig.clientId,
+    };
+    if (idTokenHint != null && idTokenHint.isNotEmpty) {
+      params['id_token_hint'] = idTokenHint;
+    }
+    if (KeycloakAppConfig.enablePostLogoutRedirect) {
+      params['post_logout_redirect_uri'] = KeycloakAppConfig.appLogoutRedirectUri;
+    } else {
+      params['redirect_uri'] = KeycloakAppConfig.appHomeUri;
+    }
+    final endSessionUri = Uri.parse(
+      KeycloakAppConfig.logoutEndpoint,
+    ).replace(queryParameters: params);
+
+    // Evita di portare l'utente sulla pagina Keycloak "You are logged out":
+    // invia il logout SSO in background e lascia la navigazione alla UI Flutter.
+    final backgroundSent = webPlatform.backgroundGet(endSessionUri.toString());
+    if (!backgroundSent) {
+      // Fallback difensivo: se il browser non consente iframe dinamico,
+      // manteniamo il comportamento standard di redirect esplicito.
+      webPlatform.setLocationHref(endSessionUri.toString());
+    }
   }
 
   Future<void> _desktopLogin() async {
@@ -384,7 +421,7 @@ class KeycloakService {
     final refreshToken =
         _manualRefreshToken ??
         (kIsWeb
-            ? webPlatform.localStorageGetItem(_refreshTokenStorageKey)
+            ? webPlatform.sessionStorageGetItem(_refreshTokenStorageKey)
             : null);
     if (refreshToken == null || refreshToken.isEmpty) return false;
 
@@ -474,14 +511,22 @@ class KeycloakService {
   }
 
   Future<String?> _readStoredManualToken(String key) async {
-    if (kIsWeb) return webPlatform.localStorageGetItem(key);
+    if (kIsWeb) {
+      // Su web evitiamo persistenza lunga in localStorage.
+      // Nota: il refresh token non viene reidratato da storage per ridurre rischio.
+      if (key == _refreshTokenStorageKey) return null;
+      return webPlatform.sessionStorageGetItem(key);
+    }
     if (_isDesktop) return _desktopStorage.read(key: key);
     return null;
   }
 
   Future<void> _writeStoredManualToken(String key, String value) async {
     if (kIsWeb) {
-      webPlatform.localStorageSetItem(key, value);
+      // Access/ID token in sessionStorage (lifetime limitato alla scheda/sessione).
+      // Refresh token non persistito su web per ridurre superficie d'attacco.
+      if (key == _refreshTokenStorageKey) return;
+      webPlatform.sessionStorageSetItem(key, value);
       return;
     }
     if (_isDesktop) {
@@ -497,7 +542,7 @@ class KeycloakService {
 
   Future<void> _deleteStoredManualToken(String key) async {
     if (kIsWeb) {
-      webPlatform.localStorageRemoveItem(key);
+      webPlatform.sessionStorageRemoveItem(key);
       return;
     }
     if (_isDesktop) {

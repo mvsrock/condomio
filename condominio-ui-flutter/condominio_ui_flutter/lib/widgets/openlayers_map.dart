@@ -36,11 +36,9 @@ class _OpenLayersMapState extends State<OpenLayersMap> {
   Widget build(BuildContext context) {
     final center = widget.mapState.center;
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(20),
-      child: Stack(
-        children: [
-          FlutterMap(
+    return Stack(
+      children: [
+        FlutterMap(
             mapController: _mapController,
             options: MapOptions(
               initialCenter: LatLng(center.latitude, center.longitude),
@@ -72,24 +70,23 @@ class _OpenLayersMapState extends State<OpenLayersMap> {
               ),
             ],
           ),
-          Positioned(
-            top: 12,
-            left: 12,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.92),
-                border: Border.all(color: const Color(0xFFD9E2EC)),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Text(
-                'OSM (flutter_map) cross-platform',
-                style: TextStyle(fontSize: 12),
-              ),
+        Positioned(
+          top: 12,
+          left: 12,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.92),
+              border: Border.all(color: const Color(0xFFD9E2EC)),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Text(
+              'OSM (flutter_map) cross-platform',
+              style: TextStyle(fontSize: 12),
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

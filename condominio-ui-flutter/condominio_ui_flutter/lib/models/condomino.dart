@@ -30,4 +30,28 @@ class Condomino {
 
   /// Etichetta sintetica unita' abitativa.
   String get unita => 'Scala $scala - Int. $interno';
+
+  Condomino copyWith({
+    String? id,
+    String? nome,
+    String? cognome,
+    String? scala,
+    String? interno,
+    String? email,
+    String? telefono,
+    double? millesimi,
+    bool? residente,
+  }) {
+    return Condomino(
+      id: id ?? this.id,
+      nome: nome ?? this.nome,
+      cognome: cognome ?? this.cognome,
+      scala: scala ?? this.scala,
+      interno: interno ?? this.interno,
+      email: email ?? this.email,
+      telefono: telefono ?? this.telefono,
+      millesimi: millesimi ?? this.millesimi,
+      residente: residente ?? this.residente,
+    );
+  }
 }
