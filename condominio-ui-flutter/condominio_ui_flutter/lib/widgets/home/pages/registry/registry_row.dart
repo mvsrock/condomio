@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../models/condomino.dart';
+import '../../../../models/condomino.dart';
 
 /// Riga tabella anagrafica.
 ///

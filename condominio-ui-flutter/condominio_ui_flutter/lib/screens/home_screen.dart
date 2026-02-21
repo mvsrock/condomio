@@ -4,17 +4,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/condomino.dart';
 import '../providers/auth_provider.dart';
 import '../providers/condomini_provider.dart';
-import '../providers/home_ui_provider.dart';
+import '../providers/home/home_ui_provider.dart';
 import '../providers/keycloak_provider.dart';
 import '../utils/app_logger.dart';
 import '../widgets/home/home_bottom_navigation.dart';
 import '../widgets/home/home_content_surface.dart';
 import '../widgets/home/home_header.dart';
 import '../widgets/home/home_navigation_rail.dart';
-import '../widgets/home/pages/dashboard_page.dart';
-import '../widgets/home/pages/map_page.dart';
-import '../widgets/home/pages/registry_page.dart';
-import '../widgets/home/pages/session_page.dart';
+import '../widgets/home/pages/dashboard/dashboard_page.dart';
+import '../widgets/home/pages/map/map_page.dart';
+import '../widgets/home/pages/registry/registry_page.dart';
+import '../widgets/home/pages/session/session_page.dart';
 
 /// Schermata visibile quando la sessione e' autenticata.
 ///

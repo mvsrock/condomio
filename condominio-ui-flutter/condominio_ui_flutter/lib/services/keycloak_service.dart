@@ -120,7 +120,7 @@ class KeycloakService {
   /// - puo' non essere disponibile su web dopo reload,
   ///   per scelta di non persisterlo in sessionStorage.
   String? get refreshToken =>
-      _usesManualFlow ? _manualRefreshToken : null;
+      _usesManualFlow ? _manualRefreshToken : _mobileKeycloak?.refreshToken;
 
   /// Payload JWT dell'access token, utile per claims/ruoli in UI.
   Map<String, dynamic>? get tokenParsed {
@@ -139,6 +139,66 @@ class KeycloakService {
     if (_mobileKeycloak?.idToken == null) return null;
     try {
       return JWT.decode(_mobileKeycloak!.idToken!).payload;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Istante UTC di scadenza access token (claim `exp`), se disponibile.
+  ///
+  /// Ritorna `null` quando:
+  /// - token assente
+  /// - claim `exp` mancante/non valido
+  DateTime? get accessTokenExpiryUtc {
+    final exp = tokenParsed?['exp'];
+    if (exp is! int) return null;
+    return DateTime.fromMillisecondsSinceEpoch(exp * 1000, isUtc: true);
+  }
+
+  /// Durata residua prima della "refresh window".
+  ///
+  /// La refresh window e' definita come:
+  /// `exp - buffer`.
+  ///
+  /// Esempio:
+  /// - exp alle 10:00
+  /// - buffer 60s
+  /// - refresh window inizia alle 09:59
+  ///
+  /// Ritorna:
+  /// - `Duration.zero` se siamo gia' nella window
+  /// - durata positiva se manca tempo
+  /// - `Duration.zero` se non possiamo calcolare exp (fallback conservativo)
+  Duration timeUntilRefreshWindow({Duration? buffer}) {
+    final expiryUtc = accessTokenExpiryUtc;
+    if (expiryUtc == null) return Duration.zero;
+
+    final lead = buffer ?? KeycloakAppConfig.tokenExpirationBuffer;
+    final refreshAtUtc = expiryUtc.subtract(lead);
+    final nowUtc = DateTime.now().toUtc();
+    final wait = refreshAtUtc.difference(nowUtc);
+    return wait.isNegative ? Duration.zero : wait;
+  }
+
+  /// True quando e' il momento di tentare il refresh sessione.
+  ///
+  /// Basato su `exp` dell'access token e `tokenExpirationBuffer`.
+  bool shouldRefreshSession({Duration? buffer}) {
+    return timeUntilRefreshWindow(buffer: buffer) == Duration.zero;
+  }
+
+  /// Payload JWT del refresh token.
+  ///
+  /// Utile in pagina sessione per mostrare il token refresh nello stesso
+  /// formato parsed JSON degli altri token.
+  Map<String, dynamic>? get refreshTokenParsed {
+    final token = refreshToken;
+    if (token == null || token.isEmpty) return null;
+    if (_usesManualFlow) {
+      return _parseJwt(token);
+    }
+    try {
+      return JWT.decode(token).payload;
     } catch (_) {
       return null;
     }
@@ -418,6 +478,10 @@ class KeycloakService {
     }
 
     final tokenData = jsonDecode(response.body) as Map<String, dynamic>;
+    appLog(
+      '[KeycloakService] Token exchange completed. refresh_token present: '
+      '${tokenData['refresh_token'] != null}',
+    );
     _applyManualTokens(tokenData);
     if (persistWebTokens || _isDesktop) {
       await _persistManualTokens();
@@ -445,6 +509,10 @@ class KeycloakService {
     if (response.statusCode != 200) return false;
 
     final tokenData = jsonDecode(response.body) as Map<String, dynamic>;
+    appLog(
+      '[KeycloakService] Token refresh completed. refresh_token present: '
+      '${tokenData['refresh_token'] != null}',
+    );
     _applyManualTokens(tokenData);
     if (kIsWeb || _isDesktop) {
       await _persistManualTokens();
@@ -476,7 +544,10 @@ class KeycloakService {
     // Applica token raw e aggiorna anche i payload decodificati.
     _manualAccessToken = tokenData['access_token'] as String?;
     _manualIdToken = tokenData['id_token'] as String?;
-    _manualRefreshToken = tokenData['refresh_token'] as String?;
+    // Alcuni provider non ritornano sempre `refresh_token` a ogni refresh.
+    // In quel caso manteniamo il valore precedente per non perdere la sessione.
+    _manualRefreshToken =
+        tokenData['refresh_token'] as String? ?? _manualRefreshToken;
     _parseAndSetManualTokens();
   }
 
@@ -520,9 +591,7 @@ class KeycloakService {
 
   Future<String?> _readStoredManualToken(String key) async {
     if (kIsWeb) {
-      // Su web evitiamo persistenza lunga in localStorage.
-      // Nota: il refresh token non viene reidratato da storage per ridurre rischio.
-      if (key == _refreshTokenStorageKey) return null;
+      // Su web persistiamo in sessionStorage (lifetime limitato alla sessione scheda).
       return webPlatform.sessionStorageGetItem(key);
     }
     if (_isDesktop) return _desktopStorage.read(key: key);
@@ -531,9 +600,7 @@ class KeycloakService {
 
   Future<void> _writeStoredManualToken(String key, String value) async {
     if (kIsWeb) {
-      // Access/ID token in sessionStorage (lifetime limitato alla scheda/sessione).
-      // Refresh token non persistito su web per ridurre superficie d'attacco.
-      if (key == _refreshTokenStorageKey) return;
+      // Web: persistiamo i token in sessionStorage della scheda corrente.
       webPlatform.sessionStorageSetItem(key, value);
       return;
     }

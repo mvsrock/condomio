@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../services/keycloak_service.dart';
+import '../../../../services/keycloak_service.dart';
 
 class DashboardPage extends StatelessWidget {
   const DashboardPage({super.key, required this.keycloak});

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../providers/map_provider.dart';
-import '../../openlayers_map.dart';
+import '../../../../providers/map_provider.dart';
+import '../../../openlayers_map.dart';
 
 class MapPage extends ConsumerWidget {
   const MapPage({super.key});

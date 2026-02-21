@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../models/condomino.dart';
-import '../../../providers/registry_table_provider.dart';
+import '../../../../models/condomino.dart';
+import '../../../../providers/home/registry/registry_table_provider.dart';
 import 'registry_filters_bar.dart';
 import 'registry_info_chip.dart';
 import 'registry_pagination_bar.dart';

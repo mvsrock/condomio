@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../widgets/home/pages/registry_types.dart';
+import '../../../widgets/home/pages/registry/registry_types.dart';
 
 /// Stato UI della tabella anagrafica.
 ///

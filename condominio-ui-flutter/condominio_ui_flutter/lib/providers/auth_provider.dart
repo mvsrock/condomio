@@ -19,12 +19,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Timer? _refreshTimer;
   bool _refreshInProgress = false;
 
-  /// Frequenza di controllo refresh sessione.
+  /// Attesa minima in caso di errore refresh ma sessione ancora valida.
   ///
-  /// Nota:
-  /// - non refreshiamo ogni frame;
-  /// - un polling leggero evita chiamate inutili e mantiene sessione viva.
-  static const Duration _refreshInterval = Duration(seconds: 30);
+  /// Evita loop serrati di retry in scenari rete instabile.
+  static const Duration _retryDelayOnRefreshError = Duration(seconds: 20);
 
   AuthNotifier(this._keycloakService) : super(AuthState.unauthenticated) {
     // Al bootstrap sincronizza subito lo stato con eventuale sessione gia' valida.
@@ -138,12 +136,12 @@ class AuthNotifier extends StateNotifier<AuthState> {
   /// - callback token processata
   /// - sessione ripristinata
   ///
-  /// Effetto:
-  /// - tenta `refreshSession()` a intervalli regolari
-  /// - in caso di perdita sessione porta stato a unauthenticated
+  /// Effetto (modalita' near-expiry):
+  /// - NON interroga Keycloak a cadenza fissa;
+  /// - pianifica un timer one-shot al momento `exp - buffer`;
+  /// - allo scatto, prova refresh solo se necessario.
   void _startAutoRefresh() {
-    _refreshTimer?.cancel();
-    _refreshTimer = Timer.periodic(_refreshInterval, (_) => _refreshTick());
+    _scheduleRefreshNearExpiry();
   }
 
   /// Ferma timer refresh.
@@ -158,19 +156,60 @@ class AuthNotifier extends StateNotifier<AuthState> {
     _refreshInProgress = false;
   }
 
+  /// Pianifica il prossimo check refresh vicino a scadenza access token.
+  ///
+  /// Strategia:
+  /// - se manca molto tempo: un solo timer fino alla refresh window;
+  /// - se siamo gia' nella refresh window: esegue refresh subito.
+  void _scheduleRefreshNearExpiry() {
+    _refreshTimer?.cancel();
+    if (state != AuthState.authenticated) return;
+
+    final wait = _keycloakService.timeUntilRefreshWindow();
+    if (wait == Duration.zero) {
+      Future<void>.microtask(_refreshTick);
+      return;
+    }
+    _refreshTimer = Timer(wait, _refreshTick);
+  }
+
+  /// Pianifica un retry controllato dopo errore refresh.
+  void _scheduleRetryAfterRefreshError() {
+    _refreshTimer?.cancel();
+    if (state != AuthState.authenticated) return;
+    _refreshTimer = Timer(_retryDelayOnRefreshError, _refreshTick);
+  }
+
   /// Tick periodico refresh sessione.
   ///
   /// Comportamento:
   /// - evita re-entrancy se un refresh e' gia' in corso
   /// - se refresh fallisce e non c'e' sessione valida => logout tecnico
-  Future<void> _refreshTick() async {
+  Future<void> _refreshTick([Timer? _]) async {
     if (_refreshInProgress) return;
     if (state != AuthState.authenticated) return;
 
     _refreshInProgress = true;
     try {
+      // Nessuna chiamata rete finche' non siamo vicini a `exp`.
+      //
+      // Importante:
+      // - NON usiamo qui `hasValidSession()` come guardia "hard";
+      // - nella refresh-window l'access token puo' risultare gia' "quasi scaduto"
+      //   (per via del buffer) ma il refresh e' ancora perfettamente possibile.
+      final shouldRefresh = _keycloakService.shouldRefreshSession();
+      if (!shouldRefresh) {
+        _scheduleRefreshNearExpiry();
+        return;
+      }
+
+      // Siamo nella refresh-window: tentiamo refresh prima di dichiarare logout.
       final refreshed = await _keycloakService.refreshSession();
-      if (refreshed) return;
+      if (refreshed) {
+        // Dopo refresh ricalcoliamo la prossima finestra usando il nuovo exp.
+        _scheduleRefreshNearExpiry();
+        return;
+      }
 
       if (!_keycloakService.hasValidSession()) {
         appLog(
@@ -182,12 +221,15 @@ class AuthNotifier extends StateNotifier<AuthState> {
         appLog(
           '[AuthNotifier._refreshTick] Refresh failed but current session still valid',
         );
+        _scheduleRetryAfterRefreshError();
       }
     } catch (e) {
       appLog('[AuthNotifier._refreshTick] Refresh error: $e');
       if (!_keycloakService.hasValidSession()) {
         _stopAutoRefresh();
         state = AuthState.unauthenticated;
+      } else {
+        _scheduleRetryAfterRefreshError();
       }
     } finally {
       _refreshInProgress = false;
