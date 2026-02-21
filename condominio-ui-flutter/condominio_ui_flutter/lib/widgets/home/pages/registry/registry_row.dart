@@ -37,6 +37,7 @@ class _RegistryRowState extends State<RegistryRow> {
 
   @override
   Widget build(BuildContext context) {
+    final isCompact = MediaQuery.of(context).size.width < 900;
     Color rowColor = Colors.white;
     if (widget.isSelected) {
       rowColor = const Color(0xFFDCECF3);
@@ -73,34 +74,60 @@ class _RegistryRowState extends State<RegistryRow> {
                       },
                       child: Padding(
                         padding: const EdgeInsets.symmetric(vertical: 4),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              flex: 3,
-                              child: Text(
-                                widget.condomino.nominativo,
-                                style: const TextStyle(fontWeight: FontWeight.w600),
+                        child: isCompact
+                            ? Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    widget.condomino.nominativo,
+                                    style: const TextStyle(fontWeight: FontWeight.w600),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text('Unita: ${widget.condomino.unita}'),
+                                  Text(
+                                    'Millesimi: ${widget.condomino.millesimi.toStringAsFixed(2)}',
+                                  ),
+                                  Text(
+                                    widget.condomino.residente
+                                        ? 'Residente'
+                                        : 'Non residente',
+                                    style: TextStyle(
+                                      color: widget.condomino.residente
+                                          ? const Color(0xFF147D64)
+                                          : const Color(0xFFB9770E),
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              )
+                            : Row(
+                                children: [
+                                  Expanded(
+                                    flex: 3,
+                                    child: Text(
+                                      widget.condomino.nominativo,
+                                      style: const TextStyle(fontWeight: FontWeight.w600),
+                                    ),
+                                  ),
+                                  Expanded(flex: 2, child: Text(widget.condomino.unita)),
+                                  Expanded(
+                                    child: Text(widget.condomino.millesimi.toStringAsFixed(2)),
+                                  ),
+                                  Expanded(
+                                    child: Text(
+                                      widget.condomino.residente
+                                          ? 'Residente'
+                                          : 'Non residente',
+                                      style: TextStyle(
+                                        color: widget.condomino.residente
+                                            ? const Color(0xFF147D64)
+                                            : const Color(0xFFB9770E),
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ),
-                            Expanded(flex: 2, child: Text(widget.condomino.unita)),
-                            Expanded(
-                              child: Text(widget.condomino.millesimi.toStringAsFixed(2)),
-                            ),
-                            Expanded(
-                              child: Text(
-                                widget.condomino.residente
-                                    ? 'Residente'
-                                    : 'Non residente',
-                                style: TextStyle(
-                                  color: widget.condomino.residente
-                                      ? const Color(0xFF147D64)
-                                      : const Color(0xFFB9770E),
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
                       ),
                     ),
                   ),

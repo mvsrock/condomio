@@ -37,6 +37,7 @@ class RegistryPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final isCompact = MediaQuery.of(context).size.width < 900;
     final tableState = ref.watch(registryTableProvider);
     final tableNotifier = ref.read(registryTableProvider.notifier);
 
@@ -99,12 +100,14 @@ class RegistryPage extends ConsumerWidget {
         Expanded(
           child: Column(
             children: [
-              RegistryTableHeader(
-                sortField: tableState.sortField,
-                sortAscending: tableState.sortAscending,
-                onSort: tableNotifier.toggleSort,
-              ),
-              const SizedBox(height: 8),
+              if (!isCompact) ...[
+                RegistryTableHeader(
+                  sortField: tableState.sortField,
+                  sortAscending: tableState.sortAscending,
+                  onSort: tableNotifier.toggleSort,
+                ),
+                const SizedBox(height: 8),
+              ],
               Expanded(
                 child: paged.isEmpty
                     ? const Center(

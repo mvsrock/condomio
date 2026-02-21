@@ -51,6 +51,11 @@ class HomeBottomNavigation extends StatelessWidget {
               selectedIcon: Icon(Icons.receipt_long),
               label: 'Sessione',
             ),
+            NavigationDestination(
+              icon: Icon(Icons.folder_open_outlined),
+              selectedIcon: Icon(Icons.folder_open),
+              label: 'Documenti',
+            ),
           ],
         ),
       ),

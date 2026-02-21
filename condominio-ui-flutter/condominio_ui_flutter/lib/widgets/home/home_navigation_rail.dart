@@ -39,6 +39,11 @@ class HomeNavigationRail extends StatelessWidget {
           selectedIcon: Icon(Icons.receipt_long),
           label: Text('Sessione'),
         ),
+        NavigationRailDestination(
+          icon: Icon(Icons.folder_open_outlined),
+          selectedIcon: Icon(Icons.folder_open),
+          label: Text('Documenti'),
+        ),
       ],
     );
   }

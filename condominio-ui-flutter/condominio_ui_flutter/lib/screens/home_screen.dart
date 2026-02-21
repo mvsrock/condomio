@@ -12,6 +12,7 @@ import '../widgets/home/home_content_surface.dart';
 import '../widgets/home/home_header.dart';
 import '../widgets/home/home_navigation_rail.dart';
 import '../widgets/home/pages/dashboard/dashboard_page.dart';
+import '../widgets/home/pages/documents/documents_page.dart';
 import '../widgets/home/pages/map/map_page.dart';
 import '../widgets/home/pages/registry/registry_page.dart';
 import '../widgets/home/pages/session/session_page.dart';
@@ -20,7 +21,7 @@ import '../widgets/home/pages/session/session_page.dart';
 ///
 /// Layout:
 /// - header in alto a tutta larghezza
-/// - navigazione interna (`Dashboard`, `Mappa`, `Anagrafica`, `Sessione`)
+/// - navigazione interna (`Dashboard`, `Mappa`, `Anagrafica`, `Sessione`, `Documenti`)
 /// - contenuto principale reattivo alla voce selezionata
 ///
 /// Strategia rebuild (importante):
@@ -178,7 +179,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             );
           },
         ),
-      _ => SessionPage(keycloak: ref.watch(keycloakServiceProvider)),
+      3 => SessionPage(keycloak: ref.watch(keycloakServiceProvider)),
+      _ => const DocumentsPage(),
     };
   }
 
