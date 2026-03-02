@@ -43,7 +43,6 @@ spring:
 
 logging:
   level:
-    it.atlantica.mim.gateway.filter.LoggingFilter: DEBUG
     org:
       springframework:
         cloud:

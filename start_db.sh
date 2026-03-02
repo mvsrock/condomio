@@ -17,7 +17,8 @@ else
 fi
 echo " Deploy dello stack $STACK_NAME"
 
-docker stack deploy -c docker-compose-common-db-swarm.yml  -c  docker-compose-postgres-swarm.yml  -c docker-compose-mongo-swarm.yml  "$STACK_NAME"
+#docker stack deploy -c docker-compose-common-db-swarm.yml  -c  docker-compose-postgres-swarm.yml  -c docker-compose-mongo-swarm.yml  "$STACK_NAME"
+docker stack deploy -c docker-compose-common-db-swarm.yml  -c  docker-compose-postgres-swarm.yml  "$STACK_NAME"
 
 echo " Stack '$STACK_NAME' avviato con successo"
 

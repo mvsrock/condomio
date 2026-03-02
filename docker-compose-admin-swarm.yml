@@ -16,13 +16,13 @@ services:
       SPRING_DATA_MONGODB_USERNAME: myuser
       SPRING_DATA_MONGODB_PASSWORD: mypassword
       KEYCLOAK_AUTH-SERVER-URL: http://keycloak:8082
-      KEYCLOAK_REALM: atlantica
+      KEYCLOAK_REALM: condominio
      # SPRING_SECURITY_OAUTH2_RESOURCE-SERVER_JWT_ISSUER-URI: "http://keycloak:8082/realms/$${KEYCLOAK_REALM}"
       SPRING_SECURITY_OAUTH2_RESOURCE-SERVER_JWT_JWK-SET-URI: "http://keycloak:8082/realms/$${KEYCLOAK_REALM}/protocol/openid-connect/certs"
       SPRING_CACHE_TYPE: redis
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/mimdb?currentSchema=mim
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/condomio?currentSchema=auth
       SPRING_DATASOURCE_USERNAME: keycloak
       SPRING_DATASOURCE_PASSWORD: password
       SPRING_JPA_HIBERNATE_DDL-AUTO: none

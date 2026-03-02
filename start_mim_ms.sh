@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-STACK_NAME="MIM"
+STACK_NAME="CONDOMIO"
 
 echo "Controllo se Docker Swarm è attivo..."
 
@@ -22,3 +22,4 @@ docker stack deploy -c docker-compose-common-swarm.yml    -c docker-compose-keyc
 echo " Stack '$STACK_NAME' avviato con successo"
 
 
+docker stack deploy -c docker-compose-keycloak-swarm.yml CONDOMIO

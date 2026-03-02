@@ -11,8 +11,8 @@ DOCKER_ORG=""   # cambia con il tuo namespace docker
 TAG="latest"
 
 echo "🚀 Inizio build progetti MIM..."
-echo "🧹 Rimozione artefatti locali Atlantica da ~/.m2..."
-rm -rf ~/.m2/repository/it/atlantica || true
+echo "🧹 Rimozione artefatti locali Condomio da ~/.m2..."
+rm -rf ~/.m2/repository/it/condominio || true
 
 LIBRARIES=(
   "Gateway"

@@ -24,7 +24,7 @@ spring:
   cache:
     type: redis
   datasource:
-    url: jdbc:postgresql://localhost:5432/mimdb?currentSchema=mim
+    url: jdbc:postgresql://localhost:5432/condomio?currentSchema=auth
     username: keycloak
     password: password
   jpa:
@@ -52,7 +52,7 @@ eureka:
 
 keycloak:
   auth-server-url: http://localhost:8082
-  realm: atlantica
+  realm: condominio
   resource: admin-cli
   credentials:
     username: ${KEYCLOAK_USER:admin}

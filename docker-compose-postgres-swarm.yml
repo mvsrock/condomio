@@ -13,7 +13,7 @@ services:
         -c powa.frequency=10s
         -c track_activity_query_size=2048
     environment:
-      POSTGRES_DB: mimdb
+      POSTGRES_DB: condomio
       POSTGRES_USER: keycloak
       POSTGRES_PASSWORD: password
       POSTGRES_MAX_CONNECTIONS: 500

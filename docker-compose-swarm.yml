@@ -9,7 +9,7 @@ services:
       KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
       KC_DB_USERNAME: keycloak
       KC_DB_PASSWORD: password
-      KC_DB_SCHEMA: mim
+      KC_DB_SCHEMA: auth
       KC_LOG_LEVEL: INFO
       KC_LOG_CONSOLE_OUTPUT: json
     ports:
@@ -123,7 +123,7 @@ services:
 #      SPRING_APPLICATION_NAME: keycloak-service
 #      SPRING_MAIN_BANNER-MODE: "false"
 #      KEYCLOAK_AUTH-SERVER-URL: http://keycloak:8082
-#      KEYCLOAK_REALM: atlantica
+#      KEYCLOAK_REALM: condominio
 #      SPRING_SECURITY_OAUTH2_RESOURCE-SERVER_JWT_ISSUER-URI: http://keycloak:8082/realms/$${keycloak.realm}
 #      SPRING_SECURITY_OAUTH2_RESOURCE-SERVER_JWT_JWK-SET-URI: http://keycloak:8082/realms/$${keycloak.realm}/protocol/openid-connect/certs
 #      SPRING_CACHE_TYPE: redis
