@@ -1,4 +1,4 @@
-import 'package:condominio_ui_flutter/models/condomino.dart';
+import 'package:condominio_ui_flutter/features/registry/domain/condomino.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

@@ -74,6 +74,11 @@ flutter run -d macos --dart-define=APP_PROFILE=desktop
 
 Nota: se usi device fisico Android, telefono e PC devono stare sulla stessa rete LAN.
 
+## Sicurezza sessione web
+
+- I token web non vengono persistiti nello storage browser.
+- Dopo refresh della tab o riapertura browser e' richiesto nuovo login.
+
 ## Note debug
 
 - Se modifichi file nativi Android (`AndroidManifest.xml`, Gradle), fai restart completo (`flutter run`), non hot reload.

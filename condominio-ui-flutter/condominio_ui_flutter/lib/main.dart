@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'app_startup.dart';
+import 'app/app_startup.dart';
+import 'app/main_app.dart';
 import 'config/keycloak_config.dart';
-import 'main_app.dart';
 import 'utils/app_logger.dart';
 
 /// Entry-point minimale:

@@ -1,4 +1,4 @@
-import 'package:condominio_ui_flutter/models/auth_state.dart';
+import 'package:condominio_ui_flutter/features/auth/domain/auth_state.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
