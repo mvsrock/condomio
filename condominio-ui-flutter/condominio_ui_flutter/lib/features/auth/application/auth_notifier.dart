@@ -16,6 +16,7 @@ import 'keycloak_provider.dart';
 /// - coordina le operazioni con [KeycloakService]
 class AuthNotifier extends StateNotifier<AuthState> {
   final KeycloakService _keycloakService;
+  final Ref _ref;
   Timer? _refreshTimer;
   bool _refreshInProgress = false;
 
@@ -24,9 +25,16 @@ class AuthNotifier extends StateNotifier<AuthState> {
   /// Evita loop serrati di retry in scenari rete instabile.
   static const Duration _retryDelayOnRefreshError = Duration(seconds: 20);
 
-  AuthNotifier(this._keycloakService) : super(AuthState.unauthenticated) {
+  AuthNotifier(this._keycloakService, this._ref)
+    : super(AuthState.unauthenticated) {
     // Al bootstrap sincronizza subito lo stato con eventuale sessione gia' valida.
     _checkExistingSession();
+  }
+
+  /// Versione monotona della sessione/token per forzare rebuild dei widget
+  /// diagnostici quando i token cambiano ma lo stato auth resta "authenticated".
+  void _bumpSessionRevision() {
+    _ref.read(authSessionRevisionProvider.notifier).state++;
   }
 
   /// Se esiste una sessione valida, evita passaggi inutili e porta subito a authenticated.
@@ -38,6 +46,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
           '[AuthNotifier._checkExistingSession] Found valid session, setting to authenticated',
         );
         state = AuthState.authenticated;
+        _bumpSessionRevision();
         _startAutoRefresh();
       }
     } catch (e) {
@@ -66,6 +75,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       } else if (_keycloakService.hasValidSession()) {
         // Mobile/Desktop: in questo punto il token puo' gia' essere disponibile.
         state = AuthState.authenticated;
+        _bumpSessionRevision();
         _startAutoRefresh();
         appLog(
           '[AuthNotifier.login] Login complete on non-web, state = authenticated',
@@ -92,6 +102,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       await _keycloakService.storeTokensFromCallback(code);
       appLog('[AuthNotifier.processToken] Token stored successfully');
       state = AuthState.authenticated;
+      _bumpSessionRevision();
       _startAutoRefresh();
     } catch (e) {
       appLog('[AuthNotifier.processToken] Token processing error: $e');
@@ -108,6 +119,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       await _keycloakService.logout();
       appLog('[AuthNotifier.logout] Logout complete');
       state = AuthState.unauthenticated;
+      _bumpSessionRevision();
     } catch (e) {
       appLog('[AuthNotifier.logout] Logout error: $e');
       _stopAutoRefresh();
@@ -120,12 +132,14 @@ class AuthNotifier extends StateNotifier<AuthState> {
     appLog('[AuthNotifier.resetAuthState] Resetting to unauthenticated');
     _stopAutoRefresh();
     state = AuthState.unauthenticated;
+    _bumpSessionRevision();
   }
 
   /// Imposta stato autenticato dopo verifica positiva durante bootstrap.
   void restoreSession() {
     appLog('[AuthNotifier.restoreSession] Restoring authenticated session');
     state = AuthState.authenticated;
+    _bumpSessionRevision();
     _startAutoRefresh();
   }
 
@@ -206,6 +220,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       // Siamo nella refresh-window: tentiamo refresh prima di dichiarare logout.
       final refreshed = await _keycloakService.refreshSession();
       if (refreshed) {
+        _bumpSessionRevision();
         // Dopo refresh ricalcoliamo la prossima finestra usando il nuovo exp.
         _scheduleRefreshNearExpiry();
         return;
@@ -248,5 +263,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
 /// - azioni `login/logout/processToken/...` via `ref.read(authStateProvider.notifier)`
 final authStateProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
   final keycloakService = ref.watch(keycloakServiceProvider);
-  return AuthNotifier(keycloakService);
+  return AuthNotifier(keycloakService, ref);
 });
+
+/// Contatore reattivo aggiornato quando cambia la sessione/token.
+///
+/// Utile per pagine diagnostiche che devono aggiornarsi anche se `AuthState`
+/// rimane invariato (es. refresh token while authenticated).
+final authSessionRevisionProvider = StateProvider<int>((ref) => 0);

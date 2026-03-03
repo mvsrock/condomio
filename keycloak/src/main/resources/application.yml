@@ -6,7 +6,7 @@ spring:
     restart:
       enabled: false
  # config:
- #   import: optional:file:///C:/ciro/daje.yml
+ #   import: optional:file:///C:/daje.yml
   application:
     name: keycloak-service
   main:
@@ -72,7 +72,6 @@ app:
 logging:
   level:
     org.springframework.security: INFO
-    it.atlantica: DEBUG
     org.springframework.security.oauth2: INFO
     jboss.resteasy.client: INFO
     org.springframework.cache: TRACE
