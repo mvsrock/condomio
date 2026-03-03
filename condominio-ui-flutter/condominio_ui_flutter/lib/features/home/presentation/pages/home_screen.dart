@@ -4,7 +4,9 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/app_breakpoints.dart';
 import '../../../../utils/app_logger.dart';
+import '../../../condominio_selection/application/managed_condominio_notifier.dart';
 import '../../../auth/application/auth_notifier.dart';
+import '../../application/home_navigation_provider.dart';
 import '../../../home/application/home_ui_notifier.dart';
 import '../widgets/home_bottom_navigation.dart';
 import '../widgets/home_content_surface.dart';
@@ -47,7 +49,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
-  void _onDestinationSelected(int index) {
+  void _onBranchSelected(int index) {
+    final branchCount = widget.navigationShell.route.branches.length;
+    if (index < 0 || index >= branchCount) {
+      appLog(
+        '[HomeScreen] Ignored invalid branch index: $index (branches=$branchCount)',
+      );
+      return;
+    }
     widget.navigationShell.goBranch(
       index,
       initialLocation: index == widget.navigationShell.currentIndex,
@@ -59,7 +68,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final isLoggingOut = ref.watch(
       homeUiProvider.select((state) => state.isLoggingOut),
     );
+    final isAdmin = ref.watch(homeIsAdminProvider);
+    final destinations = ref.watch(homeDestinationsProvider);
+    final activeCondominio = ref.watch(selectedManagedCondominioProvider);
     final isWide = AppBreakpoints.isHomeWide(MediaQuery.of(context).size.width);
+    final selectedVisibleIndex = visibleIndexForBranch(
+      destinations,
+      widget.navigationShell.currentIndex,
+    );
 
     if (isLoggingOut) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
@@ -70,14 +86,35 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            HomeHeader(onLogout: _logout),
+            HomeHeader(
+              onLogout: _logout,
+              isAdmin: isAdmin,
+              activeCondominioLabel: activeCondominio?.label,
+              onManageCondomini: () => context.go('/select-condominio'),
+              onOpenAdminUsers: isAdmin
+                  ? () => context.go('/home/admin-users')
+                  : null,
+              onOpenAdminRoles: isAdmin
+                  ? () => context.go('/home/admin-roles')
+                  : null,
+            ),
             Expanded(
               child: isWide
                   ? Row(
                       children: [
                         HomeNavigationRail(
-                          selectedIndex: widget.navigationShell.currentIndex,
-                          onDestinationSelected: _onDestinationSelected,
+                          selectedIndex: selectedVisibleIndex < 0
+                              ? 0
+                              : selectedVisibleIndex,
+                          destinations: destinations,
+                          onDestinationSelected: (visibleIndex) {
+                            _onBranchSelected(
+                              branchIndexForVisibleIndex(
+                                destinations,
+                                visibleIndex,
+                              ),
+                            );
+                          },
                         ),
                         Expanded(
                           child: HomeContentSurface(
@@ -98,8 +135,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       bottomNavigationBar: isWide
           ? null
           : HomeBottomNavigation(
-              selectedIndex: widget.navigationShell.currentIndex,
-              onDestinationSelected: _onDestinationSelected,
+              selectedIndex: selectedVisibleIndex < 0 ? 0 : selectedVisibleIndex,
+              destinations: destinations,
+              onDestinationSelected: (visibleIndex) {
+                _onBranchSelected(
+                  branchIndexForVisibleIndex(destinations, visibleIndex),
+                );
+              },
             ),
     );
   }

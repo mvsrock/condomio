@@ -1,14 +1,18 @@
 import 'package:flutter/material.dart';
 
+import '../models/home_nav_destination.dart';
+
 class HomeNavigationRail extends StatelessWidget {
   const HomeNavigationRail({
     super.key,
     required this.selectedIndex,
     required this.onDestinationSelected,
+    required this.destinations,
   });
 
   final int selectedIndex;
   final ValueChanged<int> onDestinationSelected;
+  final List<HomeNavDestination> destinations;
 
   @override
   Widget build(BuildContext context) {
@@ -18,32 +22,13 @@ class HomeNavigationRail extends StatelessWidget {
       labelType: NavigationRailLabelType.all,
       minWidth: 92,
       backgroundColor: Colors.white,
-      destinations: const [
-        NavigationRailDestination(
-          icon: Icon(Icons.dashboard_outlined),
-          selectedIcon: Icon(Icons.dashboard),
-          label: Text('Dashboard'),
-        ),
-        NavigationRailDestination(
-          icon: Icon(Icons.map_outlined),
-          selectedIcon: Icon(Icons.map),
-          label: Text('Mappa'),
-        ),
-        NavigationRailDestination(
-          icon: Icon(Icons.badge_outlined),
-          selectedIcon: Icon(Icons.badge),
-          label: Text('Anagrafica'),
-        ),
-        NavigationRailDestination(
-          icon: Icon(Icons.receipt_long_outlined),
-          selectedIcon: Icon(Icons.receipt_long),
-          label: Text('Sessione'),
-        ),
-        NavigationRailDestination(
-          icon: Icon(Icons.folder_open_outlined),
-          selectedIcon: Icon(Icons.folder_open),
-          label: Text('Documenti'),
-        ),
+      destinations: [
+        for (final destination in destinations)
+          NavigationRailDestination(
+            icon: Icon(destination.icon),
+            selectedIcon: Icon(destination.selectedIcon),
+            label: Text(destination.label),
+          ),
       ],
     );
   }

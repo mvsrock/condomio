@@ -52,6 +52,14 @@ class KeycloakAppConfig {
     'KEYCLOAK_CLIENT_ID',
     defaultValue: '',
   );
+  static const String _keycloakServiceUrlOverride = String.fromEnvironment(
+    'KEYCLOAK_SERVICE_URL',
+    defaultValue: '',
+  );
+  static const String _coreApiUrlOverride = String.fromEnvironment(
+    'CORE_API_URL',
+    defaultValue: '',
+  );
   static const bool _enablePostLogoutRedirect = bool.fromEnvironment(
     'KEYCLOAK_ENABLE_POST_LOGOUT_REDIRECT',
     defaultValue: false,
@@ -106,6 +114,34 @@ class KeycloakAppConfig {
       'desktop' => 'http://localhost:8082',
       'ios' => 'http://localhost:8082',
       _ => 'http://localhost:8082',
+    };
+  }
+
+  /// URL base del backend `keycloak-service` (API utenti/ruoli/menu).
+  static String get keycloakServiceUrl {
+    if (_keycloakServiceUrlOverride.isNotEmpty) {
+      return _keycloakServiceUrlOverride;
+    }
+    return switch (activeProfile) {
+      'web' => 'http://localhost:8080',
+      'android-emulator' => 'http://10.0.2.2:8080',
+      'desktop' => 'http://localhost:8080',
+      'ios' => 'http://localhost:8080',
+      _ => 'http://localhost:8080',
+    };
+  }
+
+  /// URL base del backend `core` (API dominio condominio).
+  static String get coreApiUrl {
+    if (_coreApiUrlOverride.isNotEmpty) {
+      return _coreApiUrlOverride;
+    }
+    return switch (activeProfile) {
+      'web' => 'http://localhost:8090',
+      'android-emulator' => 'http://10.0.2.2:8090',
+      'desktop' => 'http://localhost:8090',
+      'ios' => 'http://localhost:8090',
+      _ => 'http://localhost:8090',
     };
   }
 

@@ -19,40 +19,43 @@ public class CondominioService {
     @Autowired
     private CondominioRepository condominioRepository;
 
-    public Condominio createCondominio(Condominio condominio) {
+    public Condominio createCondominio(Condominio condominio, String adminKeycloakUserId) {
+        condominio.setAdminKeycloakUserId(adminKeycloakUserId);
         return condominioRepository.save(condominio);
     }
 
-    public Optional<Condominio> getCondominioById(String id) {
-        return condominioRepository.findById(id);
+    public Optional<Condominio> getCondominioById(String id, String adminKeycloakUserId) {
+        return condominioRepository.findByIdAndAdminKeycloakUserId(id, adminKeycloakUserId);
     }
 
-    public List<Condominio> getAllCondomini() {
-        return condominioRepository.findAll();
+    public List<Condominio> getAllCondomini(String adminKeycloakUserId) {
+        return condominioRepository.findByAdminKeycloakUserId(adminKeycloakUserId);
     }
 
-    public Condominio updateCondominio(String id, Condominio updatedCondominio) {
-        if (!condominioRepository.existsById(id)) {
+    public Condominio updateCondominio(String id, Condominio updatedCondominio, String adminKeycloakUserId) {
+        if (!condominioRepository.existsByIdAndAdminKeycloakUserId(id, adminKeycloakUserId)) {
             throw new IllegalArgumentException("Condominio con ID " + id + " non trovato.");
         }
         updatedCondominio.setId(id);
+        updatedCondominio.setAdminKeycloakUserId(adminKeycloakUserId);
         return condominioRepository.save(updatedCondominio);
     }
 
-    public void deleteCondominio(String id) {
-        if (!condominioRepository.existsById(id)) {
+    public void deleteCondominio(String id, String adminKeycloakUserId) {
+        if (!condominioRepository.existsByIdAndAdminKeycloakUserId(id, adminKeycloakUserId)) {
             throw new IllegalArgumentException("Condominio con ID " + id + " non trovato.");
         }
         condominioRepository.deleteById(id);
     }
     
-    public Condominio patch(String id, JsonNode mergePatch) throws IOException, ValidationFailedException {
-        Optional<Condominio> optionalCondominio = condominioRepository.findById(id);
+    public Condominio patch(String id, JsonNode mergePatch, String adminKeycloakUserId) throws IOException, ValidationFailedException {
+        Optional<Condominio> optionalCondominio = condominioRepository.findByIdAndAdminKeycloakUserId(id, adminKeycloakUserId);
         if (!optionalCondominio.isPresent()) {
             throw new IllegalArgumentException("Condominio con ID " + id + " non trovato.");
         }
         Condominio condominio = optionalCondominio.get();
         Condominio patchedCondominio = JsonMergePatchHelper.applyMergePatch(mergePatch, condominio, Condominio.class);
+        patchedCondominio.setAdminKeycloakUserId(adminKeycloakUserId);
         validatePercentuali(patchedCondominio);
         return condominioRepository.save(patchedCondominio);
     }

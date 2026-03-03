@@ -4,7 +4,7 @@ server:
 spring:
   devtools:
     restart:
-      enabled: false
+      enabled: true
  # config:
  #   import: optional:file:///C:/daje.yml
   application:
@@ -55,8 +55,8 @@ keycloak:
   realm: condominio
   resource: admin-cli
   credentials:
-    username: ${KEYCLOAK_USER:admin}
-    password: ${KEYCLOAK_PASS:admin}
+    username: ${KEYCLOAK_USER:svc-admin}
+    password: ${KEYCLOAK_PASS:svc-admin}
 
 app:
   cors:

@@ -24,18 +24,18 @@ public class Condominio {
 
     private String label;
     private Long anno;
+    @Indexed
+    private String adminKeycloakUserId;
     private List<ConfigurazioneSpesa> configurazioniSpesa;
     private Double residuo;
 
     @Data
     public static class ConfigurazioneSpesa {
-        @Indexed(unique = true)
         private String codice;
         private List<TabellaPercentuale> tabelle;
         
         @Data
         public static class TabellaPercentuale {
-        	@Indexed(unique = false)
         	private String codice;
             private String descrizione;
             private Integer percentuale;

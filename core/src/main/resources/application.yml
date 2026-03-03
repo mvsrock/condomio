@@ -18,6 +18,9 @@ spring:
        #   issuer-uri: ${keycloak.auth-server-url}/realms/${keycloak.realm}
           jwk-set-uri: ${keycloak.auth-server-url}/realms/${keycloak.realm}/protocol/openid-connect/certs
   data:
+    mongodb:
+      uri: ${SPRING_DATA_MONGODB_URI:mongodb://localhost:27017/condomio}
+      database: ${SPRING_DATA_MONGODB_DATABASE:condomio}
     redis:
       host: localhost
       port: 6379

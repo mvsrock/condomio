@@ -32,8 +32,12 @@ public class CondominioController {
     private CondominioService condominioService;
 
     @PostMapping
-    public ResponseEntity<Condominio> createCondominio(@RequestBody Condominio condominio) {
-        return new ResponseEntity<>(condominioService.createCondominio(condominio), HttpStatus.CREATED);
+    public ResponseEntity<Condominio> createCondominio(
+            @RequestBody Condominio condominio,
+            @AuthenticationPrincipal Jwt jwt) {
+        return new ResponseEntity<>(
+                condominioService.createCondominio(condominio, jwt.getSubject()),
+                HttpStatus.CREATED);
     }
     
     @SuppressWarnings("unchecked")
@@ -47,30 +51,37 @@ public class CondominioController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Condominio> getCondominioById(@PathVariable String id) {
-        return condominioService.getCondominioById(id)
+    public ResponseEntity<Condominio> getCondominioById(
+            @PathVariable String id,
+            @AuthenticationPrincipal Jwt jwt) {
+        return condominioService.getCondominioById(id, jwt.getSubject())
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     @GetMapping
-    public ResponseEntity<List<Condominio>> getAllCondomini() {
-        return ResponseEntity.ok(condominioService.getAllCondomini());
+    public ResponseEntity<List<Condominio>> getAllCondomini(@AuthenticationPrincipal Jwt jwt) {
+        return ResponseEntity.ok(condominioService.getAllCondomini(jwt.getSubject()));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Condominio> updateCondominio(@PathVariable String id, @RequestBody Condominio condominio) {
+    public ResponseEntity<Condominio> updateCondominio(
+            @PathVariable String id,
+            @RequestBody Condominio condominio,
+            @AuthenticationPrincipal Jwt jwt) {
         try {
-            return ResponseEntity.ok(condominioService.updateCondominio(id, condominio));
+            return ResponseEntity.ok(condominioService.updateCondominio(id, condominio, jwt.getSubject()));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.notFound().build();
         }
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteCondominio(@PathVariable String id) {
+    public ResponseEntity<Void> deleteCondominio(
+            @PathVariable String id,
+            @AuthenticationPrincipal Jwt jwt) {
         try {
-            condominioService.deleteCondominio(id);
+            condominioService.deleteCondominio(id, jwt.getSubject());
             return ResponseEntity.noContent().build();
         } catch (IllegalArgumentException e) {
             return ResponseEntity.notFound().build();
@@ -90,9 +101,10 @@ public class CondominioController {
     @PatchMapping("/{id}")
     public ResponseEntity<Condominio> updateCondominio(
             @PathVariable String id,
-            @RequestBody JsonNode mergePatch) throws IOException, ValidationFailedException {
+            @RequestBody JsonNode mergePatch,
+            @AuthenticationPrincipal Jwt jwt) throws IOException, ValidationFailedException {
     	try {
-            return ResponseEntity.ok(condominioService.patch(id, mergePatch));
+            return ResponseEntity.ok(condominioService.patch(id, mergePatch, jwt.getSubject()));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.notFound().build();
         }

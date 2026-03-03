@@ -5,7 +5,7 @@
 -- Dumped from database version 17.9 (Debian 17.9-1.pgdg13+1)
 -- Dumped by pg_dump version 17.0
 
--- Started on 2026-03-02 22:54:55
+-- Started on 2026-03-03 14:36:37
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -2437,6 +2437,25 @@ INSERT INTO auth.composite_role VALUES ('3b88fb4b-5e87-4d3e-844f-505f2df71c23', 
 INSERT INTO auth.composite_role VALUES ('dc5b5a9a-272c-41b3-bf80-4208f65b2dba', 'f835b8be-a14e-42fc-b1fe-9d682a9966c4');
 INSERT INTO auth.composite_role VALUES ('e087d186-7b4a-406b-819f-315ea7e9ad76', '1ea38dc4-b1bd-4f5f-bd2b-cc4a119df8b2');
 INSERT INTO auth.composite_role VALUES ('e087d186-7b4a-406b-819f-315ea7e9ad76', '281f6695-40a4-4ba2-95b8-b30c5224f0f6');
+INSERT INTO auth.composite_role VALUES ('5b557614-c20f-6f12-0325-de9631fe201d', '9b47a50c-fb81-4258-a7c9-2da92d1919e9');
+INSERT INTO auth.composite_role VALUES ('5b557614-c20f-6f12-0325-de9631fe201d', '2288496f-eea3-4b75-b2a1-5f917cb1a6cf');
+INSERT INTO auth.composite_role VALUES ('5b557614-c20f-6f12-0325-de9631fe201d', '536f58f1-150e-40f9-bc33-4d59f912ba45');
+INSERT INTO auth.composite_role VALUES ('5b557614-c20f-6f12-0325-de9631fe201d', '934863eb-19a3-43d8-a67b-f9b37920fbd2');
+INSERT INTO auth.composite_role VALUES ('5b557614-c20f-6f12-0325-de9631fe201d', '94299728-d170-46e8-ac78-edd9239867a4');
+INSERT INTO auth.composite_role VALUES ('5b557614-c20f-6f12-0325-de9631fe201d', 'a3fe7db6-f6d9-4db7-a909-d573f5905ceb');
+INSERT INTO auth.composite_role VALUES ('5b557614-c20f-6f12-0325-de9631fe201d', '5bcd0748-e7a5-491d-9f86-e0d386bf08be');
+INSERT INTO auth.composite_role VALUES ('5b557614-c20f-6f12-0325-de9631fe201d', '12cc8e18-7edf-4a55-9382-efe5a246a6cc');
+INSERT INTO auth.composite_role VALUES ('5b557614-c20f-6f12-0325-de9631fe201d', 'f835b8be-a14e-42fc-b1fe-9d682a9966c4');
+INSERT INTO auth.composite_role VALUES ('5b557614-c20f-6f12-0325-de9631fe201d', '4d6c6704-bb2e-47cd-bfa8-5e54fea2045a');
+INSERT INTO auth.composite_role VALUES ('5b557614-c20f-6f12-0325-de9631fe201d', 'c7db9779-ef41-46f8-ad5d-6cca47279246');
+INSERT INTO auth.composite_role VALUES ('5b557614-c20f-6f12-0325-de9631fe201d', '02ccc953-fe7e-4770-b402-2f3a750fdd00');
+INSERT INTO auth.composite_role VALUES ('5b557614-c20f-6f12-0325-de9631fe201d', '852c7e70-dc5c-4fc1-a153-683cd7a3b91f');
+INSERT INTO auth.composite_role VALUES ('5b557614-c20f-6f12-0325-de9631fe201d', '153043ef-4bcb-4a8b-814c-2d7faf6332b3');
+INSERT INTO auth.composite_role VALUES ('5b557614-c20f-6f12-0325-de9631fe201d', '1d79d23b-665b-463c-a8da-739ed67041f8');
+INSERT INTO auth.composite_role VALUES ('5b557614-c20f-6f12-0325-de9631fe201d', '8b338dad-a8bf-4763-a162-ee526b513c21');
+INSERT INTO auth.composite_role VALUES ('5b557614-c20f-6f12-0325-de9631fe201d', '003409a2-f22d-420e-a493-c3e8e44cd711');
+INSERT INTO auth.composite_role VALUES ('5b557614-c20f-6f12-0325-de9631fe201d', 'dc5b5a9a-272c-41b3-bf80-4208f65b2dba');
+INSERT INTO auth.composite_role VALUES ('5b557614-c20f-6f12-0325-de9631fe201d', 'b5f90471-6f59-4ebb-91e3-7a5a622e98bc');
 
 
 --
@@ -2446,7 +2465,7 @@ INSERT INTO auth.composite_role VALUES ('e087d186-7b4a-406b-819f-315ea7e9ad76', 
 --
 
 INSERT INTO auth.credential VALUES ('9627f3fd-4d96-439c-bbdd-a042507b8ac0', NULL, 'password', '679d8ad7-2047-41eb-b88e-bad459ccdc81', 1760965852735, 'My password', '{"value":"P8+WO2V7N/1JWat0oPt3T51lPh/9nyAJpRpmJUUd7sk=","salt":"EaDlQfc5GQ662rulI7ereQ==","additionalParameters":{}}', '{"hashIterations":5,"algorithm":"argon2","additionalParameters":{"hashLength":["32"],"memory":["7168"],"type":["id"],"version":["1.3"],"parallelism":["1"]}}', 10, 1);
-INSERT INTO auth.credential VALUES ('b2d8d03b-333d-4b88-bee4-428dbec54073', NULL, 'password', 'ace11e10-2926-4463-bb6f-e5d87b8099b8', 1771406439144, 'My password', '{"value":"TTsWwEjQv37h7GstFY6v4YfAZRTyXlrXVl9VBuS2FIw=","salt":"4UqhB25DCQtfYWtxAW5mrw==","additionalParameters":{}}', '{"hashIterations":5,"algorithm":"argon2","additionalParameters":{"hashLength":["32"],"memory":["7168"],"type":["id"],"version":["1.3"],"parallelism":["1"]}}', 10, 1);
+INSERT INTO auth.credential VALUES ('f25ddc44-62d2-4686-9022-1809e6dd1771', NULL, 'password', '534dd7bc-f0f8-48e9-8b94-0e5d9d5f722c', 1772537210969, 'My password', '{"value":"y4BgWMQnUUJYgkJcTDCWIZOB+PC/zEV99EszggO8sGg=","salt":"rAilLSFL+cFPcQZZQNph2g==","additionalParameters":{}}', '{"hashIterations":5,"algorithm":"argon2","additionalParameters":{"hashLength":["32"],"memory":["7168"],"type":["id"],"version":["1.3"],"parallelism":["1"]}}', 10, 1);
 
 
 --
@@ -2889,9 +2908,9 @@ INSERT INTO auth.keycloak_role VALUES ('f835b8be-a14e-42fc-b1fe-9d682a9966c4', '
 INSERT INTO auth.keycloak_role VALUES ('309ef1df-9bac-4cdf-824f-e6b6550d16e1', '4066bbcb-0c33-4a65-92bf-f44854d9b728', true, '${role_read-token}', 'read-token', '7404ff5e-f51a-4416-b45f-15d2d69cca5f', '4066bbcb-0c33-4a65-92bf-f44854d9b728', NULL);
 INSERT INTO auth.keycloak_role VALUES ('1ea38dc4-b1bd-4f5f-bd2b-cc4a119df8b2', '7404ff5e-f51a-4416-b45f-15d2d69cca5f', false, '${role_offline-access}', 'offline_access', '7404ff5e-f51a-4416-b45f-15d2d69cca5f', NULL, NULL);
 INSERT INTO auth.keycloak_role VALUES ('281f6695-40a4-4ba2-95b8-b30c5224f0f6', '7404ff5e-f51a-4416-b45f-15d2d69cca5f', false, '${role_uma_authorization}', 'uma_authorization', '7404ff5e-f51a-4416-b45f-15d2d69cca5f', NULL, NULL);
-INSERT INTO auth.keycloak_role VALUES ('915fb784-8fa2-0f98-7ec3-3e5a49af97f8', '7404ff5e-f51a-4416-b45f-15d2d69cca5f', false, '${role_default-roles}', 'default-roles-atlantica', '7404ff5e-f51a-4416-b45f-15d2d69cca5f', NULL, '7404ff5e-f51a-4416-b45f-15d2d69cca5f');
 INSERT INTO auth.keycloak_role VALUES ('6fefb22f-2020-60f7-ea88-24cb223a195c', '7404ff5e-f51a-4416-b45f-15d2d69cca5f', false, NULL, 'user', '7404ff5e-f51a-4416-b45f-15d2d69cca5f', NULL, '7404ff5e-f51a-4416-b45f-15d2d69cca5f');
 INSERT INTO auth.keycloak_role VALUES ('5b557614-c20f-6f12-0325-de9631fe201d', '7404ff5e-f51a-4416-b45f-15d2d69cca5f', false, '', 'authority_admin', '7404ff5e-f51a-4416-b45f-15d2d69cca5f', NULL, '7404ff5e-f51a-4416-b45f-15d2d69cca5f');
+INSERT INTO auth.keycloak_role VALUES ('27af0f0b-5dd5-434f-a2e7-807776d4a813', '7404ff5e-f51a-4416-b45f-15d2d69cca5f', false, 'Amministratore di condominio', 'amministratore', '7404ff5e-f51a-4416-b45f-15d2d69cca5f', NULL, NULL);
 
 
 --
@@ -2923,7 +2942,9 @@ INSERT INTO auth.migration_model VALUES ('rp667', '26.3.0', 1760960169);
 -- Data for Name: offline_client_session; Type: TABLE DATA; Schema: auth; Owner: -
 --
 
-INSERT INTO auth.offline_client_session VALUES ('a5e12a72-79e3-48e7-a2b2-7c8cbd4f823e', '3cd5708c-d0ed-458c-8786-c953920c8f37', '0', 1772488363, '{"authMethod":"openid-connect","redirectUri":"http://localhost:8082/admin/master/console/#/condominio/clients/add-client","notes":{"clientId":"3cd5708c-d0ed-458c-8786-c953920c8f37","iss":"http://localhost:8082/realms/master","startedAt":"1772488081","response_type":"code","level-of-authentication":"-1","code_challenge_method":"S256","nonce":"db6a99e2-65c6-4fd2-b868-89a6d766c91e","response_mode":"query","scope":"openid","userSessionStartedAt":"1772488081","redirect_uri":"http://localhost:8082/admin/master/console/#/condominio/clients/add-client","state":"bdb0c003-48f8-45f7-8ad8-e7417705af33","code_challenge":"7YZZxyAZdPzRnpCnSirzr6gwFCPrbtT8Vlw-h0mM6rw","SSO_AUTH":"true"}}', 'local', 'local', 4);
+INSERT INTO auth.offline_client_session VALUES ('19dc75b3-a33b-471e-9096-363debc2fb8f', '6cc0d8f7-2bad-4320-9e69-d7ebb998594a', '0', 1772544943, '{"authMethod":"openid-connect","redirectUri":"http://localhost:8089/callback","notes":{"clientId":"6cc0d8f7-2bad-4320-9e69-d7ebb998594a","scope":"openid profile email","userSessionStartedAt":"1772544939","iss":"http://localhost:8082/realms/condominio","startedAt":"1772544939","response_type":"code","level-of-authentication":"-1","code_challenge_method":"S256","redirect_uri":"http://localhost:8089/callback","state":"L3ABzW1T2pKyBQuW5BNI1UFh507l2U5r","code_challenge":"Q-EkZHS0XkPO2K7U3cs6Acau_qMqHAUgIMj0T6R1c64"}}', 'local', 'local', 1);
+INSERT INTO auth.offline_client_session VALUES ('11503d25-f3e1-4472-b14d-d63487251ecb', '3cd5708c-d0ed-458c-8786-c953920c8f37', '0', 1772544956, '{"authMethod":"openid-connect","redirectUri":"http://localhost:8082/admin/master/console/#/condominio/users/ace11e10-2926-4463-bb6f-e5d87b8099b8/role-mapping","notes":{"clientId":"3cd5708c-d0ed-458c-8786-c953920c8f37","iss":"http://localhost:8082/realms/master","startedAt":"1772543870","response_type":"code","level-of-authentication":"-1","code_challenge_method":"S256","nonce":"d77579eb-7d1d-4e0c-ade1-6bcc5b7fd832","response_mode":"query","scope":"openid","userSessionStartedAt":"1772543870","redirect_uri":"http://localhost:8082/admin/master/console/#/condominio/users/ace11e10-2926-4463-bb6f-e5d87b8099b8/role-mapping","state":"727a1304-eafd-487f-a277-537a976327ee","code_challenge":"hSPhTk0ddCTiFEIVoXIP5f_OJbUG0qfNXr9ZUeXfnsg","prompt":"none","SSO_AUTH":"true"}}', 'local', 'local', 6);
+INSERT INTO auth.offline_client_session VALUES ('1096d143-b759-4247-b13d-aa86092ae784', 'c69481e1-87f7-4fa8-a2a9-c39fcb856a41', '0', 1772544507, '{"authMethod":"openid-connect","notes":{"clientId":"c69481e1-87f7-4fa8-a2a9-c39fcb856a41","userSessionStartedAt":"1772544507","iss":"http://localhost:8082/realms/condominio","startedAt":"1772544507","level-of-authentication":"-1"}}', 'local', 'local', 0);
 
 
 --
@@ -2932,7 +2953,9 @@ INSERT INTO auth.offline_client_session VALUES ('a5e12a72-79e3-48e7-a2b2-7c8cbd4
 -- Data for Name: offline_user_session; Type: TABLE DATA; Schema: auth; Owner: -
 --
 
-INSERT INTO auth.offline_user_session VALUES ('a5e12a72-79e3-48e7-a2b2-7c8cbd4f823e', '679d8ad7-2047-41eb-b88e-bad459ccdc81', '0c806647-a11c-403d-af39-092523465ca0', 1772488081, '0', '{"ipAddress":"172.18.0.1","authMethod":"openid-connect","rememberMe":false,"started":0,"notes":{"KC_DEVICE_NOTE":"eyJpcEFkZHJlc3MiOiIxNzIuMTguMC4xIiwib3MiOiJXaW5kb3dzIiwib3NWZXJzaW9uIjoiMTAiLCJicm93c2VyIjoiQ2hyb21lLzE0NS4wLjAiLCJkZXZpY2UiOiJPdGhlciIsImxhc3RBY2Nlc3MiOjAsIm1vYmlsZSI6ZmFsc2V9","AUTH_TIME":"1772488081","authenticators-completed":"{\"7b8b8659-89fc-41f5-9905-da339d34ac71\":1772488081,\"7924e8bd-b0e1-4fbd-8e30-4d22e897e00a\":1772488083}"},"state":"LOGGED_IN"}', 1772488363, NULL, 4);
+INSERT INTO auth.offline_user_session VALUES ('1096d143-b759-4247-b13d-aa86092ae784', '534dd7bc-f0f8-48e9-8b94-0e5d9d5f722c', '7404ff5e-f51a-4416-b45f-15d2d69cca5f', 1772544507, '0', '{"ipAddress":"172.18.0.1","authMethod":"openid-connect","rememberMe":false,"started":0,"notes":{"KC_DEVICE_NOTE":"eyJpcEFkZHJlc3MiOiIxNzIuMTguMC4xIiwib3MiOiJPdGhlciIsIm9zVmVyc2lvbiI6IlVua25vd24iLCJicm93c2VyIjoiQXBhY2hlLUh0dHBDbGllbnQvNC41LjMiLCJkZXZpY2UiOiJPdGhlciIsImxhc3RBY2Nlc3MiOjAsIm1vYmlsZSI6ZmFsc2V9","authenticators-completed":"{\"91a23062-05c0-4d5e-8b77-3228a78bf6f6\":1772544507,\"e47eb9c5-d426-41ed-a518-e72cab789f71\":1772544507}"},"state":"LOGGED_IN"}', 1772544507, NULL, 0);
+INSERT INTO auth.offline_user_session VALUES ('19dc75b3-a33b-471e-9096-363debc2fb8f', '534dd7bc-f0f8-48e9-8b94-0e5d9d5f722c', '7404ff5e-f51a-4416-b45f-15d2d69cca5f', 1772544939, '0', '{"ipAddress":"172.18.0.1","authMethod":"openid-connect","rememberMe":false,"started":0,"notes":{"KC_DEVICE_NOTE":"eyJpcEFkZHJlc3MiOiIxNzIuMTguMC4xIiwib3MiOiJXaW5kb3dzIiwib3NWZXJzaW9uIjoiMTAiLCJicm93c2VyIjoiQ2hyb21lLzE0NS4wLjAiLCJkZXZpY2UiOiJPdGhlciIsImxhc3RBY2Nlc3MiOjAsIm1vYmlsZSI6ZmFsc2V9","AUTH_TIME":"1772544939","authenticators-completed":"{\"9f945f24-5729-427a-a989-b145ea7d2383\":1772544939}"},"state":"LOGGED_IN"}', 1772544943, NULL, 1);
+INSERT INTO auth.offline_user_session VALUES ('11503d25-f3e1-4472-b14d-d63487251ecb', '679d8ad7-2047-41eb-b88e-bad459ccdc81', '0c806647-a11c-403d-af39-092523465ca0', 1772543870, '0', '{"ipAddress":"172.18.0.1","authMethod":"openid-connect","rememberMe":false,"started":0,"notes":{"KC_DEVICE_NOTE":"eyJpcEFkZHJlc3MiOiIxNzIuMTguMC4xIiwib3MiOiJXaW5kb3dzIiwib3NWZXJzaW9uIjoiMTAiLCJicm93c2VyIjoiQ2hyb21lLzE0NS4wLjAiLCJkZXZpY2UiOiJPdGhlciIsImxhc3RBY2Nlc3MiOjAsIm1vYmlsZSI6ZmFsc2V9","AUTH_TIME":"1772543870","authenticators-completed":"{\"7b8b8659-89fc-41f5-9905-da339d34ac71\":1772543870,\"7924e8bd-b0e1-4fbd-8e30-4d22e897e00a\":1772544523}"},"state":"LOGGED_IN"}', 1772544956, NULL, 6);
 
 
 --
@@ -3822,7 +3845,7 @@ INSERT INTO auth.scope_mapping VALUES ('7fd7b484-d21f-4b3e-b90a-162ab060025e', '
 --
 
 INSERT INTO auth.user_entity VALUES ('679d8ad7-2047-41eb-b88e-bad459ccdc81', NULL, '18392ca1-be8f-4338-83ac-8747a92aba03', false, true, NULL, NULL, NULL, '0c806647-a11c-403d-af39-092523465ca0', 'admin', 1760965845490, NULL, 0);
-INSERT INTO auth.user_entity VALUES ('ace11e10-2926-4463-bb6f-e5d87b8099b8', 'simonemarcovalerio@gmail.com', 'simonemarcovalerio@gmail.com', false, true, NULL, 'Marco', 'Simone', '7404ff5e-f51a-4416-b45f-15d2d69cca5f', 'marco', 1771406417685, NULL, 0);
+INSERT INTO auth.user_entity VALUES ('534dd7bc-f0f8-48e9-8b94-0e5d9d5f722c', NULL, '766ffc3e-e517-4d13-9eed-69973fdfc8db', true, true, NULL, 'svc-admin', 'svc-admin', '7404ff5e-f51a-4416-b45f-15d2d69cca5f', 'svc-admin', 1772537204682, NULL, 0);
 
 
 --
@@ -3908,7 +3931,9 @@ INSERT INTO auth.user_role_mapping VALUES ('6c32a60e-78de-4b5a-b19c-69eb7e84ac9a
 INSERT INTO auth.user_role_mapping VALUES ('966551e2-bdb1-4c42-a1f4-10c85d410db2', '679d8ad7-2047-41eb-b88e-bad459ccdc81');
 INSERT INTO auth.user_role_mapping VALUES ('c5fbb5ee-4707-425f-836d-3d833f7c294f', '679d8ad7-2047-41eb-b88e-bad459ccdc81');
 INSERT INTO auth.user_role_mapping VALUES ('34601634-cb47-4e05-8bb9-20cb5dfd0b50', '679d8ad7-2047-41eb-b88e-bad459ccdc81');
-INSERT INTO auth.user_role_mapping VALUES ('e087d186-7b4a-406b-819f-315ea7e9ad76', 'ace11e10-2926-4463-bb6f-e5d87b8099b8');
+INSERT INTO auth.user_role_mapping VALUES ('e087d186-7b4a-406b-819f-315ea7e9ad76', '534dd7bc-f0f8-48e9-8b94-0e5d9d5f722c');
+INSERT INTO auth.user_role_mapping VALUES ('5b557614-c20f-6f12-0325-de9631fe201d', '534dd7bc-f0f8-48e9-8b94-0e5d9d5f722c');
+INSERT INTO auth.user_role_mapping VALUES ('27af0f0b-5dd5-434f-a2e7-807776d4a813', '534dd7bc-f0f8-48e9-8b94-0e5d9d5f722c');
 
 
 --
@@ -6252,7 +6277,7 @@ ALTER TABLE ONLY auth.menu_items
     ADD CONSTRAINT fkkcxk88u5djnbobanga7hj14q6 FOREIGN KEY (parent_id) REFERENCES auth.menu_items(id);
 
 
--- Completed on 2026-03-02 22:54:56
+-- Completed on 2026-03-03 14:36:38
 
 --
 -- PostgreSQL database dump complete

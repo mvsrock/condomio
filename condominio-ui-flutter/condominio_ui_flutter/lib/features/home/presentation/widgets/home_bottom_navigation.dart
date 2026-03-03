@@ -1,14 +1,18 @@
 import 'package:flutter/material.dart';
 
+import '../models/home_nav_destination.dart';
+
 class HomeBottomNavigation extends StatelessWidget {
   const HomeBottomNavigation({
     super.key,
     required this.selectedIndex,
     required this.onDestinationSelected,
+    required this.destinations,
   });
 
   final int selectedIndex;
   final ValueChanged<int> onDestinationSelected;
+  final List<HomeNavDestination> destinations;
 
   @override
   Widget build(BuildContext context) {
@@ -30,32 +34,13 @@ class HomeBottomNavigation extends StatelessWidget {
           backgroundColor: Colors.transparent,
           selectedIndex: selectedIndex,
           onDestinationSelected: onDestinationSelected,
-          destinations: const [
-            NavigationDestination(
-              icon: Icon(Icons.dashboard_outlined),
-              selectedIcon: Icon(Icons.dashboard),
-              label: 'Dashboard',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.map_outlined),
-              selectedIcon: Icon(Icons.map),
-              label: 'Mappa',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.badge_outlined),
-              selectedIcon: Icon(Icons.badge),
-              label: 'Anagrafica',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.receipt_long_outlined),
-              selectedIcon: Icon(Icons.receipt_long),
-              label: 'Sessione',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.folder_open_outlined),
-              selectedIcon: Icon(Icons.folder_open),
-              label: 'Documenti',
-            ),
+          destinations: [
+            for (final destination in destinations)
+              NavigationDestination(
+                icon: Icon(destination.icon),
+                selectedIcon: Icon(destination.selectedIcon),
+                label: destination.label,
+              ),
           ],
         ),
       ),

@@ -217,6 +217,26 @@ class KeycloakService {
     }
   }
 
+  /// True se il token contiene il ruolo realm richiesto.
+  ///
+  /// Supporta sia naming `amministratore` sia `ROLE_amministratore`.
+  bool hasRealmRole(String roleName) {
+    if (roleName.trim().isEmpty) return false;
+    final roles = tokenParsed?['realm_access']?['roles'];
+    if (roles is! List) return false;
+
+    final normalized = roleName.trim();
+    final prefixed = normalized.startsWith('ROLE_')
+        ? normalized
+        : 'ROLE_$normalized';
+
+    for (final role in roles) {
+      if (role is! String) continue;
+      if (role == normalized || role == prefixed) return true;
+    }
+    return false;
+  }
+
   /// Avvia login delegando al flusso specifico della piattaforma.
   Future<void> login() async {
     if (!_initialized) await init();

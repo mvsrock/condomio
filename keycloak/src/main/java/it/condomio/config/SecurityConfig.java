@@ -32,17 +32,19 @@ public class SecurityConfig {
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource))
                 .csrf(AbstractHttpConfigurer::disable)
-                .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers(
-                                "/swagger-ui/**",
-                                "/v3/api-docs/**",
-                                "/swagger-resources/**",
-                                "/webjars/**",
-                                "/public/**",
-                                "/actuator/**"
-                        ).permitAll()
-                        .anyRequest().authenticated()
-                )
+                .authorizeHttpRequests(auth -> auth
+                		 .requestMatchers(
+                                 "/swagger-ui/**",
+                                 "/v3/api-docs/**",
+                                 "/swagger-resources/**",
+                                 "/webjars/**",
+                                 "/public/**",
+                                 "/actuator/**"
+                         ).permitAll()
+                	      .requestMatchers("/roles/**", "/groups/**", "/users/**").hasRole("amministratore")
+                	      .requestMatchers("/menu-items/by-role-names").authenticated()
+                	      .anyRequest().authenticated()
+                	  )
                 .oauth2ResourceServer(oauth2 ->
                         oauth2
                                 .authenticationEntryPoint(customAuthenticationEntryPoint())
