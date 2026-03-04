@@ -1,8 +1,8 @@
 package it.condomio.config;
 
-
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -13,7 +13,6 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import it.condomio.security.entry_point.CustomAuthenticationEntryPoint;
 import it.condomio.security.jwt.CustomJwtAuthenticationConverter;
 
-
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
@@ -23,10 +22,12 @@ public class SecurityConfig {
     public SecurityConfig(CorsConfigurationSource corsConfigurationSource) {
         this.corsConfigurationSource = corsConfigurationSource;
     }
+
     @Bean
     public CustomAuthenticationEntryPoint customAuthenticationEntryPoint() {
         return new CustomAuthenticationEntryPoint();
     }
+
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
@@ -41,13 +42,17 @@ public class SecurityConfig {
                                 "/public/**",
                                 "/actuator/**"
                         ).permitAll()
+                        .requestMatchers(HttpMethod.POST, "/condomino/**").hasRole("amministratore")
+                        .requestMatchers(HttpMethod.PUT, "/condomino/**").hasRole("amministratore")
+                        .requestMatchers(HttpMethod.PATCH, "/condomino/**").hasRole("amministratore")
+                        .requestMatchers(HttpMethod.DELETE, "/condomino/**").hasRole("amministratore")
                         .anyRequest().authenticated()
                 )
                 .oauth2ResourceServer(oauth2 ->
                         oauth2
                                 .authenticationEntryPoint(customAuthenticationEntryPoint())
-                        .jwt(jwt -> jwt
-                                .jwtAuthenticationConverter(new CustomJwtAuthenticationConverter()))
+                                .jwt(jwt -> jwt
+                                        .jwtAuthenticationConverter(new CustomJwtAuthenticationConverter()))
                 );
 
         return http.build();
