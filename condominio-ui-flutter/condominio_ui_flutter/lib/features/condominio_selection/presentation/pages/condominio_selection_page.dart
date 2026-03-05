@@ -21,6 +21,7 @@ class _CondominioSelectionPageState
   final _formKey = GlobalKey<FormState>();
   final _labelCtrl = TextEditingController();
   final _annoCtrl = TextEditingController(text: '${DateTime.now().year}');
+  final _saldoInizialeCtrl = TextEditingController(text: '0');
 
   @override
   void initState() {
@@ -34,6 +35,7 @@ class _CondominioSelectionPageState
   void dispose() {
     _labelCtrl.dispose();
     _annoCtrl.dispose();
+    _saldoInizialeCtrl.dispose();
     super.dispose();
   }
 
@@ -194,6 +196,26 @@ class _CondominioSelectionPageState
                             },
                           ),
                           const SizedBox(height: 12),
+                          TextFormField(
+                            controller: _saldoInizialeCtrl,
+                            decoration: const InputDecoration(
+                              labelText: 'Saldo iniziale',
+                              helperText: 'Puoi inserire un valore positivo o negativo',
+                            ),
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                              signed: true,
+                            ),
+                            validator: (value) {
+                              final parsed = double.tryParse(
+                                (value ?? '').trim().replaceAll(',', '.'),
+                              );
+                              if (parsed == null) return 'Saldo iniziale non valido';
+                              if (!parsed.isFinite) return 'Saldo iniziale non valido';
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 12),
                           Align(
                             alignment: Alignment.centerRight,
                             child: FilledButton.icon(
@@ -206,8 +228,14 @@ class _CondominioSelectionPageState
                                       await notifier.createCondominio(
                                         label: _labelCtrl.text,
                                         anno: int.parse(_annoCtrl.text),
+                                        saldoIniziale: double.parse(
+                                          _saldoInizialeCtrl.text
+                                              .trim()
+                                              .replaceAll(',', '.'),
+                                        ),
                                       );
                                       _labelCtrl.clear();
+                                      _saldoInizialeCtrl.text = '0';
                                     },
                               icon: state.isCreating
                                   ? const SizedBox.square(

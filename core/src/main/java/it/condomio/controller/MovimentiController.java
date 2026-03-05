@@ -86,5 +86,14 @@ public class MovimentiController {
         movimentiService.rebuildResidui(idCondominio, jwt.getSubject());
         return ResponseEntity.noContent().build();
     }
+
+    /** Rebuild storico completo su condominio (movimenti + residui). */
+    @PostMapping("/rebuild-storico/{idCondominio}")
+    public ResponseEntity<Void> rebuildStorico(
+            @PathVariable String idCondominio,
+            @AuthenticationPrincipal Jwt jwt) throws ApiException {
+        movimentiService.rebuildStorico(idCondominio, jwt.getSubject());
+        return ResponseEntity.noContent().build();
+    }
 }
 

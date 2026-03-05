@@ -6,6 +6,7 @@ class CondominioDocumentModel {
     required this.label,
     required this.anno,
     required this.configurazioniSpesa,
+    required this.saldoIniziale,
     required this.residuo,
   });
 
@@ -14,6 +15,7 @@ class CondominioDocumentModel {
   final String label;
   final int anno;
   final List<ConfigurazioneSpesaModel> configurazioniSpesa;
+  final double saldoIniziale;
   final double residuo;
 
   factory CondominioDocumentModel.fromJson(Map<String, dynamic> json) {
@@ -26,6 +28,7 @@ class CondominioDocumentModel {
           (json['configurazioniSpesa'] as List<dynamic>? ?? const [])
               .map((e) => ConfigurazioneSpesaModel.fromJson(e as Map<String, dynamic>))
               .toList(growable: false),
+      saldoIniziale: (json['saldoIniziale'] as num?)?.toDouble() ?? 0,
       residuo: (json['residuo'] as num?)?.toDouble() ?? 0,
     );
   }
@@ -37,6 +40,7 @@ class CondominioDocumentModel {
       'label': label,
       'anno': anno,
       'configurazioniSpesa': configurazioniSpesa.map((e) => e.toJson()).toList(),
+      'saldoIniziale': saldoIniziale,
       'residuo': residuo,
     };
   }

@@ -29,6 +29,7 @@ import it.condomio.repository.MovimentiRepository;
  * Motore realtime di riparto:
  * - valorizza ripartizione tabelle + ripartizione condomini sul movimento.
  * - ricalcola residui di tutti i condomini del condominio target.
+ * - aggiorna il residuo condominio includendo anche il saldo iniziale contabile.
  */
 @Service
 public class RipartoRealtimeService {
@@ -111,7 +112,8 @@ public class RipartoRealtimeService {
             condominoBulk.execute();
         }
 
-        final double newCondominioResiduo = round2(residuoCondominio);
+        final double saldoInizialeCondominio = condominio.getSaldoIniziale() == null ? 0d : condominio.getSaldoIniziale();
+        final double newCondominioResiduo = round2(saldoInizialeCondominio + residuoCondominio);
         // Caso singolo e update omogeneo: usiamo repository @Query/@Update.
         condominioRepository.setResiduoById(idCondominio, newCondominioResiduo);
         condominio.setResiduo(newCondominioResiduo);
@@ -168,6 +170,30 @@ public class RipartoRealtimeService {
         }
         final double currentCondominioResiduo = condominio.getResiduo() == null ? 0d : condominio.getResiduo();
         condominio.setResiduo(round2(currentCondominioResiduo + condominioDelta));
+    }
+
+    /**
+     * Rebuild storico completo su un condominio:
+     * - ricalcola ripartizione di TUTTI i movimenti con configurazioni/quote correnti
+     * - poi ricalcola i residui globali.
+     *
+     * Nota "per anno":
+     * nel dominio attuale ogni condominio e' gia' specifico per anno; quindi
+     * l'operazione sul singolo idCondominio e' intrinsecamente scoped all'anno.
+     */
+    public void rebuildStoricoCondominio(String idCondominio) throws NotFoundException, ValidationFailedException {
+        condominioRepository.findById(idCondominio)
+                .orElseThrow(() -> new NotFoundException("condominio"));
+
+        final List<Movimenti> movimenti = movimentiRepository.findByIdCondominio(idCondominio);
+        if (!movimenti.isEmpty()) {
+            final List<Movimenti> rebuilt = new ArrayList<>(movimenti.size());
+            for (Movimenti m : movimenti) {
+                rebuilt.add(enrichMovimentoWithRiparto(m));
+            }
+            movimentiRepository.saveAll(rebuilt);
+        }
+        recomputeCondominioResidui(idCondominio);
     }
 
     private Condominio.ConfigurazioneSpesa resolveConfigurazioneSpesa(

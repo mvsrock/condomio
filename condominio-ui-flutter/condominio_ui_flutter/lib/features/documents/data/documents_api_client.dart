@@ -265,4 +265,17 @@ class DocumentsApiClient {
       _throwHttpError('patchCondominoQuoteTabelle', response);
     }
   }
+
+  Future<void> rebuildStoricoCondominio({
+    required String accessToken,
+    required String condominioId,
+  }) async {
+    final response = await http.post(
+      _uri('/movimenti/rebuild-storico/$condominioId'),
+      headers: _headers(accessToken),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      _throwHttpError('rebuildStoricoCondominio', response);
+    }
+  }
 }

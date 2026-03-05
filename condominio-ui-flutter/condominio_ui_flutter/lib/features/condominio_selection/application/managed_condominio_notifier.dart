@@ -127,6 +127,7 @@ class ManagedCondominioNotifier extends StateNotifier<ManagedCondominioState> {
   Future<void> createCondominio({
     required String label,
     required int anno,
+    required double saldoIniziale,
   }) async {
     if (!_canCreateCondominio()) {
       state = state.copyWith(
@@ -138,7 +139,12 @@ class ManagedCondominioNotifier extends StateNotifier<ManagedCondominioState> {
     state = state.copyWith(isCreating: true, clearErrorMessage: true);
     try {
       final token = _requireAccessToken();
-      await _api.create(accessToken: token, label: label, anno: anno);
+      await _api.create(
+        accessToken: token,
+        label: label,
+        anno: anno,
+        saldoIniziale: saldoIniziale,
+      );
       state = state.copyWith(isCreating: false);
       await loadCondomini();
       if (state.items.length == 1 && state.selectedId == null) {

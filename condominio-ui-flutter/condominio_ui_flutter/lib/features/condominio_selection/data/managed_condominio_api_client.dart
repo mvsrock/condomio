@@ -41,6 +41,7 @@ class ManagedCondominioApiClient {
     required String accessToken,
     required String label,
     required int anno,
+    required double saldoIniziale,
   }) async {
     final response = await http.post(
       _uri('/condominio'),
@@ -48,7 +49,8 @@ class ManagedCondominioApiClient {
       body: jsonEncode({
         'label': label.trim(),
         'anno': anno,
-        'residuo': 0,
+        // In creazione il backend inizializza residuo a saldoIniziale.
+        'saldoIniziale': saldoIniziale,
         'configurazioniSpesa': <Map<String, Object?>>[],
       }),
     );

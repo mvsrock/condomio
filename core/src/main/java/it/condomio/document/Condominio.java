@@ -27,6 +27,11 @@ public class Condominio {
     @Indexed
     private String adminKeycloakUserId;
     private List<ConfigurazioneSpesa> configurazioniSpesa;
+    /**
+     * Saldo contabile di partenza del condominio (anno specifico).
+     * Viene sommato al saldo aggregato dei condomini nel ricalcolo residui.
+     */
+    private Double saldoIniziale;
     private Double residuo;
 
     @Data

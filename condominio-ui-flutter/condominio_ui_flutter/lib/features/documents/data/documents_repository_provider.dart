@@ -481,6 +481,30 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
     }
   }
 
+  /// Rebuild storico completo (movimenti + residui) per il condominio selezionato.
+  Future<void> rebuildStoricoCondominio() async {
+    state = state.copyWith(isSaving: true, clearErrorMessage: true);
+    try {
+      final token = _requireAccessToken();
+      final condominioId = _requireSelectedCondominioId();
+      await _api.rebuildStoricoCondominio(
+        accessToken: token,
+        condominioId: condominioId,
+      );
+      state = state.copyWith(isSaving: false);
+      await _refreshCondominioCondominiMovimenti();
+    } catch (e, st) {
+      if (e is ApiError) {
+        debugPrint('[DOCUMENTS][rebuildStoricoCondominio] ${e.technicalMessage}');
+      } else {
+        debugPrint('[DOCUMENTS][rebuildStoricoCondominio] $e');
+      }
+      debugPrint('$st');
+      state = state.copyWith(isSaving: false, errorMessage: '$e');
+      rethrow;
+    }
+  }
+
   void clear() {
     state = DocumentsDataState.initial();
   }

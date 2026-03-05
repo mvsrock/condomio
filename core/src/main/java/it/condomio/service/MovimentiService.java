@@ -128,6 +128,13 @@ public class MovimentiService {
         ripartoRealtimeService.recomputeCondominioResidui(idCondominio);
     }
 
+    /** Rebuild storico completo: riparti movimenti + residui sul condominio corrente. */
+    @Transactional
+    public void rebuildStorico(String idCondominio, String keycloakUserId) throws ApiException {
+        ensureAdminOwnsCondominio(idCondominio, keycloakUserId);
+        ripartoRealtimeService.rebuildStoricoCondominio(idCondominio);
+    }
+
     private void ensureAdminOwnsCondominio(String condominioId, String keycloakUserId) throws ApiException {
         if (condominioId == null || condominioId.isBlank()) {
             throw new ValidationFailedException("validation.required.movimento.idCondominio");

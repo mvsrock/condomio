@@ -272,7 +272,7 @@ class DocumentsPage extends ConsumerWidget {
     required CondominioDocumentModel selectedCondominio,
     required List<TabellaModel> tabelle,
   }) async {
-    final result = await showDialog<List<_ConfigurazioneSpesaDraft>>(
+    final result = await showDialog<_ConfigurazioniSaveResult>(
       context: context,
       barrierDismissible: false,
       builder: (context) => _ConfigurazioniSpesaDialog(
@@ -283,10 +283,11 @@ class DocumentsPage extends ConsumerWidget {
       ),
     );
     if (result == null) return;
+    if (!context.mounted) return;
 
     try {
       await ref.read(documentsDataProvider.notifier).updateConfigurazioniSpesa(
-            configurazioni: result
+            configurazioni: result.items
                 .map(
                   (c) => CondominioConfigurazioneDraft(
                     codice: c.codice.trim(),
@@ -303,10 +304,14 @@ class DocumentsPage extends ConsumerWidget {
                 )
                 .toList(growable: false),
           );
+      if (result.rebuildStorico) {
+        await ref.read(documentsDataProvider.notifier).rebuildStoricoCondominio();
+      }
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Configurazioni riparto aggiornate')),
-        );
+        final message = result.rebuildStorico
+            ? 'Configurazioni aggiornate e storico ricalcolato'
+            : 'Configurazioni aggiornate (valide per nuove spese)';
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
       }
     } catch (e) {
       if (context.mounted) {
@@ -1088,7 +1093,7 @@ class DocumentsPage extends ConsumerWidget {
     required List<CondominoDocumentModel> allCondomini,
     required List<TabellaModel> tabelle,
   }) async {
-    final result = await showDialog<List<_CondominoQuotaDraft>>(
+    final result = await showDialog<_QuoteSaveResult>(
       context: context,
       barrierDismissible: false,
       builder: (context) => _CondominoQuoteDialog(
@@ -1098,10 +1103,12 @@ class DocumentsPage extends ConsumerWidget {
       ),
     );
     if (result == null) return;
+    if (!context.mounted) return;
+
     try {
       await ref.read(documentsDataProvider.notifier).updateCondominoQuoteTabelle(
             condominoId: selectedCondomino.id,
-            quote: result
+            quote: result.rows
                 .map(
                   (q) => CondominoTabellaQuotaDraft(
                     codice: q.codiceTabella,
@@ -1112,10 +1119,14 @@ class DocumentsPage extends ConsumerWidget {
                 )
                 .toList(growable: false),
           );
+      if (result.rebuildStorico) {
+        await ref.read(documentsDataProvider.notifier).rebuildStoricoCondominio();
+      }
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Quote condomino aggiornate')),
-        );
+        final message = result.rebuildStorico
+            ? 'Quote aggiornate e storico ricalcolato'
+            : 'Quote aggiornate (valide per nuove spese)';
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
       }
     } catch (e) {
       if (context.mounted) {
@@ -1728,6 +1739,7 @@ class _ConfigurazioniSpesaDialog extends StatefulWidget {
 
 class _ConfigurazioniSpesaDialogState extends State<_ConfigurazioniSpesaDialog> {
   late List<_ConfigurazioneSpesaDraft> _items;
+  bool _rebuildStorico = false;
 
   @override
   void initState() {
@@ -1763,6 +1775,17 @@ class _ConfigurazioniSpesaDialogState extends State<_ConfigurazioniSpesaDialog> 
               onPressed: _addConfigurazione,
               icon: const Icon(Icons.add),
               label: const Text('Aggiungi codice spesa'),
+            ),
+            const SizedBox(height: 6),
+            CheckboxListTile(
+              contentPadding: EdgeInsets.zero,
+              value: _rebuildStorico,
+              onChanged: (value) => setState(() => _rebuildStorico = value ?? false),
+              title: const Text('Ricostruisci storico'),
+              subtitle: const Text(
+                'Applica le modifiche a tutte le spese gia registrate '
+                'dell\'anno corrente.',
+              ),
             ),
           ],
         ),
@@ -1992,7 +2015,12 @@ class _ConfigurazioniSpesaDialogState extends State<_ConfigurazioniSpesaDialog> 
         return;
       }
     }
-    Navigator.of(context).pop(_items);
+    Navigator.of(context).pop(
+      _ConfigurazioniSaveResult(
+        items: _items,
+        rebuildStorico: _rebuildStorico,
+      ),
+    );
   }
 
   void _showError(String message) {
@@ -2070,6 +2098,16 @@ class _DraftId {
 
 enum _LinkedTabellaAction { cancel, openConfig, autoCleanup }
 
+class _ConfigurazioniSaveResult {
+  const _ConfigurazioniSaveResult({
+    required this.items,
+    required this.rebuildStorico,
+  });
+
+  final List<_ConfigurazioneSpesaDraft> items;
+  final bool rebuildStorico;
+}
+
 class _CondominoQuoteDialog extends StatefulWidget {
   const _CondominoQuoteDialog({
     required this.condomino,
@@ -2088,6 +2126,7 @@ class _CondominoQuoteDialog extends StatefulWidget {
 class _CondominoQuoteDialogState extends State<_CondominoQuoteDialog> {
   late List<_CondominoQuotaDraft> _rows;
   late List<_TabellaQuoteHealth> _health;
+  bool _rebuildStorico = false;
 
   @override
   void initState() {
@@ -2119,6 +2158,17 @@ class _CondominoQuoteDialogState extends State<_CondominoQuoteDialog> {
             ),
             const SizedBox(height: 6),
             ..._health.map(_buildHealthRow),
+            const SizedBox(height: 6),
+            CheckboxListTile(
+              contentPadding: EdgeInsets.zero,
+              value: _rebuildStorico,
+              onChanged: (value) => setState(() => _rebuildStorico = value ?? false),
+              title: const Text('Ricostruisci storico'),
+              subtitle: const Text(
+                'Applica le nuove quote anche alle spese gia registrate '
+                'dell\'anno corrente.',
+              ),
+            ),
           ],
         ),
       ),
@@ -2304,7 +2354,12 @@ class _CondominoQuoteDialogState extends State<_CondominoQuoteDialog> {
       }
     }
     if (!mounted) return;
-    Navigator.of(context).pop(_rows);
+    Navigator.of(context).pop(
+      _QuoteSaveResult(
+        rows: _rows,
+        rebuildStorico: _rebuildStorico,
+      ),
+    );
   }
 
   Widget _buildHealthRow(_TabellaQuoteHealth health) {
@@ -2424,6 +2479,16 @@ class _CondominoQuotaDraft {
   String descrizioneTabella;
   double numeratore;
   double denominatore;
+}
+
+class _QuoteSaveResult {
+  const _QuoteSaveResult({
+    required this.rows,
+    required this.rebuildStorico,
+  });
+
+  final List<_CondominoQuotaDraft> rows;
+  final bool rebuildStorico;
 }
 
 class _TabellaQuoteHealth {
