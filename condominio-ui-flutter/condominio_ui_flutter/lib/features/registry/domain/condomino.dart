@@ -11,6 +11,7 @@ class Condomino {
     required this.interno,
     required this.email,
     required this.telefono,
+    required this.saldoIniziale,
     required this.millesimi,
     required this.residente,
     this.ruolo = CondominoRuolo.standard,
@@ -26,6 +27,7 @@ class Condomino {
   final String interno;
   final String email;
   final String telefono;
+  final double saldoIniziale;
   final double millesimi;
   final bool residente;
   final CondominoRuolo ruolo;
@@ -52,6 +54,7 @@ class Condomino {
       interno: (json['interno'] ?? '').toString(),
       email: (json['email'] ?? '').toString(),
       telefono: (json['cellulare'] ?? '').toString(),
+      saldoIniziale: (json['saldoIniziale'] as num?)?.toDouble() ?? 0,
       millesimi: 0,
       residente: true,
       ruolo: _roleFromString(roleRaw),
@@ -75,8 +78,7 @@ class Condomino {
       'scala': scala,
       'interno': int.tryParse(interno) ?? 0,
       'anno': DateTime.now().year,
-      'residuo': 0,
-      'versamenti': const [],
+      'saldoIniziale': saldoIniziale,
       'appRole': ruolo.keycloakRoleName,
       'appEnabled': hasAppAccess,
       'keycloakUsername': keycloakUsername,
@@ -102,6 +104,7 @@ class Condomino {
     String? interno,
     String? email,
     String? telefono,
+    double? saldoIniziale,
     double? millesimi,
     bool? residente,
     CondominoRuolo? ruolo,
@@ -119,6 +122,7 @@ class Condomino {
       interno: interno ?? this.interno,
       email: email ?? this.email,
       telefono: telefono ?? this.telefono,
+      saldoIniziale: saldoIniziale ?? this.saldoIniziale,
       millesimi: millesimi ?? this.millesimi,
       residente: residente ?? this.residente,
       ruolo: ruolo ?? this.ruolo,

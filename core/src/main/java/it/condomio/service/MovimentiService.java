@@ -6,6 +6,7 @@ import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import it.condomio.document.Movimenti;
 import it.condomio.exception.ApiException;
@@ -25,12 +26,23 @@ public class MovimentiService {
     @Autowired
     private TenantAccessService tenantAccessService;
 
+    @Autowired
+    private RipartoRealtimeService ripartoRealtimeService;
+
+    /**
+     * Create movimento + aggiornamento residui come unita' atomica logica.
+     * In Mongo la vera atomicita' multi-documento richiede replica set attivo.
+     */
+    @Transactional
     public Movimenti createMovimento(Movimenti movimento, String keycloakUserId) throws ApiException {
         validateMovimento(movimento);
         ensureAdminOwnsCondominio(movimento.getIdCondominio(), keycloakUserId);
         movimento.setId(null);
         movimento.setVersion(null);
-        return movimentiRepository.save(movimento);
+        Movimenti enriched = ripartoRealtimeService.enrichMovimentoWithRiparto(movimento);
+        Movimenti saved = movimentiRepository.save(enriched);
+        ripartoRealtimeService.applyMovimentoDelta(saved.getIdCondominio(), null, saved);
+        return saved;
     }
 
     public Optional<Movimenti> getMovimentoById(String id, String keycloakUserId) {
@@ -49,6 +61,10 @@ public class MovimentiService {
         return movimentiRepository.findByIdCondominioIn(visibleCondominioIds);
     }
 
+    /**
+     * Update full movimento + delta residui nella stessa transazione applicativa.
+     */
+    @Transactional
     public Movimenti updateMovimento(String id, Movimenti updatedMovimento, String keycloakUserId) throws ApiException {
         Optional<Movimenti> existingOpt = movimentiRepository.findById(id);
         if (existingOpt.isEmpty()) {
@@ -60,18 +76,32 @@ public class MovimentiService {
         updatedMovimento.setVersion(existing.getVersion());
         validateMovimento(updatedMovimento);
         updatedMovimento.setId(id);
-        return movimentiRepository.save(updatedMovimento);
+        Movimenti enriched = ripartoRealtimeService.enrichMovimentoWithRiparto(updatedMovimento);
+        Movimenti saved = movimentiRepository.save(enriched);
+        ripartoRealtimeService.applyMovimentoDelta(saved.getIdCondominio(), existing, saved);
+        return saved;
     }
 
+    /**
+     * Delete movimento + rollback contabile residui nella stessa unita' di lavoro.
+     */
+    @Transactional
     public void deleteMovimento(String id, String keycloakUserId) throws ApiException {
         Optional<Movimenti> existingOpt = movimentiRepository.findById(id);
         if (existingOpt.isEmpty()) {
             throw new NotFoundException("movimento");
         }
-        ensureAdminOwnsCondominio(existingOpt.get().getIdCondominio(), keycloakUserId);
+        final String idCondominio = existingOpt.get().getIdCondominio();
+        final Movimenti existing = existingOpt.get();
+        ensureAdminOwnsCondominio(idCondominio, keycloakUserId);
         movimentiRepository.deleteById(id);
+        ripartoRealtimeService.applyMovimentoDelta(idCondominio, existing, null);
     }
 
+    /**
+     * Patch movimento + applicazione delta residui in modo consistente.
+     */
+    @Transactional
     public Movimenti patch(String id, JsonNode mergePatch, String keycloakUserId)
             throws IOException, ValidationFailedException, ApiException {
         Optional<Movimenti> optionalMovimenti = movimentiRepository.findById(id);
@@ -85,7 +115,17 @@ public class MovimentiService {
         patchedMovimenti.setVersion(existing.getVersion());
         patchedMovimenti.setIdCondominio(existing.getIdCondominio());
         validateMovimento(patchedMovimenti);
-        return movimentiRepository.save(patchedMovimenti);
+        Movimenti enriched = ripartoRealtimeService.enrichMovimentoWithRiparto(patchedMovimenti);
+        Movimenti saved = movimentiRepository.save(enriched);
+        ripartoRealtimeService.applyMovimentoDelta(saved.getIdCondominio(), existing, saved);
+        return saved;
+    }
+
+    /** Rebuild completo residui (manutenzione/allineamento straordinario). */
+    @Transactional
+    public void rebuildResidui(String idCondominio, String keycloakUserId) throws ApiException {
+        ensureAdminOwnsCondominio(idCondominio, keycloakUserId);
+        ripartoRealtimeService.recomputeCondominioResidui(idCondominio);
     }
 
     private void ensureAdminOwnsCondominio(String condominioId, String keycloakUserId) throws ApiException {

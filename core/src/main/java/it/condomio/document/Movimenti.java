@@ -26,12 +26,21 @@ public class Movimenti {
     private Instant date;
     private Instant insertedAt;
     private List<RipartizioneTabella> ripartizioneTabelle;
+    private List<RipartizioneCondomino> ripartizioneCondomini;
 
     @Data
     public static class RipartizioneTabella {
     	@Indexed(unique = false)
     	private String codice;
         private String descrizione;
+        private Double importo;
+    }
+
+    @Data
+    public static class RipartizioneCondomino {
+        @Indexed(unique = false)
+        private String idCondomino;
+        private String nominativo;
         private Double importo;
     }
 }

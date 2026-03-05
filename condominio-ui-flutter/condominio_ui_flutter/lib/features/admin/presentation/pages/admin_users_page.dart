@@ -30,6 +30,7 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
   final _telefonoCtrl = TextEditingController();
   final _scalaCtrl = TextEditingController();
   final _internoCtrl = TextEditingController();
+  final _saldoInizialeCtrl = TextEditingController(text: '0');
   final _millesimiCtrl = TextEditingController(text: '0');
   final _usernameCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
@@ -56,6 +57,7 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
     _telefonoCtrl.dispose();
     _scalaCtrl.dispose();
     _internoCtrl.dispose();
+    _saldoInizialeCtrl.dispose();
     _millesimiCtrl.dispose();
     _usernameCtrl.dispose();
     _passwordCtrl.dispose();
@@ -154,6 +156,7 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
           interno: _internoCtrl.text.trim(),
           email: _emailCtrl.text.trim(),
           telefono: _telefonoCtrl.text.trim(),
+          saldoIniziale: double.parse(_saldoInizialeCtrl.text.trim().replaceAll(',', '.')),
           millesimi: double.parse(_millesimiCtrl.text.trim().replaceAll(',', '.')),
           residente: _residente,
           ruolo: effectiveRole,
@@ -185,6 +188,7 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
       _telefonoCtrl.clear();
       _scalaCtrl.clear();
       _internoCtrl.clear();
+      _saldoInizialeCtrl.text = '0';
       _millesimiCtrl.text = '0';
       _usernameCtrl.clear();
       _passwordCtrl.clear();
@@ -809,6 +813,26 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
           ),
           const SizedBox(height: 12),
           TextFormField(
+            controller: _saldoInizialeCtrl,
+            decoration: const InputDecoration(labelText: 'Saldo iniziale'),
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            validator: (value) =>
+                double.tryParse((value ?? '').replaceAll(',', '.')) == null
+                ? 'Numero non valido'
+                : null,
+            onChanged: (value) {
+              if (value.contains(',')) {
+                _saldoInizialeCtrl.value = _saldoInizialeCtrl.value.copyWith(
+                  text: value.replaceAll(',', '.'),
+                  selection: TextSelection.collapsed(
+                    offset: value.length,
+                  ),
+                );
+              }
+            },
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
             controller: _millesimiCtrl,
             decoration: const InputDecoration(labelText: 'Millesimi'),
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -844,6 +868,28 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
           child: TextFormField(
             controller: _internoCtrl,
             decoration: const InputDecoration(labelText: 'Interno'),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: TextFormField(
+            controller: _saldoInizialeCtrl,
+            decoration: const InputDecoration(labelText: 'Saldo iniziale'),
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            validator: (value) =>
+                double.tryParse((value ?? '').replaceAll(',', '.')) == null
+                ? 'Numero non valido'
+                : null,
+            onChanged: (value) {
+              if (value.contains(',')) {
+                _saldoInizialeCtrl.value = _saldoInizialeCtrl.value.copyWith(
+                  text: value.replaceAll(',', '.'),
+                  selection: TextSelection.collapsed(
+                    offset: value.length,
+                  ),
+                );
+              }
+            },
           ),
         ),
         const SizedBox(width: 12),

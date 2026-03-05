@@ -1,13 +1,19 @@
 package com.example.demo;
 
-import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 
-@SpringBootTest
+import org.joda.time.Instant;
+import org.junit.jupiter.api.Test;
+
 class CoreApplicationTests {
 
 	@Test
 	void contextLoads() {
+			System.out.println(Instant.now());
+			System.out.println(LocalDateTime.now());
+			System.out.println(Instant.now().getMillis());
+			System.out.println(LocalDateTime.now().toEpochSecond(ZoneOffset.UTC));
 	}
 
 }

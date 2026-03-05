@@ -1,13 +1,16 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../utils/api_error.dart';
+import '../../auth/application/keycloak_provider.dart';
+import '../../condominio_selection/application/managed_condominio_notifier.dart';
 import '../domain/condominio_document_model.dart';
 import '../domain/condomino_document_model.dart';
 import '../domain/movimento_model.dart';
 import '../domain/tabella_model.dart';
+import 'documents_api_client.dart';
 
-/// Contenitore dati modulo "Documenti".
-///
-/// In questa fase usa dati fake statici per prototipazione UI.
+/// Dataset reale del modulo documenti (letto da backend `core`).
 class DocumentsDataset {
   const DocumentsDataset({
     required this.condomini,
@@ -16,203 +19,565 @@ class DocumentsDataset {
     required this.tabelle,
   });
 
+  const DocumentsDataset.empty()
+    : condomini = const [],
+      condominiAnagrafica = const [],
+      movimenti = const [],
+      tabelle = const [];
+
   final List<CondominioDocumentModel> condomini;
   final List<CondominoDocumentModel> condominiAnagrafica;
   final List<MovimentoModel> movimenti;
   final List<TabellaModel> tabelle;
 }
 
-/// Provider repository fake.
-///
-/// Da sostituire in seguito con chiamata backend reale.
-final documentsRepositoryProvider = Provider<DocumentsDataset>((ref) {
-  final condomini = <CondominioDocumentModel>[
-    const CondominioDocumentModel(
-      id: 'cond-001',
-      version: 1,
-      label: 'Condominio Aurora',
-      anno: 2026,
-      residuo: 1450.8,
-      configurazioniSpesa: [
-        ConfigurazioneSpesaModel(
-          codice: 'SPESE_GESTIONE',
-          tabelle: [
-            TabellaPercentualeModel(
-              codice: 'TAB-A',
-              descrizione: 'Scala A',
-              percentuale: 60,
-            ),
-            TabellaPercentualeModel(
-              codice: 'TAB-B',
-              descrizione: 'Scala B',
-              percentuale: 40,
-            ),
-          ],
-        ),
-      ],
-    ),
-    const CondominioDocumentModel(
-      id: 'cond-002',
-      version: 1,
-      label: 'Condominio Riviera',
-      anno: 2026,
-      residuo: -320.5,
-      configurazioniSpesa: [
-        ConfigurazioneSpesaModel(
-          codice: 'RISCALDAMENTO',
-          tabelle: [
-            TabellaPercentualeModel(
-              codice: 'TAB-R1',
-              descrizione: 'Corpo R1',
-              percentuale: 100,
-            ),
-          ],
-        ),
-      ],
-    ),
-  ];
+class DocumentsDataState {
+  const DocumentsDataState({
+    required this.dataset,
+    required this.isLoading,
+    required this.isSaving,
+    required this.errorMessage,
+  });
 
-  final tabelle = <TabellaModel>[
-    const TabellaModel(
-      id: 'tab-1',
-      version: 1,
-      codice: 'TAB-A',
-      descrizione: 'Tabella Scala A',
-      idCondominio: 'cond-001',
-    ),
-    const TabellaModel(
-      id: 'tab-2',
-      version: 1,
-      codice: 'TAB-B',
-      descrizione: 'Tabella Scala B',
-      idCondominio: 'cond-001',
-    ),
-    const TabellaModel(
-      id: 'tab-3',
-      version: 1,
-      codice: 'TAB-R1',
-      descrizione: 'Tabella Corpo R1',
-      idCondominio: 'cond-002',
-    ),
-  ];
+  factory DocumentsDataState.initial() {
+    return const DocumentsDataState(
+      dataset: DocumentsDataset.empty(),
+      isLoading: false,
+      isSaving: false,
+      errorMessage: null,
+    );
+  }
 
-  final condominiAnagrafica = <CondominoDocumentModel>[
-    CondominoDocumentModel(
-      id: 'cg-001',
-      version: 3,
-      nome: 'Mario',
-      cognome: 'Rossi',
-      idCondominio: 'cond-001',
-      email: 'mario.rossi@example.com',
-      cellulare: '+39 333 1111111',
-      scala: 'A',
-      interno: 10,
-      anno: 2026,
-      config: const CondominoConfigModel(
-        tabelle: [
-          TabellaConfigModel(codiceTabella: 'TAB-A', numeratore: 125, denominatore: 1000),
-        ],
-        rate: [],
+  final DocumentsDataset dataset;
+  final bool isLoading;
+  final bool isSaving;
+  final String? errorMessage;
+
+  DocumentsDataState copyWith({
+    DocumentsDataset? dataset,
+    bool? isLoading,
+    bool? isSaving,
+    String? errorMessage,
+    bool clearErrorMessage = false,
+  }) {
+    return DocumentsDataState(
+      dataset: dataset ?? this.dataset,
+      isLoading: isLoading ?? this.isLoading,
+      isSaving: isSaving ?? this.isSaving,
+      errorMessage: clearErrorMessage
+          ? null
+          : (errorMessage ?? this.errorMessage),
+    );
+  }
+}
+
+class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
+  DocumentsDataNotifier(this._ref, this._api)
+    : super(DocumentsDataState.initial());
+
+  final Ref _ref;
+  final DocumentsApiClient _api;
+
+  String _requireAccessToken() {
+    final token = _ref.read(keycloakServiceProvider).accessToken;
+    if (token == null || token.isEmpty) {
+      throw Exception('Sessione scaduta: token assente');
+    }
+    return token;
+  }
+
+  String _requireSelectedCondominioId() {
+    final selected = _ref.read(selectedManagedCondominioProvider);
+    if (selected == null) {
+      throw Exception('Nessun condominio selezionato');
+    }
+    return selected.id;
+  }
+
+  Future<void> _refreshAllForSelectedCondominio() async {
+    final token = _requireAccessToken();
+    final condominioId = _requireSelectedCondominioId();
+
+    final condominio = await _api.fetchCondominioById(
+      accessToken: token,
+      condominioId: condominioId,
+    );
+    final condomini = await _api.fetchCondomini(
+      accessToken: token,
+      condominioId: condominioId,
+    );
+    final tabelle = await _api.fetchTabelle(
+      accessToken: token,
+      condominioId: condominioId,
+    );
+    final movimenti = await _api.fetchMovimenti(
+      accessToken: token,
+      condominioId: condominioId,
+    );
+
+    state = state.copyWith(
+      dataset: DocumentsDataset(
+        condomini: [condominio],
+        condominiAnagrafica: condomini,
+        movimenti: movimenti,
+        tabelle: tabelle,
       ),
-      versamenti: [
-        VersamentoModel(
-          descrizione: 'Acconto febbraio',
-          importo: 350,
-          date: DateTime.utc(2026, 2, 5),
-          insertedAt: DateTime.utc(2026, 2, 5, 10, 10),
-          ripartizioneTabelle: const [
-            RipartizioneModel(codice: 'TAB-A', descrizione: 'Scala A', importo: 350),
-          ],
-        ),
-      ],
-      residuo: 120.5,
-    ),
-    CondominoDocumentModel(
-      id: 'cg-002',
-      version: 2,
-      nome: 'Lucia',
-      cognome: 'Bianchi',
-      idCondominio: 'cond-001',
-      email: 'lucia.bianchi@example.com',
-      cellulare: '+39 333 2222222',
-      scala: 'B',
-      interno: 4,
-      anno: 2026,
-      config: const CondominoConfigModel(
-        tabelle: [
-          TabellaConfigModel(codiceTabella: 'TAB-B', numeratore: 95, denominatore: 1000),
-        ],
-        rate: [],
-      ),
-      versamenti: const [],
-      residuo: 890,
-    ),
-    CondominoDocumentModel(
-      id: 'cg-003',
-      version: 1,
-      nome: 'Paolo',
-      cognome: 'Verdi',
-      idCondominio: 'cond-002',
-      email: 'paolo.verdi@example.com',
-      cellulare: '+39 333 3333333',
-      scala: 'R1',
-      interno: 2,
-      anno: 2026,
-      config: const CondominoConfigModel(
-        tabelle: [
-          TabellaConfigModel(codiceTabella: 'TAB-R1', numeratore: 70, denominatore: 1000),
-        ],
-        rate: [],
-      ),
-      versamenti: [
-        VersamentoModel(
-          descrizione: 'Saldo gennaio',
-          importo: 500,
-          date: DateTime.utc(2026, 1, 20),
-          insertedAt: DateTime.utc(2026, 1, 20, 9, 20),
-          ripartizioneTabelle: const [
-            RipartizioneModel(codice: 'TAB-R1', descrizione: 'Corpo R1', importo: 500),
-          ],
-        ),
-      ],
-      residuo: -320.5,
-    ),
-  ];
+    );
+  }
 
-  final movimenti = <MovimentoModel>[
-    MovimentoModel(
-      id: 'mv-001',
-      version: 1,
-      idCondominio: 'cond-001',
-      codiceSpesa: 'ASSIC',
-      descrizione: 'Polizza annuale',
-      importo: 1200,
-      date: DateTime.utc(2026, 2, 1),
-      insertedAt: DateTime.utc(2026, 2, 1, 8, 45),
-      ripartizioneTabelle: const [
-        RipartizioneTabellaModel(codice: 'TAB-A', descrizione: 'Scala A', importo: 720),
-        RipartizioneTabellaModel(codice: 'TAB-B', descrizione: 'Scala B', importo: 480),
-      ],
-    ),
-    MovimentoModel(
-      id: 'mv-002',
-      version: 1,
-      idCondominio: 'cond-002',
-      codiceSpesa: 'MANUT',
-      descrizione: 'Manutenzione ascensore',
-      importo: 500,
-      date: DateTime.utc(2026, 1, 15),
-      insertedAt: DateTime.utc(2026, 1, 15, 11, 30),
-      ripartizioneTabelle: const [
-        RipartizioneTabellaModel(codice: 'TAB-R1', descrizione: 'Corpo R1', importo: 500),
-      ],
-    ),
-  ];
+  Future<void> _refreshCondominioAndMovimenti() async {
+    final token = _requireAccessToken();
+    final condominioId = _requireSelectedCondominioId();
 
-  return DocumentsDataset(
-    condomini: condomini,
-    condominiAnagrafica: condominiAnagrafica,
-    movimenti: movimenti,
-    tabelle: tabelle,
-  );
+    final condominio = await _api.fetchCondominioById(
+      accessToken: token,
+      condominioId: condominioId,
+    );
+    final movimenti = await _api.fetchMovimenti(
+      accessToken: token,
+      condominioId: condominioId,
+    );
+
+    state = state.copyWith(
+      dataset: DocumentsDataset(
+        condomini: [condominio],
+        condominiAnagrafica: state.dataset.condominiAnagrafica,
+        movimenti: movimenti,
+        tabelle: state.dataset.tabelle,
+      ),
+    );
+  }
+
+  Future<void> _refreshCondominioCondominiMovimenti() async {
+    final token = _requireAccessToken();
+    final condominioId = _requireSelectedCondominioId();
+
+    final condominio = await _api.fetchCondominioById(
+      accessToken: token,
+      condominioId: condominioId,
+    );
+    final condomini = await _api.fetchCondomini(
+      accessToken: token,
+      condominioId: condominioId,
+    );
+    final movimenti = await _api.fetchMovimenti(
+      accessToken: token,
+      condominioId: condominioId,
+    );
+
+    state = state.copyWith(
+      dataset: DocumentsDataset(
+        condomini: [condominio],
+        condominiAnagrafica: condomini,
+        movimenti: movimenti,
+        tabelle: state.dataset.tabelle,
+      ),
+    );
+  }
+
+  Future<void> _refreshCondominioTabelleCondomini() async {
+    final token = _requireAccessToken();
+    final condominioId = _requireSelectedCondominioId();
+
+    final condominio = await _api.fetchCondominioById(
+      accessToken: token,
+      condominioId: condominioId,
+    );
+    final tabelle = await _api.fetchTabelle(
+      accessToken: token,
+      condominioId: condominioId,
+    );
+    final condomini = await _api.fetchCondomini(
+      accessToken: token,
+      condominioId: condominioId,
+    );
+
+    state = state.copyWith(
+      dataset: DocumentsDataset(
+        condomini: [condominio],
+        condominiAnagrafica: condomini,
+        movimenti: state.dataset.movimenti,
+        tabelle: tabelle,
+      ),
+    );
+  }
+
+  Future<void> _refreshCondominiAndMovimenti() async {
+    final token = _requireAccessToken();
+    final condominioId = _requireSelectedCondominioId();
+
+    final condomini = await _api.fetchCondomini(
+      accessToken: token,
+      condominioId: condominioId,
+    );
+    final movimenti = await _api.fetchMovimenti(
+      accessToken: token,
+      condominioId: condominioId,
+    );
+
+    state = state.copyWith(
+      dataset: DocumentsDataset(
+        condomini: state.dataset.condomini,
+        condominiAnagrafica: condomini,
+        movimenti: movimenti,
+        tabelle: state.dataset.tabelle,
+      ),
+    );
+  }
+
+  Future<void> loadForSelectedCondominio() async {
+    state = state.copyWith(isLoading: true, clearErrorMessage: true);
+    try {
+      await _refreshAllForSelectedCondominio();
+      state = state.copyWith(isLoading: false);
+    } catch (e, st) {
+      if (e is ApiError) {
+        debugPrint('[DOCUMENTS][load] ${e.technicalMessage}');
+      } else {
+        debugPrint('[DOCUMENTS][load] $e');
+      }
+      debugPrint('$st');
+      state = state.copyWith(isLoading: false, errorMessage: '$e');
+    }
+  }
+
+  Future<void> createTabella({
+    required String codice,
+    required String descrizione,
+  }) async {
+    state = state.copyWith(isSaving: true, clearErrorMessage: true);
+    try {
+      final token = _requireAccessToken();
+      final condominioId = _requireSelectedCondominioId();
+      await _api.createTabella(
+        accessToken: token,
+        condominioId: condominioId,
+        codice: codice,
+        descrizione: descrizione,
+      );
+      state = state.copyWith(isSaving: false);
+      await _refreshCondominioTabelleCondomini();
+    } catch (e, st) {
+      if (e is ApiError) {
+        debugPrint('[DOCUMENTS][createTabella] ${e.technicalMessage}');
+      } else {
+        debugPrint('[DOCUMENTS][createTabella] $e');
+      }
+      debugPrint('$st');
+      state = state.copyWith(isSaving: false, errorMessage: '$e');
+      rethrow;
+    }
+  }
+
+  Future<void> createMovimento({
+    required String codiceSpesa,
+    required String descrizione,
+    required double importo,
+  }) async {
+    state = state.copyWith(isSaving: true, clearErrorMessage: true);
+    try {
+      final token = _requireAccessToken();
+      final condominioId = _requireSelectedCondominioId();
+      await _api.createMovimento(
+        accessToken: token,
+        condominioId: condominioId,
+        codiceSpesa: codiceSpesa,
+        descrizione: descrizione,
+        importo: importo,
+      );
+      state = state.copyWith(isSaving: false);
+      await _refreshCondominioCondominiMovimenti();
+    } catch (e, st) {
+      if (e is ApiError) {
+        debugPrint('[DOCUMENTS][createMovimento] ${e.technicalMessage}');
+      } else {
+        debugPrint('[DOCUMENTS][createMovimento] $e');
+      }
+      debugPrint('$st');
+      state = state.copyWith(isSaving: false, errorMessage: '$e');
+      rethrow;
+    }
+  }
+
+  Future<void> updateMovimento({
+    required String movimentoId,
+    required String codiceSpesa,
+    required String descrizione,
+    required double importo,
+  }) async {
+    state = state.copyWith(isSaving: true, clearErrorMessage: true);
+    try {
+      final token = _requireAccessToken();
+      await _api.updateMovimento(
+        accessToken: token,
+        movimentoId: movimentoId,
+        codiceSpesa: codiceSpesa,
+        descrizione: descrizione,
+        importo: importo,
+      );
+      state = state.copyWith(isSaving: false);
+      await _refreshCondominioCondominiMovimenti();
+    } catch (e, st) {
+      if (e is ApiError) {
+        debugPrint('[DOCUMENTS][updateMovimento] ${e.technicalMessage}');
+      } else {
+        debugPrint('[DOCUMENTS][updateMovimento] $e');
+      }
+      debugPrint('$st');
+      state = state.copyWith(isSaving: false, errorMessage: '$e');
+      rethrow;
+    }
+  }
+
+  Future<void> deleteMovimento({
+    required String movimentoId,
+  }) async {
+    state = state.copyWith(isSaving: true, clearErrorMessage: true);
+    try {
+      final token = _requireAccessToken();
+      await _api.deleteMovimento(
+        accessToken: token,
+        movimentoId: movimentoId,
+      );
+      state = state.copyWith(isSaving: false);
+      await _refreshCondominioCondominiMovimenti();
+    } catch (e, st) {
+      if (e is ApiError) {
+        debugPrint('[DOCUMENTS][deleteMovimento] ${e.technicalMessage}');
+      } else {
+        debugPrint('[DOCUMENTS][deleteMovimento] $e');
+      }
+      debugPrint('$st');
+      state = state.copyWith(isSaving: false, errorMessage: '$e');
+      rethrow;
+    }
+  }
+
+  Future<void> updateTabella({
+    required String tabellaId,
+    required String codice,
+    required String descrizione,
+  }) async {
+    state = state.copyWith(isSaving: true, clearErrorMessage: true);
+    try {
+      final token = _requireAccessToken();
+      await _api.updateTabella(
+        accessToken: token,
+        tabellaId: tabellaId,
+        codice: codice,
+        descrizione: descrizione,
+      );
+      state = state.copyWith(isSaving: false);
+      await _refreshCondominioTabelleCondomini();
+    } catch (e, st) {
+      if (e is ApiError) {
+        debugPrint('[DOCUMENTS][updateTabella] ${e.technicalMessage}');
+      } else {
+        debugPrint('[DOCUMENTS][updateTabella] $e');
+      }
+      debugPrint('$st');
+      state = state.copyWith(isSaving: false, errorMessage: '$e');
+      rethrow;
+    }
+  }
+
+  Future<void> deleteTabella({
+    required String tabellaId,
+  }) async {
+    state = state.copyWith(isSaving: true, clearErrorMessage: true);
+    try {
+      final token = _requireAccessToken();
+      await _api.deleteTabella(
+        accessToken: token,
+        tabellaId: tabellaId,
+      );
+      state = state.copyWith(isSaving: false);
+      await _refreshCondominioTabelleCondomini();
+    } catch (e, st) {
+      if (e is ApiError) {
+        debugPrint('[DOCUMENTS][deleteTabella] ${e.technicalMessage}');
+      } else {
+        debugPrint('[DOCUMENTS][deleteTabella] $e');
+      }
+      debugPrint('$st');
+      state = state.copyWith(isSaving: false, errorMessage: '$e');
+      rethrow;
+    }
+  }
+
+  Future<void> cleanupDeleteTabella({
+    required String tabellaId,
+  }) async {
+    state = state.copyWith(isSaving: true, clearErrorMessage: true);
+    try {
+      final token = _requireAccessToken();
+      await _api.cleanupDeleteTabella(
+        accessToken: token,
+        tabellaId: tabellaId,
+      );
+      state = state.copyWith(isSaving: false);
+      await _refreshCondominioTabelleCondomini();
+    } catch (e, st) {
+      if (e is ApiError) {
+        debugPrint('[DOCUMENTS][cleanupDeleteTabella] ${e.technicalMessage}');
+      } else {
+        debugPrint('[DOCUMENTS][cleanupDeleteTabella] $e');
+      }
+      debugPrint('$st');
+      state = state.copyWith(isSaving: false, errorMessage: '$e');
+      rethrow;
+    }
+  }
+
+  Future<void> updateConfigurazioniSpesa({
+    required List<CondominioConfigurazioneDraft> configurazioni,
+  }) async {
+    state = state.copyWith(isSaving: true, clearErrorMessage: true);
+    try {
+      final token = _requireAccessToken();
+      final condominioId = _requireSelectedCondominioId();
+      await _api.patchCondominioConfigurazioniSpesa(
+        accessToken: token,
+        condominioId: condominioId,
+        configurazioniSpesa: configurazioni.map((c) => c.toJson()).toList(),
+      );
+      state = state.copyWith(isSaving: false);
+      await _refreshCondominioAndMovimenti();
+    } catch (e, st) {
+      if (e is ApiError) {
+        debugPrint('[DOCUMENTS][updateConfigurazioniSpesa] ${e.technicalMessage}');
+      } else {
+        debugPrint('[DOCUMENTS][updateConfigurazioniSpesa] $e');
+      }
+      debugPrint('$st');
+      state = state.copyWith(isSaving: false, errorMessage: '$e');
+      rethrow;
+    }
+  }
+
+  Future<void> updateCondominoQuoteTabelle({
+    required String condominoId,
+    required List<CondominoTabellaQuotaDraft> quote,
+  }) async {
+    state = state.copyWith(isSaving: true, clearErrorMessage: true);
+    try {
+      final token = _requireAccessToken();
+      await _api.patchCondominoQuoteTabelle(
+        accessToken: token,
+        condominoId: condominoId,
+        tabelle: quote.map((q) => q.toJson()).toList(growable: false),
+      );
+      state = state.copyWith(isSaving: false);
+      await _refreshCondominiAndMovimenti();
+    } catch (e, st) {
+      if (e is ApiError) {
+        debugPrint('[DOCUMENTS][updateCondominoQuoteTabelle] ${e.technicalMessage}');
+      } else {
+        debugPrint('[DOCUMENTS][updateCondominoQuoteTabelle] $e');
+      }
+      debugPrint('$st');
+      state = state.copyWith(isSaving: false, errorMessage: '$e');
+      rethrow;
+    }
+  }
+
+  void clear() {
+    state = DocumentsDataState.initial();
+  }
+
+  void clearError() {
+    state = state.copyWith(clearErrorMessage: true);
+  }
+}
+
+final documentsApiClientProvider = Provider<DocumentsApiClient>((ref) {
+  return const DocumentsApiClient();
 });
+
+final documentsDataProvider =
+    StateNotifierProvider<DocumentsDataNotifier, DocumentsDataState>((ref) {
+      final api = ref.watch(documentsApiClientProvider);
+      final notifier = DocumentsDataNotifier(ref, api);
+      if (ref.read(selectedManagedCondominioProvider) != null) {
+        notifier.loadForSelectedCondominio();
+      }
+      ref.listen<String?>(
+        selectedManagedCondominioProvider.select((value) => value?.id),
+        (previous, next) {
+          if (next == null) {
+            notifier.clear();
+            return;
+          }
+          if (previous != next) {
+            notifier.loadForSelectedCondominio();
+          }
+        },
+      );
+      return notifier;
+    });
+
+final documentsRepositoryProvider = Provider<DocumentsDataset>((ref) {
+  return ref.watch(documentsDataProvider.select((state) => state.dataset));
+});
+
+class CondominioConfigurazioneDraft {
+  const CondominioConfigurazioneDraft({
+    required this.codice,
+    required this.tabelle,
+  });
+
+  final String codice;
+  final List<CondominioTabellaPercentualeDraft> tabelle;
+
+  Map<String, dynamic> toJson() {
+    return {
+      'codice': codice,
+      'tabelle': tabelle.map((t) => t.toJson()).toList(),
+    };
+  }
+}
+
+class CondominioTabellaPercentualeDraft {
+  const CondominioTabellaPercentualeDraft({
+    required this.codice,
+    required this.descrizione,
+    required this.percentuale,
+  });
+
+  final String codice;
+  final String descrizione;
+  final int percentuale;
+
+  Map<String, dynamic> toJson() {
+    return {
+      'codice': codice,
+      'descrizione': descrizione,
+      'percentuale': percentuale,
+    };
+  }
+}
+
+class CondominoTabellaQuotaDraft {
+  const CondominoTabellaQuotaDraft({
+    required this.codice,
+    required this.descrizione,
+    required this.numeratore,
+    required this.denominatore,
+  });
+
+  final String codice;
+  final String descrizione;
+  final double numeratore;
+  final double denominatore;
+
+  Map<String, dynamic> toJson() {
+    return {
+      'tabella': {
+        'codice': codice,
+        'descrizione': descrizione,
+      },
+      'numeratore': numeratore,
+      'denominatore': denominatore,
+    };
+  }
+}

@@ -92,7 +92,7 @@ class AdminUsersNotifier extends StateNotifier<AdminUsersState> {
     state = state.copyWith(isCreating: true, clearErrorMessage: true);
     try {
       final token = _requireAccessToken();
-      await _api.createUser(
+      final created = await _api.createUser(
         accessToken: token,
         username: username,
         firstName: firstName,
@@ -100,8 +100,12 @@ class AdminUsersNotifier extends StateNotifier<AdminUsersState> {
         email: email,
         password: password,
       );
-      state = state.copyWith(isCreating: false);
-      await loadUsers();
+      final items = [...state.items];
+      if (!_isHiddenUser(created)) {
+        items.add(created);
+        items.sort((a, b) => a.username.compareTo(b.username));
+      }
+      state = state.copyWith(isCreating: false, items: items);
     } catch (e) {
       state = state.copyWith(isCreating: false, errorMessage: '$e');
     }
@@ -138,8 +142,10 @@ class AdminUsersNotifier extends StateNotifier<AdminUsersState> {
       final token = _requireAccessToken();
       await _api.deleteUser(accessToken: token, userId: userId);
       final afterDelete = {...state.deletingIds}..remove(userId);
-      state = state.copyWith(deletingIds: afterDelete);
-      await loadUsers();
+      final items = state.items
+          .where((u) => u.userId != userId)
+          .toList(growable: false);
+      state = state.copyWith(deletingIds: afterDelete, items: items);
     } catch (e) {
       final afterDelete = {...state.deletingIds}..remove(userId);
       state = state.copyWith(deletingIds: afterDelete, errorMessage: '$e');

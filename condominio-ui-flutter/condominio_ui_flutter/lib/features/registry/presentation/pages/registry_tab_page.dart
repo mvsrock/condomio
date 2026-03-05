@@ -130,12 +130,6 @@ class RegistryTabPage extends ConsumerWidget {
                         style: TextStyle(color: Colors.red.shade900),
                       ),
                     ),
-                    TextButton(
-                      onPressed: () => ref
-                          .read(condominiProvider.notifier)
-                          .loadForSelectedCondominio(),
-                      child: const Text('Riprova'),
-                    ),
                   ],
                 ),
               ),
@@ -438,6 +432,7 @@ class _CondominoEditScreenState extends ConsumerState<_CondominoEditScreen> {
   late final TextEditingController _internoController;
   late final TextEditingController _emailController;
   late final TextEditingController _telefonoController;
+  late final TextEditingController _saldoInizialeController;
   late final TextEditingController _keycloakUsernameController;
   bool _hasAppAccess = false;
   String? _selectedKeycloakUserId;
@@ -451,6 +446,9 @@ class _CondominoEditScreenState extends ConsumerState<_CondominoEditScreen> {
     _internoController = TextEditingController(text: widget.condomino.interno);
     _emailController = TextEditingController(text: widget.condomino.email);
     _telefonoController = TextEditingController(text: widget.condomino.telefono);
+    _saldoInizialeController = TextEditingController(
+      text: widget.condomino.saldoIniziale.toStringAsFixed(2),
+    );
     _keycloakUsernameController = TextEditingController(
       text: widget.condomino.keycloakUsername ?? '',
     );
@@ -468,6 +466,7 @@ class _CondominoEditScreenState extends ConsumerState<_CondominoEditScreen> {
     _internoController.dispose();
     _emailController.dispose();
     _telefonoController.dispose();
+    _saldoInizialeController.dispose();
     _keycloakUsernameController.dispose();
     super.dispose();
   }
@@ -588,6 +587,17 @@ class _CondominoEditScreenState extends ConsumerState<_CondominoEditScreen> {
                             controller: _telefonoController,
                             decoration: const InputDecoration(labelText: 'Telefono'),
                           ),
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: _saldoInizialeController,
+                            decoration: const InputDecoration(labelText: 'Saldo iniziale'),
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            validator: (value) {
+                              final parsed = double.tryParse((value ?? '').replaceAll(',', '.'));
+                              if (parsed == null) return 'Numero non valido';
+                              return null;
+                            },
+                          ),
                           const SizedBox(height: 16),
                           const Text(
                             'Accesso App (Keycloak)',
@@ -691,6 +701,7 @@ class _CondominoEditScreenState extends ConsumerState<_CondominoEditScreen> {
         interno: _internoController.text.trim(),
         email: _emailController.text.trim(),
         telefono: _telefonoController.text.trim(),
+        saldoIniziale: double.parse(_saldoInizialeController.text.trim().replaceAll(',', '.')),
         hasAppAccess: _hasAppAccess,
         ruolo: resolvedRole,
         keycloakUsername: _hasAppAccess

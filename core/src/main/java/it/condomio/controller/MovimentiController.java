@@ -77,5 +77,14 @@ public class MovimentiController {
             @AuthenticationPrincipal Jwt jwt) throws IOException, ValidationFailedException, ApiException {
         return ResponseEntity.ok(movimentiService.patch(id, mergePatch, jwt.getSubject()));
     }
+
+    /** Rebuild completo residui del condominio (utility operativa). */
+    @PostMapping("/rebuild-residui/{idCondominio}")
+    public ResponseEntity<Void> rebuildResidui(
+            @PathVariable String idCondominio,
+            @AuthenticationPrincipal Jwt jwt) throws ApiException {
+        movimentiService.rebuildResidui(idCondominio, jwt.getSubject());
+        return ResponseEntity.noContent().build();
+    }
 }
 

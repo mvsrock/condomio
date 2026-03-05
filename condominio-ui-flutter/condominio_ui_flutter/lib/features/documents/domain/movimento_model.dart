@@ -10,6 +10,7 @@ class MovimentoModel {
     required this.date,
     required this.insertedAt,
     required this.ripartizioneTabelle,
+    required this.ripartizioneCondomini,
   });
 
   final String id;
@@ -21,6 +22,7 @@ class MovimentoModel {
   final DateTime date;
   final DateTime insertedAt;
   final List<RipartizioneTabellaModel> ripartizioneTabelle;
+  final List<RipartizioneCondominoModel> ripartizioneCondomini;
 
   factory MovimentoModel.fromJson(Map<String, dynamic> json) {
     DateTime parseDate(String key) {
@@ -45,6 +47,13 @@ class MovimentoModel {
           (json['ripartizioneTabelle'] as List<dynamic>? ?? const [])
               .map((e) => RipartizioneTabellaModel.fromJson(e as Map<String, dynamic>))
               .toList(growable: false),
+      ripartizioneCondomini:
+          (json['ripartizioneCondomini'] as List<dynamic>? ?? const [])
+              .map(
+                (e) =>
+                    RipartizioneCondominoModel.fromJson(e as Map<String, dynamic>),
+              )
+              .toList(growable: false),
     );
   }
 }
@@ -64,6 +73,26 @@ class RipartizioneTabellaModel {
     return RipartizioneTabellaModel(
       codice: json['codice'] as String? ?? '',
       descrizione: json['descrizione'] as String? ?? '',
+      importo: (json['importo'] as num?)?.toDouble() ?? 0,
+    );
+  }
+}
+
+class RipartizioneCondominoModel {
+  const RipartizioneCondominoModel({
+    required this.idCondomino,
+    required this.nominativo,
+    required this.importo,
+  });
+
+  final String idCondomino;
+  final String nominativo;
+  final double importo;
+
+  factory RipartizioneCondominoModel.fromJson(Map<String, dynamic> json) {
+    return RipartizioneCondominoModel(
+      idCondomino: json['idCondomino'] as String? ?? '',
+      nominativo: json['nominativo'] as String? ?? '',
       importo: (json['importo'] as num?)?.toDouble() ?? 0,
     );
   }

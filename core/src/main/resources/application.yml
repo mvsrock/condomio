@@ -56,6 +56,10 @@ keycloak:
 app:
   cors:
     allowed-origins: "*"
+  http-logging:
+    enabled: true
+    max-payload-length: 12000
+    exclude-path-prefixes: /actuator,/v3/api-docs,/swagger-ui,/favicon.ico
   cache:
     enabled: false
     prefetch-pages: 5

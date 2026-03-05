@@ -68,6 +68,19 @@ public class TabellaController {
         return ResponseEntity.noContent().build();
     }
 
+    /**
+     * Delete con cleanup automatico dei riferimenti in:
+     * - condominio.configurazioniSpesa
+     * - condomino.config.tabelle
+     */
+    @PostMapping("/{id}/cleanup-delete")
+    public ResponseEntity<Void> cleanupDeleteTabella(
+            @PathVariable String id,
+            @AuthenticationPrincipal Jwt jwt) throws ApiException {
+        tabellaService.deleteTabellaWithCleanup(id, jwt.getSubject());
+        return ResponseEntity.noContent().build();
+    }
+
     /** Update parziale via JSON Merge Patch, con mapping errori delegato a errorhandler. */
     @PatchMapping(path = "/{id}", consumes = "application/merge-patch+json")
     public ResponseEntity<Tabella> patchTabella(

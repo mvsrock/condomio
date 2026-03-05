@@ -10,6 +10,7 @@ import it.condomio.document.Movimenti;
 
 @Repository
 public interface MovimentiRepository extends MongoRepository<Movimenti, String>, MovimentiRepositoryCustom {
+    List<Movimenti> findByIdCondominio(String idCondominio);
     List<Movimenti> findByIdCondominioIn(List<String> condominioIds);
     Optional<Movimenti> findByIdAndIdCondominioIn(String id, List<String> condominioIds);
     boolean existsByIdAndIdCondominioIn(String id, List<String> condominioIds);

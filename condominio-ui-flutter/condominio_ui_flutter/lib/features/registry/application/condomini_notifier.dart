@@ -99,12 +99,14 @@ class CondominiNotifier extends StateNotifier<CondominiState> {
     try {
       final token = _requireAccessToken();
       final condominioId = _requireSelectedCondominioId();
-      await _api.createCondomino(
+      final created = await _api.createCondomino(
         accessToken: token,
         condomino: condomino,
         condominioId: condominioId,
       );
-      await loadForSelectedCondominio();
+      final nextItems = [...state.items, created];
+      nextItems.sort((a, b) => a.nominativo.compareTo(b.nominativo));
+      state = state.copyWith(items: nextItems, isLoading: false);
     } catch (e, st) {
       if (e is ApiError) {
         debugPrint('[REGISTRY][createCondomino] ${e.technicalMessage}');
@@ -123,12 +125,15 @@ class CondominiNotifier extends StateNotifier<CondominiState> {
     try {
       final token = _requireAccessToken();
       final condominioId = _requireSelectedCondominioId();
-      await _api.updateCondomino(
+      final saved = await _api.updateCondomino(
         accessToken: token,
         condomino: updated,
         condominioId: condominioId,
       );
-      await loadForSelectedCondominio();
+      final nextItems = state.items
+          .map((item) => item.id == saved.id ? saved : item)
+          .toList(growable: false);
+      state = state.copyWith(items: nextItems, isLoading: false);
     } catch (e, st) {
       if (e is ApiError) {
         debugPrint('[REGISTRY][updateCondomino] ${e.technicalMessage}');

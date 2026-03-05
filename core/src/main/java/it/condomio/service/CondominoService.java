@@ -1,6 +1,7 @@
 package it.condomio.service;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -38,6 +39,7 @@ public class CondominoService {
         sanitizeForCreate(condomino);
         validateAllowedCondominoRole(condomino.getAppRole());
         validateBaseFields(condomino);
+        normalizeFinancialFieldsForCreate(condomino);
         ensureAdminOwnsCondominio(condomino.getIdCondominio(), adminKeycloakUserId);
         ensureUniqueEmailOnCondominio(condomino.getIdCondominio(), condomino.getEmail(), null);
         return condominoRepository.save(condomino);
@@ -86,6 +88,7 @@ public class CondominoService {
                 updatedCondomino.getIdCondominio(),
                 updatedCondomino.getEmail(),
                 existing.getId());
+        reconcileFinancialFieldsOnUpdate(existing, updatedCondomino);
 
         updatedCondomino.setId(id);
         updatedCondomino.setVersion(existing.getVersion());
@@ -131,6 +134,7 @@ public class CondominoService {
                 patchedCondomino.getIdCondominio(),
                 patchedCondomino.getEmail(),
                 existing.getId());
+        reconcileFinancialFieldsOnUpdate(existing, patchedCondomino);
 
         patchedCondomino.setId(existing.getId());
         patchedCondomino.setVersion(existing.getVersion());
@@ -180,6 +184,10 @@ public class CondominoService {
         if (condomino.getIdCondominio() == null || condomino.getIdCondominio().isBlank()) {
             throw new ValidationFailedException("validation.required.condomino.idCondominio");
         }
+        if (condomino.getSaldoIniziale() != null
+                && (condomino.getSaldoIniziale().isNaN() || condomino.getSaldoIniziale().isInfinite())) {
+            throw new ValidationFailedException("validation.invalid.condomino.saldoIniziale");
+        }
     }
 
     private void sanitizeForCreate(Condomino condomino) {
@@ -208,5 +216,33 @@ public class CondominoService {
         target.setAppEnabled(existing.getAppEnabled());
         target.setKeycloakUserId(existing.getKeycloakUserId());
         target.setKeycloakUsername(existing.getKeycloakUsername());
+        target.setSaldoIniziale(existing.getSaldoIniziale());
+        target.setResiduo(existing.getResiduo());
+        target.setVersamenti(existing.getVersamenti());
+    }
+
+    private void normalizeFinancialFieldsForCreate(Condomino condomino) {
+        final double saldoIniziale = condomino.getSaldoIniziale() == null ? 0d : condomino.getSaldoIniziale();
+        condomino.setSaldoIniziale(saldoIniziale);
+        // In creazione il residuo iniziale coincide con saldoIniziale.
+        condomino.setResiduo(saldoIniziale);
+        if (condomino.getVersamenti() == null) {
+            condomino.setVersamenti(new ArrayList<>());
+        }
+    }
+
+    private void reconcileFinancialFieldsOnUpdate(Condomino existing, Condomino target) {
+        final double oldSaldo = existing.getSaldoIniziale() == null ? 0d : existing.getSaldoIniziale();
+        final double newSaldo = target.getSaldoIniziale() == null ? oldSaldo : target.getSaldoIniziale();
+        target.setSaldoIniziale(newSaldo);
+
+        final double currentResiduo = existing.getResiduo() == null ? 0d : existing.getResiduo();
+        final double deltaSaldo = newSaldo - oldSaldo;
+        // Manteniamo il saldo iniziale come componente additiva stabile del residuo.
+        target.setResiduo(currentResiduo + deltaSaldo);
+
+        if (target.getVersamenti() == null) {
+            target.setVersamenti(existing.getVersamenti());
+        }
     }
 }

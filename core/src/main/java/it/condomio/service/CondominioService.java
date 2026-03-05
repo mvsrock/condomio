@@ -6,6 +6,8 @@ import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import it.condomio.document.Condominio;
 import it.condomio.document.Condomino;
@@ -20,6 +22,7 @@ import tools.jackson.databind.JsonNode;
 
 @Service
 public class CondominioService {
+    private static final Logger log = LoggerFactory.getLogger(CondominioService.class);
 
     @Autowired
     private CondominioRepository condominioRepository;
@@ -102,7 +105,7 @@ public class CondominioService {
         Condominio patchedCondominio = JsonMergePatchHelper.applyMergePatch(mergePatch, condominio, Condominio.class);
         validateCreatePayload(patchedCondominio);
         patchedCondominio.setAdminKeycloakUserId(adminKeycloakUserId);
-        validatePercentuali(patchedCondominio);
+        validateChangedPercentualiByPosition(condominio, patchedCondominio);
         return condominioRepository.save(patchedCondominio);
     }
 
@@ -112,19 +115,100 @@ public class CondominioService {
         }
 
         for (Condominio.ConfigurazioneSpesa configurazione : condominio.getConfigurazioniSpesa()) {
+            if (configurazione == null) {
+                continue;
+            }
             List<Condominio.ConfigurazioneSpesa.TabellaPercentuale> tabelle = configurazione.getTabelle();
+            if (tabelle == null || tabelle.isEmpty()) {
+                // Configurazione vuota: non blocca patch correlate (es. rename tabella).
+                continue;
+            }
 
-            if (tabelle != null) {
-                int sommaPercentuali = tabelle.stream()
-                        .filter(tabella -> tabella != null && tabella.getPercentuale() != null)
-                        .mapToInt(Condominio.ConfigurazioneSpesa.TabellaPercentuale::getPercentuale)
-                        .sum();
+            long tabelleConPercentuale = tabelle.stream()
+                    .filter(tabella -> tabella != null && tabella.getPercentuale() != null)
+                    .count();
+            if (tabelleConPercentuale == 0) {
+                continue;
+            }
 
-                if (sommaPercentuali != 100) {
-                    throw new ValidationFailedException("invalid.percent." + configurazione.getCodice());
-                }
+            int sommaPercentuali = tabelle.stream()
+                    .filter(tabella -> tabella != null && tabella.getPercentuale() != null)
+                    .mapToInt(Condominio.ConfigurazioneSpesa.TabellaPercentuale::getPercentuale)
+                    .sum();
+
+            if (sommaPercentuali != 100) {
+                final String codice = configurazione.getCodice() == null ? "" : configurazione.getCodice();
+                throw new ValidationFailedException("invalid.percent." + codice);
             }
         }
+    }
+
+    private void validateChangedPercentualiByPosition(Condominio before, Condominio after)
+            throws ValidationFailedException {
+        List<Condominio.ConfigurazioneSpesa> beforeList =
+                before == null ? null : before.getConfigurazioniSpesa();
+        List<Condominio.ConfigurazioneSpesa> afterList =
+                after == null ? null : after.getConfigurazioniSpesa();
+
+        int beforeSize = beforeList == null ? 0 : beforeList.size();
+        int afterSize = afterList == null ? 0 : afterList.size();
+        if (afterSize == 0) {
+            return;
+        }
+        for (int i = 0; i < afterSize; i++) {
+            Integer beforeSum = i < beforeSize ? sumPercentuali(beforeList.get(i)) : null;
+            Integer afterSum = sumPercentuali(afterList.get(i));
+            if (afterSum == null) {
+                continue;
+            }
+            // Caso legacy: valori null serializzati dal client come 0.
+            // Non va considerato una modifica funzionale delle percentuali.
+            boolean legacyNullToZero = beforeSum == null && afterSum == 0;
+            boolean changed = !legacyNullToZero && (beforeSum == null || !beforeSum.equals(afterSum));
+            if (changed && afterSum != 100) {
+                final Condominio.ConfigurazioneSpesa cfg = afterList.get(i);
+                final String codice = cfg == null || cfg.getCodice() == null ? "" : cfg.getCodice();
+                final String dettaglioTabelle = cfg == null || cfg.getTabelle() == null
+                        ? "[]"
+                        : cfg.getTabelle().stream()
+                                .map(t -> {
+                                    if (t == null) {
+                                        return "{codice:null,percentuale:null}";
+                                    }
+                                    return "{codice:" + t.getCodice() + ",percentuale:" + t.getPercentuale() + "}";
+                                })
+                                .reduce((a, b) -> a + "," + b)
+                                .map(s -> "[" + s + "]")
+                                .orElse("[]");
+                log.warn(
+                        "[CondominioService.validateChangedPercentualiByPosition] invalid percent. idCondominio={} index={} codice={} beforeSum={} afterSum={} tabelle={}",
+                        after.getId(), i, codice, beforeSum, afterSum, dettaglioTabelle);
+                throw new ValidationFailedException("invalid.percent." + codice);
+            }
+            if (changed) {
+                final Condominio.ConfigurazioneSpesa cfg = afterList.get(i);
+                final String codice = cfg == null || cfg.getCodice() == null ? "" : cfg.getCodice();
+                log.info(
+                        "[CondominioService.validateChangedPercentualiByPosition] percent changed. idCondominio={} index={} codice={} beforeSum={} afterSum={}",
+                        after.getId(), i, codice, beforeSum, afterSum);
+            }
+        }
+    }
+
+    private Integer sumPercentuali(Condominio.ConfigurazioneSpesa cfg) {
+        if (cfg == null || cfg.getTabelle() == null || cfg.getTabelle().isEmpty()) {
+            return null;
+        }
+        long valued = cfg.getTabelle().stream()
+                .filter(tabella -> tabella != null && tabella.getPercentuale() != null)
+                .count();
+        if (valued == 0) {
+            return null;
+        }
+        return cfg.getTabelle().stream()
+                .filter(tabella -> tabella != null && tabella.getPercentuale() != null)
+                .mapToInt(Condominio.ConfigurazioneSpesa.TabellaPercentuale::getPercentuale)
+                .sum();
     }
 
     private void validateCreatePayload(Condominio condominio) throws ValidationFailedException {

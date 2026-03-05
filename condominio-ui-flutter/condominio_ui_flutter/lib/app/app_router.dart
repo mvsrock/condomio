@@ -185,13 +185,13 @@ class _AuthErrorPage extends ConsumerWidget {
           children: [
             const Icon(Icons.error_outline, size: 48, color: Colors.red),
             const SizedBox(height: 16),
-            const Text('Errore autenticazione. Riprova.'),
+            const Text('Errore autenticazione.'),
             const SizedBox(height: 16),
             ElevatedButton(
               onPressed: () {
                 ref.read(authStateProvider.notifier).resetAuthState();
               },
-              child: const Text('Riprova'),
+              child: const Text('Vai al login'),
             ),
           ],
         ),

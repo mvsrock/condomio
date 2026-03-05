@@ -17,7 +17,8 @@ import lombok.Data;
 @CompoundIndexes({
     // Non univoco: piu' persone possono avere stesso nome/cognome.
     @CompoundIndex(name = "nome_cognome_idx", def = "{'nome' : 1, 'cognome': 1}"),
-    @CompoundIndex(name = "anno_email_idx", def = "{'anno' : 1, 'email': 1}", unique = true)
+    // Vincolo business: email unica per condominio (non globale).
+    @CompoundIndex(name = "condominio_email_idx", def = "{'idCondominio' : 1, 'email': 1}", unique = true)
 })
 public class Condomino {
     @Id
@@ -28,7 +29,7 @@ public class Condomino {
     private String cognome;
     @Indexed(unique = false)
     private String idCondominio;
-    @Indexed(unique = true)
+    @Indexed(name = "email_idx", unique = false)
     private String email;
     private String cellulare;
     private String scala;
@@ -44,6 +45,7 @@ public class Condomino {
 
     private Config config;
     private List<Versamento> versamenti;
+    private Double saldoIniziale;
     private Double residuo;
 
     @Data

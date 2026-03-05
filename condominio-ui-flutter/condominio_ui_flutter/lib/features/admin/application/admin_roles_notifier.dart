@@ -89,13 +89,17 @@ class AdminRolesNotifier extends StateNotifier<AdminRolesState> {
     state = state.copyWith(isCreating: true, clearErrorMessage: true);
     try {
       final token = _requireAccessToken();
-      await _api.createRole(
+      final created = await _api.createRole(
         accessToken: token,
         roleName: roleName,
         description: description,
       );
-      state = state.copyWith(isCreating: false);
-      await loadRoles();
+      final items = [...state.items];
+      if (!_isHiddenRole(created)) {
+        items.add(created);
+        items.sort((a, b) => a.roleName.compareTo(b.roleName));
+      }
+      state = state.copyWith(isCreating: false, items: items);
     } catch (e) {
       state = state.copyWith(isCreating: false, errorMessage: '$e');
     }
@@ -108,8 +112,10 @@ class AdminRolesNotifier extends StateNotifier<AdminRolesState> {
       final token = _requireAccessToken();
       await _api.deleteRole(accessToken: token, roleId: roleId);
       final afterDelete = {...state.deletingIds}..remove(roleId);
-      state = state.copyWith(deletingIds: afterDelete);
-      await loadRoles();
+      final items = state.items
+          .where((r) => r.roleId != roleId)
+          .toList(growable: false);
+      state = state.copyWith(deletingIds: afterDelete, items: items);
     } catch (e) {
       final afterDelete = {...state.deletingIds}..remove(roleId);
       state = state.copyWith(deletingIds: afterDelete, errorMessage: '$e');

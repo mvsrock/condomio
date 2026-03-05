@@ -51,7 +51,7 @@ class AdminApiClient {
         .toList();
   }
 
-  Future<void> createUser({
+  Future<AdminUser> createUser({
     required String accessToken,
     required String username,
     required String firstName,
@@ -75,6 +75,9 @@ class AdminApiClient {
     if (response.statusCode < 200 || response.statusCode >= 300) {
       _throwHttpError('createUser', response);
     }
+    final json = (jsonDecode(response.body) as Map?)?.cast<String, dynamic>() ??
+        const <String, dynamic>{};
+    return AdminUser.fromJson(json);
   }
 
   Future<void> deleteUser({
@@ -116,7 +119,7 @@ class AdminApiClient {
         .toList();
   }
 
-  Future<void> createRole({
+  Future<AdminRole> createRole({
     required String accessToken,
     required String roleName,
     required String description,
@@ -133,6 +136,14 @@ class AdminApiClient {
     if (response.statusCode < 200 || response.statusCode >= 300) {
       _throwHttpError('createRole', response);
     }
+    final json = (jsonDecode(response.body) as Map?)?.cast<String, dynamic>() ??
+        const <String, dynamic>{};
+    return AdminRole(
+      roleId: (json['roleId'] ?? json['id'] ?? '').toString(),
+      roleName: (json['roleName'] ?? json['name'] ?? '').toString(),
+      description: (json['description'] ?? '').toString(),
+      groupIds: const [],
+    );
   }
 
   Future<void> deleteRole({
