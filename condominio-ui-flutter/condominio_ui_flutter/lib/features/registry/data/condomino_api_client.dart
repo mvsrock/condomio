@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../../../config/keycloak_config.dart';
+import '../../../utils/api_error.dart';
 import '../domain/condomino.dart';
 
 class CondominoApiClient {
@@ -21,9 +22,7 @@ class CondominoApiClient {
   };
 
   Never _throwHttpError(String op, http.Response response) {
-    throw Exception(
-      '$op failed: status=${response.statusCode}, body=${response.body}',
-    );
+    throw ApiError.fromHttp(operation: op, response: response);
   }
 
   Future<List<Condomino>> fetchCondomini({
@@ -38,8 +37,6 @@ class CondominoApiClient {
       _throwHttpError('fetchCondomini', response);
     }
     final raw = (jsonDecode(response.body) as List?) ?? const [];
-    // Endpoint `core` non filtra ancora per condominio lato API:
-    // applichiamo filtro client-side per mantenere isolamento tenant UI.
     return raw
         .whereType<Map<String, dynamic>>()
         .where((e) => (e['idCondominio'] ?? '').toString() == condominioId)

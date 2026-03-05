@@ -6,6 +6,8 @@ import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -31,31 +33,39 @@ public class MovimentiController {
     private MovimentiService movimentiService;
 
     @PostMapping
-    public ResponseEntity<Movimenti> createMovimento(@RequestBody Movimenti movimento) {
-        return new ResponseEntity<>(movimentiService.createMovimento(movimento), HttpStatus.CREATED);
+    public ResponseEntity<Movimenti> createMovimento(
+            @RequestBody Movimenti movimento,
+            @AuthenticationPrincipal Jwt jwt) throws ApiException {
+        return new ResponseEntity<>(movimentiService.createMovimento(movimento, jwt.getSubject()), HttpStatus.CREATED);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Movimenti> getMovimentoById(@PathVariable String id) throws ApiException {
+    public ResponseEntity<Movimenti> getMovimentoById(
+            @PathVariable String id,
+            @AuthenticationPrincipal Jwt jwt) throws ApiException {
         return ResponseEntity.ok(
-                movimentiService.getMovimentoById(id).orElseThrow(() -> new NotFoundException("movimento")));
+                movimentiService.getMovimentoById(id, jwt.getSubject())
+                        .orElseThrow(() -> new NotFoundException("movimento")));
     }
 
     @GetMapping
-    public ResponseEntity<List<Movimenti>> getAllMovimenti() {
-        return ResponseEntity.ok(movimentiService.getAllMovimenti());
+    public ResponseEntity<List<Movimenti>> getAllMovimenti(@AuthenticationPrincipal Jwt jwt) {
+        return ResponseEntity.ok(movimentiService.getAllMovimenti(jwt.getSubject()));
     }
 
     @PutMapping("/{id}")
     public ResponseEntity<Movimenti> updateMovimento(
             @PathVariable String id,
-            @RequestBody Movimenti movimento) throws ApiException {
-        return ResponseEntity.ok(movimentiService.updateMovimento(id, movimento));
+            @RequestBody Movimenti movimento,
+            @AuthenticationPrincipal Jwt jwt) throws ApiException {
+        return ResponseEntity.ok(movimentiService.updateMovimento(id, movimento, jwt.getSubject()));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteMovimento(@PathVariable String id) throws ApiException {
-        movimentiService.deleteMovimento(id);
+    public ResponseEntity<Void> deleteMovimento(
+            @PathVariable String id,
+            @AuthenticationPrincipal Jwt jwt) throws ApiException {
+        movimentiService.deleteMovimento(id, jwt.getSubject());
         return ResponseEntity.noContent().build();
     }
 
@@ -63,8 +73,9 @@ public class MovimentiController {
     @PatchMapping(path = "/{id}", consumes = "application/merge-patch+json")
     public ResponseEntity<Movimenti> patchMovimento(
             @PathVariable String id,
-            @RequestBody JsonNode mergePatch) throws IOException, ValidationFailedException, ApiException {
-        return ResponseEntity.ok(movimentiService.patch(id, mergePatch));
+            @RequestBody JsonNode mergePatch,
+            @AuthenticationPrincipal Jwt jwt) throws IOException, ValidationFailedException, ApiException {
+        return ResponseEntity.ok(movimentiService.patch(id, mergePatch, jwt.getSubject()));
     }
 }
 

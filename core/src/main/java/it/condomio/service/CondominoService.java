@@ -1,22 +1,17 @@
 package it.condomio.service;
 
 import java.io.IOException;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import it.condomio.document.Condominio;
 import it.condomio.document.Condomino;
 import it.condomio.exception.ApiException;
 import it.condomio.exception.ForbiddenException;
 import it.condomio.exception.NotFoundException;
 import it.condomio.exception.ValidationFailedException;
-import it.condomio.repository.CondominioRepository;
 import it.condomio.repository.CondominoRepository;
 import it.condomio.util.JsonMergePatchHelper;
 import tools.jackson.databind.JsonNode;
@@ -36,48 +31,61 @@ public class CondominoService {
     private CondominoRepository condominoRepository;
 
     @Autowired
-    private CondominioRepository condominioRepository;
+    private TenantAccessService tenantAccessService;
 
     /** Crea condomino solo se l'utente corrente amministra l'idCondominio richiesto. */
     public Condomino createCondomino(Condomino condomino, String adminKeycloakUserId) throws ApiException {
+        sanitizeForCreate(condomino);
         validateAllowedCondominoRole(condomino.getAppRole());
+        validateBaseFields(condomino);
         ensureAdminOwnsCondominio(condomino.getIdCondominio(), adminKeycloakUserId);
+        ensureUniqueEmailOnCondominio(condomino.getIdCondominio(), condomino.getEmail(), null);
         return condominoRepository.save(condomino);
     }
 
     /** Lettura puntuale filtrata per tenant visibili: no accesso cross-condominio. */
     public Optional<Condomino> getCondominoById(String id, String keycloakUserId) {
-        List<String> visibleCondominioIds = findVisibleCondominioIds(keycloakUserId);
-        if (visibleCondominioIds.isEmpty()) {
-            return Optional.empty();
+        List<String> ownedCondominioIds = tenantAccessService.findOwnedCondominioIds(keycloakUserId);
+        if (!ownedCondominioIds.isEmpty()) {
+            return condominoRepository.findByIdAndIdCondominioIn(id, ownedCondominioIds);
         }
-        return condominoRepository.findByIdAndIdCondominioIn(id, visibleCondominioIds);
+        return condominoRepository.findById(id)
+                .filter(c -> keycloakUserId.equals(c.getKeycloakUserId()));
     }
 
     /** Elenco anagrafica su condomini visibili all'utente corrente. */
     public List<Condomino> getAllCondomini(String keycloakUserId) {
-        List<String> visibleCondominioIds = findVisibleCondominioIds(keycloakUserId);
-        if (visibleCondominioIds.isEmpty()) {
-            return List.of();
+        List<String> ownedCondominioIds = tenantAccessService.findOwnedCondominioIds(keycloakUserId);
+        if (!ownedCondominioIds.isEmpty()) {
+            return condominoRepository.findByIdCondominioIn(ownedCondominioIds);
         }
-        return condominoRepository.findByIdCondominioIn(visibleCondominioIds);
+        return condominoRepository.findByKeycloakUserId(keycloakUserId);
     }
 
     /** Update full document con validazione ownership admin su record corrente e target. */
     public Condomino updateCondomino(String id, Condomino updatedCondomino, String adminKeycloakUserId)
             throws ApiException {
-        validateAllowedCondominoRole(updatedCondomino.getAppRole());
-        List<String> ownedCondominioIds = findOwnedCondominioIds(adminKeycloakUserId);
-        Optional<Condomino> existingOpt = condominoRepository.findByIdAndIdCondominioIn(id, ownedCondominioIds);
+        Optional<Condomino> existingOpt = condominoRepository.findById(id);
         if (existingOpt.isEmpty()) {
             throw new NotFoundException("condomino");
         }
 
         Condomino existing = existingOpt.get();
-        String targetCondominioId = updatedCondomino.getIdCondominio() != null
-                ? updatedCondomino.getIdCondominio()
-                : existing.getIdCondominio();
-        ensureAdminOwnsCondominio(targetCondominioId, adminKeycloakUserId);
+        boolean isAdminOwner = tenantAccessService.ownsCondominio(adminKeycloakUserId, existing.getIdCondominio());
+        boolean isSelf = adminKeycloakUserId.equals(existing.getKeycloakUserId());
+        if (!isAdminOwner && !isSelf) {
+            throw new ForbiddenException();
+        }
+        if (!isAdminOwner) {
+            applyNonAdminUpdateGuards(updatedCondomino, existing);
+        } else {
+            validateAllowedCondominoRole(updatedCondomino.getAppRole());
+        }
+        validateBaseFields(updatedCondomino);
+        ensureUniqueEmailOnCondominio(
+                updatedCondomino.getIdCondominio(),
+                updatedCondomino.getEmail(),
+                existing.getId());
 
         updatedCondomino.setId(id);
         updatedCondomino.setVersion(existing.getVersion());
@@ -86,9 +94,13 @@ public class CondominoService {
 
     /** Delete permessa solo su record appartenenti ai condomini amministrati. */
     public void deleteCondomino(String id, String adminKeycloakUserId) throws ApiException {
-        List<String> ownedCondominioIds = findOwnedCondominioIds(adminKeycloakUserId);
-        if (!condominoRepository.existsByIdAndIdCondominioIn(id, ownedCondominioIds)) {
+        Optional<Condomino> existingOpt = condominoRepository.findById(id);
+        if (existingOpt.isEmpty()) {
             throw new NotFoundException("condomino");
+        }
+        Condomino existing = existingOpt.get();
+        if (!tenantAccessService.ownsCondominio(adminKeycloakUserId, existing.getIdCondominio())) {
+            throw new ForbiddenException();
         }
         condominoRepository.deleteById(id);
     }
@@ -96,8 +108,7 @@ public class CondominoService {
     /** Patch merge JSON con enforcement tenant + conservazione id/version per evitare insert involontari. */
     public Condomino patch(String id, JsonNode mergePatch, String adminKeycloakUserId)
             throws IOException, ValidationFailedException, ApiException {
-        List<String> ownedCondominioIds = findOwnedCondominioIds(adminKeycloakUserId);
-        Optional<Condomino> optionalCondomino = condominoRepository.findByIdAndIdCondominioIn(id, ownedCondominioIds);
+        Optional<Condomino> optionalCondomino = condominoRepository.findById(id);
         if (optionalCondomino.isEmpty()) {
             throw new NotFoundException("condomino");
         }
@@ -105,47 +116,25 @@ public class CondominoService {
         Condomino existing = optionalCondomino.get();
         Condomino patchedCondomino = JsonMergePatchHelper.applyMergePatch(mergePatch, existing, Condomino.class);
 
-        String targetCondominioId = patchedCondomino.getIdCondominio() != null
-                ? patchedCondomino.getIdCondominio()
-                : existing.getIdCondominio();
-        validateAllowedCondominoRole(patchedCondomino.getAppRole());
-        ensureAdminOwnsCondominio(targetCondominioId, adminKeycloakUserId);
+        boolean isAdminOwner = tenantAccessService.ownsCondominio(adminKeycloakUserId, existing.getIdCondominio());
+        boolean isSelf = adminKeycloakUserId.equals(existing.getKeycloakUserId());
+        if (!isAdminOwner && !isSelf) {
+            throw new ForbiddenException();
+        }
+        if (!isAdminOwner) {
+            applyNonAdminUpdateGuards(patchedCondomino, existing);
+        } else {
+            validateAllowedCondominoRole(patchedCondomino.getAppRole());
+        }
+        validateBaseFields(patchedCondomino);
+        ensureUniqueEmailOnCondominio(
+                patchedCondomino.getIdCondominio(),
+                patchedCondomino.getEmail(),
+                existing.getId());
 
         patchedCondomino.setId(existing.getId());
         patchedCondomino.setVersion(existing.getVersion());
         return condominoRepository.save(patchedCondomino);
-    }
-
-    /** Risolve gli idCondominio di cui l'utente JWT e' amministratore. */
-    private List<String> findOwnedCondominioIds(String adminKeycloakUserId) {
-        return condominioRepository.findByAdminKeycloakUserId(adminKeycloakUserId)
-                .stream()
-                .map(Condominio::getId)
-                .filter(id -> id != null && !id.isBlank())
-                .collect(Collectors.toList());
-    }
-
-    /**
-     * Risolve tutti i condomini visibili:
-     * - come admin del condominio
-     * - come condomino collegato via keycloakUserId
-     */
-    private List<String> findVisibleCondominioIds(String keycloakUserId) {
-        Set<String> ids = new LinkedHashSet<>();
-
-        for (Condominio c : condominioRepository.findByAdminKeycloakUserId(keycloakUserId)) {
-            if (c.getId() != null && !c.getId().isBlank()) {
-                ids.add(c.getId());
-            }
-        }
-
-        for (Condomino c : condominoRepository.findByKeycloakUserId(keycloakUserId)) {
-            if (c.getIdCondominio() != null && !c.getIdCondominio().isBlank()) {
-                ids.add(c.getIdCondominio());
-            }
-        }
-
-        return List.copyOf(ids);
     }
 
     /** Fallisce se l'utente corrente prova a operare in scrittura su un condominio non suo. */
@@ -153,7 +142,7 @@ public class CondominoService {
         if (condominioId == null || condominioId.isBlank()) {
             throw new ValidationFailedException("validation.required.condomino.idCondominio");
         }
-        boolean owns = condominioRepository.existsByIdAndAdminKeycloakUserId(condominioId, adminKeycloakUserId);
+        boolean owns = tenantAccessService.ownsCondominio(adminKeycloakUserId, condominioId);
         if (!owns) {
             throw new ForbiddenException();
         }
@@ -176,5 +165,48 @@ public class CondominoService {
         if (!allowed) {
             throw new ValidationFailedException("validation.invalid.condomino.appRole");
         }
+    }
+
+    private void validateBaseFields(Condomino condomino) throws ValidationFailedException {
+        if (condomino.getNome() == null || condomino.getNome().trim().isEmpty()) {
+            throw new ValidationFailedException("validation.required.condomino.nome");
+        }
+        if (condomino.getCognome() == null || condomino.getCognome().trim().isEmpty()) {
+            throw new ValidationFailedException("validation.required.condomino.cognome");
+        }
+        if (condomino.getEmail() == null || condomino.getEmail().trim().isEmpty()) {
+            throw new ValidationFailedException("validation.required.condomino.email");
+        }
+        if (condomino.getIdCondominio() == null || condomino.getIdCondominio().isBlank()) {
+            throw new ValidationFailedException("validation.required.condomino.idCondominio");
+        }
+    }
+
+    private void sanitizeForCreate(Condomino condomino) {
+        // Evita collisioni _id: sul create l'id viene sempre generato da Mongo.
+        condomino.setId(null);
+        condomino.setVersion(null);
+    }
+
+    private void ensureUniqueEmailOnCondominio(String idCondominio, String email, String excludeId)
+            throws ValidationFailedException {
+        if (excludeId == null || excludeId.isBlank()) {
+            if (condominoRepository.existsByIdCondominioAndEmailIgnoreCase(idCondominio, email)) {
+                throw new ValidationFailedException("validation.duplicate.condomino.email");
+            }
+            return;
+        }
+        if (condominoRepository.existsByIdCondominioAndEmailIgnoreCaseAndIdNot(idCondominio, email, excludeId)) {
+            throw new ValidationFailedException("validation.duplicate.condomino.email");
+        }
+    }
+
+    private void applyNonAdminUpdateGuards(Condomino target, Condomino existing) {
+        // Utente non admin: puo' aggiornare solo i propri dati anagrafici base.
+        target.setIdCondominio(existing.getIdCondominio());
+        target.setAppRole(existing.getAppRole());
+        target.setAppEnabled(existing.getAppEnabled());
+        target.setKeycloakUserId(existing.getKeycloakUserId());
+        target.setKeycloakUsername(existing.getKeycloakUsername());
     }
 }

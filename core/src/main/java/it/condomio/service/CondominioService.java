@@ -1,10 +1,8 @@
 package it.condomio.service;
 
 import java.io.IOException;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -29,11 +27,21 @@ public class CondominioService {
     @Autowired
     private CondominoRepository condominoRepository;
 
+    @Autowired
+    private TenantAccessService tenantAccessService;
+
     /**
      * Crea un condominio e imposta il proprietario applicativo
      * con il subject JWT dell'utente autenticato.
      */
-    public Condominio createCondominio(Condominio condominio, String adminKeycloakUserId) {
+    public Condominio createCondominio(Condominio condominio, String adminKeycloakUserId)
+            throws ValidationFailedException {
+        validateCreatePayload(condominio);
+        if (condominioRepository.existsByAnnoAndLabelIgnoreCase(condominio.getAnno(), condominio.getLabel())) {
+            throw new ValidationFailedException("validation.duplicate.condominio.anno_label");
+        }
+        condominio.setId(null);
+        condominio.setVersion(null);
         condominio.setAdminKeycloakUserId(adminKeycloakUserId);
         return condominioRepository.save(condominio);
     }
@@ -44,12 +52,7 @@ public class CondominioService {
      * - utente collegato come condomino (keycloakUserId associato).
      */
     public Optional<Condominio> getCondominioById(String id, String keycloakUserId) {
-        Optional<Condominio> asAdmin = condominioRepository.findByIdAndAdminKeycloakUserId(id, keycloakUserId);
-        if (asAdmin.isPresent()) {
-            return asAdmin;
-        }
-        boolean asCondomino = condominoRepository.existsByIdCondominioAndKeycloakUserId(id, keycloakUserId);
-        if (!asCondomino) {
+        if (!tenantAccessService.canViewCondominio(keycloakUserId, id)) {
             return Optional.empty();
         }
         return condominioRepository.findById(id);
@@ -61,21 +64,7 @@ public class CondominioService {
      * - condomini dove e' associato come condomino via keycloakUserId
      */
     public List<Condominio> getAllCondomini(String keycloakUserId) {
-        final List<Condominio> adminCondomini = condominioRepository.findByAdminKeycloakUserId(keycloakUserId);
-        final List<Condomino> linkedCondomini = condominoRepository.findByKeycloakUserId(keycloakUserId);
-
-        Set<String> ids = new LinkedHashSet<>();
-        for (Condominio c : adminCondomini) {
-            if (c.getId() != null && !c.getId().isBlank()) {
-                ids.add(c.getId());
-            }
-        }
-        for (Condomino c : linkedCondomini) {
-            if (c.getIdCondominio() != null && !c.getIdCondominio().isBlank()) {
-                ids.add(c.getIdCondominio());
-            }
-        }
-
+        final List<String> ids = tenantAccessService.findVisibleCondominioIds(keycloakUserId);
         if (ids.isEmpty()) {
             return List.of();
         }
@@ -88,6 +77,7 @@ public class CondominioService {
         if (!condominioRepository.existsByIdAndAdminKeycloakUserId(id, adminKeycloakUserId)) {
             throw new ForbiddenException();
         }
+        validateCreatePayload(updatedCondominio);
         updatedCondominio.setId(id);
         updatedCondominio.setAdminKeycloakUserId(adminKeycloakUserId);
         return condominioRepository.save(updatedCondominio);
@@ -110,6 +100,7 @@ public class CondominioService {
         }
         Condominio condominio = optionalCondominio.get();
         Condominio patchedCondominio = JsonMergePatchHelper.applyMergePatch(mergePatch, condominio, Condominio.class);
+        validateCreatePayload(patchedCondominio);
         patchedCondominio.setAdminKeycloakUserId(adminKeycloakUserId);
         validatePercentuali(patchedCondominio);
         return condominioRepository.save(patchedCondominio);
@@ -133,6 +124,18 @@ public class CondominioService {
                     throw new ValidationFailedException("invalid.percent." + configurazione.getCodice());
                 }
             }
+        }
+    }
+
+    private void validateCreatePayload(Condominio condominio) throws ValidationFailedException {
+        if (condominio.getLabel() == null || condominio.getLabel().trim().isEmpty()) {
+            throw new ValidationFailedException("validation.required.condominio.label");
+        }
+        if (condominio.getAnno() == null) {
+            throw new ValidationFailedException("validation.required.condominio.anno");
+        }
+        if (condominio.getAnno() < 1900 || condominio.getAnno() > 2100) {
+            throw new ValidationFailedException("validation.invalid.condominio.anno");
         }
     }
 }

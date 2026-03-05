@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../../../config/keycloak_config.dart';
+import '../../../utils/api_error.dart';
 import '../domain/managed_condominio.dart';
 
 class ManagedCondominioApiClient {
@@ -16,9 +17,7 @@ class ManagedCondominioApiClient {
   };
 
   Never _throwHttpError(String op, http.Response response) {
-    throw Exception(
-      '$op failed: status=${response.statusCode}, body=${response.body}',
-    );
+    throw ApiError.fromHttp(operation: op, response: response);
   }
 
   Future<List<ManagedCondominio>> fetchMine({

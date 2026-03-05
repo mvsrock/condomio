@@ -12,6 +12,7 @@ public interface CondominioRepository extends MongoRepository<Condominio, String
     List<Condominio> findByAdminKeycloakUserId(String adminKeycloakUserId);
     Optional<Condominio> findByIdAndAdminKeycloakUserId(String id, String adminKeycloakUserId);
     boolean existsByIdAndAdminKeycloakUserId(String id, String adminKeycloakUserId);
+    boolean existsByAnnoAndLabelIgnoreCase(Long anno, String label);
 }
 
 interface CondominioRepositoryCustom {

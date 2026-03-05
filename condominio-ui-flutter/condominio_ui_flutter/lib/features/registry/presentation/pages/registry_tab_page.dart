@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../admin/application/admin_users_notifier.dart';
 import '../../../admin/domain/admin_user.dart';
 import '../../../admin/presentation/pages/admin_users_page.dart';
+import '../../../auth/application/keycloak_provider.dart';
 import '../../../home/application/home_navigation_provider.dart';
 import '../../../home/application/home_ui_notifier.dart';
 import '../../application/condomini_notifier.dart';
@@ -44,6 +45,11 @@ class RegistryTabPage extends ConsumerWidget {
     );
     final uiNotifier = ref.read(homeUiProvider.notifier);
     final isAdmin = ref.watch(homeIsAdminProvider);
+    final currentUserId = ref.watch(
+      keycloakServiceProvider.select(
+        (service) => service.tokenParsed?['sub']?.toString(),
+      ),
+    );
     final tabCount = isAdmin ? 2 : 1;
 
     // La tab anagrafica diventa il punto unico per:
@@ -72,6 +78,7 @@ class RegistryTabPage extends ConsumerWidget {
                       ref: ref,
                       uiNotifier: uiNotifier,
                       isAdmin: isAdmin,
+                      currentUserId: currentUserId,
                       selectedCondominoId: selectedCondominoId,
                       error: error,
                     )
@@ -81,6 +88,7 @@ class RegistryTabPage extends ConsumerWidget {
                     ref: ref,
                     uiNotifier: uiNotifier,
                     isAdmin: isAdmin,
+                    currentUserId: currentUserId,
                     selectedCondominoId: selectedCondominoId,
                     error: error,
                   ),
@@ -98,6 +106,7 @@ class RegistryTabPage extends ConsumerWidget {
     required WidgetRef ref,
     required HomeUiNotifier uiNotifier,
     required bool isAdmin,
+    required String? currentUserId,
     required String? selectedCondominoId,
     required String? error,
   }) {
@@ -135,19 +144,21 @@ class RegistryTabPage extends ConsumerWidget {
         Expanded(
           child: RegistryPage(
             selectedCondominoId: selectedCondominoId,
-            canEdit: isAdmin,
+            canEditCondomino: (condomino) =>
+                _canEditCondomino(condomino, isAdmin, currentUserId),
             onCondominoRowTap: (selected) =>
                 uiNotifier.selectCondomino(selected.id),
             onCondominoTap: (selected) => _openCondominoDetailScreen(
               context: context,
               ref: ref,
               selected: selected,
-              canEdit: isAdmin,
+              canEdit: _canEditCondomino(selected, isAdmin, currentUserId),
             ),
             onCondominoEdit: (condomino) => _openCondominoEditScreen(
               context: context,
               ref: ref,
               condomino: condomino,
+              canEdit: _canEditCondomino(condomino, isAdmin, currentUserId),
             ),
           ),
         ),
@@ -178,14 +189,12 @@ class RegistryTabPage extends ConsumerWidget {
     required BuildContext context,
     required WidgetRef ref,
     required Condomino condomino,
+    required bool canEdit,
   }) async {
-    final isAdmin = ref.read(homeIsAdminProvider);
-    // Guardia UI: la modifica anagrafica e' riservata agli admin.
-    // (La protezione definitiva resta comunque lato backend.)
-    if (!isAdmin) {
+    if (!canEdit) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Modifica consentita solo agli admin.')),
+          const SnackBar(content: Text('Non puoi modificare questo condomino.')),
         );
       }
       return;
@@ -212,6 +221,12 @@ class RegistryTabPage extends ConsumerWidget {
         }
       }
     }
+  }
+
+  bool _canEditCondomino(Condomino condomino, bool isAdmin, String? currentUserId) {
+    if (isAdmin) return true;
+    if (currentUserId == null || currentUserId.isEmpty) return false;
+    return condomino.keycloakUserId == currentUserId;
   }
 }
 
@@ -698,9 +713,6 @@ class _CondominoEditScreenState extends ConsumerState<_CondominoEditScreen> {
 
   CondominoRuolo _roleFromKeycloakUser(AdminUser user) {
     final raw = user.groupName.trim().toLowerCase();
-    if (raw.contains('amministratore') || raw.contains('role_amministratore')) {
-      return CondominoRuolo.amministratore;
-    }
     if (raw.contains('consigliere') || raw.contains('role_consigliere')) {
       return CondominoRuolo.consigliere;
     }

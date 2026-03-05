@@ -66,8 +66,7 @@ class Condomino {
     // - dati anagrafici
     // - appartenenza tenant (idCondominio)
     // - metadati accesso applicativo/Keycloak
-    return {
-      'id': id,
+    final payload = <String, dynamic>{
       'nome': nome,
       'cognome': cognome,
       'idCondominio': condominioId,
@@ -83,6 +82,10 @@ class Condomino {
       'keycloakUsername': keycloakUsername,
       'keycloakUserId': keycloakUserId,
     };
+    if (id.trim().isNotEmpty) {
+      payload['id'] = id;
+    }
+    return payload;
   }
 
   /// Nome completo pronto per uso UI.
@@ -134,8 +137,6 @@ CondominoRuolo _roleFromString(String roleRaw) {
   // Il backend salva stringhe ruolo applicativo; mappiamo in enum UI.
   final normalized = roleRaw.trim().toLowerCase();
   switch (normalized) {
-    case 'amministratore':
-      return CondominoRuolo.amministratore;
     case 'consigliere':
       return CondominoRuolo.consigliere;
     case 'default-roles-condominio':
@@ -145,12 +146,11 @@ CondominoRuolo _roleFromString(String roleRaw) {
   }
 }
 
-enum CondominoRuolo { amministratore, consigliere, standard }
+enum CondominoRuolo { consigliere, standard }
 
 extension CondominoRuoloLabel on CondominoRuolo {
   String get keycloakRoleName {
     return switch (this) {
-      CondominoRuolo.amministratore => 'amministratore',
       CondominoRuolo.consigliere => 'consigliere',
       CondominoRuolo.standard => 'default-roles-condominio',
     };
@@ -158,7 +158,6 @@ extension CondominoRuoloLabel on CondominoRuolo {
 
   String get label {
     return switch (this) {
-      CondominoRuolo.amministratore => 'amministratore',
       CondominoRuolo.consigliere => 'consigliere',
       CondominoRuolo.standard => 'standard',
     };

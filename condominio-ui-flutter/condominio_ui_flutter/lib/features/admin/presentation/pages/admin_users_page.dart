@@ -1,4 +1,3 @@
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -23,7 +22,6 @@ class AdminUsersPage extends ConsumerStatefulWidget {
 }
 
 class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
-  static final Random _rnd = Random();
   final _formKey = GlobalKey<FormState>();
 
   final _nomeCtrl = TextEditingController();
@@ -84,8 +82,6 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
       final registryNotifier = ref.read(condominiProvider.notifier);
       final authNotifier = ref.read(adminUsersProvider.notifier);
 
-      final id =
-          'C${DateTime.now().microsecondsSinceEpoch}${_rnd.nextInt(1000).toString().padLeft(3, '0')}';
       final username = _usernameCtrl.text.trim().isEmpty
           ? _defaultUsername()
           : _usernameCtrl.text.trim();
@@ -151,7 +147,7 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
 
       await registryNotifier.createCondomino(
         Condomino(
-          id: id,
+          id: '',
           nome: _nomeCtrl.text.trim(),
           cognome: _cognomeCtrl.text.trim(),
           scala: _scalaCtrl.text.trim(),
@@ -297,7 +293,6 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
                       labelText: 'Ruolo applicativo',
                     ),
                     items: CondominoRuolo.values
-                        .where((r) => r != CondominoRuolo.amministratore)
                         .map(
                           (r) => DropdownMenuItem<CondominoRuolo>(
                             value: r,
@@ -562,7 +557,6 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
                         labelText: 'Ruolo applicativo',
                       ),
                       items: CondominoRuolo.values
-                          .where((r) => r != CondominoRuolo.amministratore)
                           .map(
                             (r) => DropdownMenuItem<CondominoRuolo>(
                               value: r,
@@ -685,9 +679,6 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
 
   CondominoRuolo _roleFromKeycloakName(String? rawRoleName) {
     final raw = (rawRoleName ?? '').trim().toLowerCase();
-    if (raw.contains('amministratore') || raw.contains('role_amministratore')) {
-      return CondominoRuolo.amministratore;
-    }
     if (raw.contains('consigliere') || raw.contains('role_consigliere')) {
       return CondominoRuolo.consigliere;
     }

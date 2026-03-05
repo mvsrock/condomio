@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../auth/application/keycloak_provider.dart';
 import '../../condominio_selection/application/managed_condominio_notifier.dart';
+import '../../../utils/api_error.dart';
 import '../data/condomino_api_client.dart';
 import '../domain/condomino.dart';
 
@@ -82,7 +83,11 @@ class CondominiNotifier extends StateNotifier<CondominiState> {
       );
       state = state.copyWith(items: items, isLoading: false);
     } catch (e, st) {
-      debugPrint('[REGISTRY][loadForSelectedCondominio] $e');
+      if (e is ApiError) {
+        debugPrint('[REGISTRY][loadForSelectedCondominio] ${e.technicalMessage}');
+      } else {
+        debugPrint('[REGISTRY][loadForSelectedCondominio] $e');
+      }
       debugPrint('$st');
       state = state.copyWith(isLoading: false, errorMessage: '$e');
     }
@@ -101,7 +106,11 @@ class CondominiNotifier extends StateNotifier<CondominiState> {
       );
       await loadForSelectedCondominio();
     } catch (e, st) {
-      debugPrint('[REGISTRY][createCondomino] $e');
+      if (e is ApiError) {
+        debugPrint('[REGISTRY][createCondomino] ${e.technicalMessage}');
+      } else {
+        debugPrint('[REGISTRY][createCondomino] $e');
+      }
       debugPrint('$st');
       state = state.copyWith(isLoading: false, errorMessage: '$e');
       rethrow;
@@ -121,7 +130,11 @@ class CondominiNotifier extends StateNotifier<CondominiState> {
       );
       await loadForSelectedCondominio();
     } catch (e, st) {
-      debugPrint('[REGISTRY][updateCondomino] $e');
+      if (e is ApiError) {
+        debugPrint('[REGISTRY][updateCondomino] ${e.technicalMessage}');
+      } else {
+        debugPrint('[REGISTRY][updateCondomino] $e');
+      }
       debugPrint('$st');
       state = state.copyWith(isLoading: false, errorMessage: '$e');
       rethrow;

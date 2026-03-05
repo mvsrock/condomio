@@ -1,8 +1,10 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../auth/application/auth_notifier.dart';
 import '../../auth/domain/auth_state.dart';
 import '../../auth/application/keycloak_provider.dart';
+import '../../../utils/api_error.dart';
 import '../data/managed_condominio_api_client.dart';
 import '../domain/managed_condominio.dart';
 
@@ -98,6 +100,12 @@ class ManagedCondominioNotifier extends StateNotifier<ManagedCondominioState> {
         ready: true,
       );
     } catch (e) {
+      if (e is ApiError) {
+        // Manteniamo log tecnico separato dal messaggio utente.
+        debugPrint(
+          '[CONDOMINIO_SELECTION][loadCondomini] ${e.technicalMessage}',
+        );
+      }
       state = state.copyWith(isLoading: false, ready: true, errorMessage: '$e');
     }
   }
@@ -137,6 +145,11 @@ class ManagedCondominioNotifier extends StateNotifier<ManagedCondominioState> {
         state = state.copyWith(selectedId: state.items.first.id);
       }
     } catch (e) {
+      if (e is ApiError) {
+        debugPrint(
+          '[CONDOMINIO_SELECTION][createCondominio] ${e.technicalMessage}',
+        );
+      }
       state = state.copyWith(isCreating: false, errorMessage: '$e');
     }
   }

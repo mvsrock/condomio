@@ -13,9 +13,12 @@ public interface CondominoRepository extends MongoRepository<Condomino, String>,
     List<Condomino> findByIdCondominioIn(List<String> condominioIds);
     Optional<Condomino> findByIdAndIdCondominioIn(String id, List<String> condominioIds);
     boolean existsByIdAndIdCondominioIn(String id, List<String> condominioIds);
+    boolean existsByIdCondominioAndEmailIgnoreCase(String idCondominio, String email);
+    boolean existsByIdCondominioAndEmailIgnoreCaseAndIdNot(String idCondominio, String email, String id);
 
     // Associazione utente applicativo (Keycloak) <-> condomino.
     List<Condomino> findByKeycloakUserId(String keycloakUserId);
+    Optional<Condomino> findByKeycloakUserIdAndIdCondominio(String keycloakUserId, String idCondominio);
     boolean existsByIdCondominioAndKeycloakUserId(String idCondominio, String keycloakUserId);
 }
 

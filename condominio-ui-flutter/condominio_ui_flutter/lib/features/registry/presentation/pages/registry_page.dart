@@ -23,14 +23,14 @@ class RegistryPage extends ConsumerWidget {
   const RegistryPage({
     super.key,
     required this.selectedCondominoId,
-    required this.canEdit,
+    required this.canEditCondomino,
     required this.onCondominoRowTap,
     required this.onCondominoTap,
     required this.onCondominoEdit,
   });
 
   final String? selectedCondominoId;
-  final bool canEdit;
+  final bool Function(Condomino) canEditCondomino;
   final ValueChanged<Condomino> onCondominoRowTap;
   final ValueChanged<Condomino> onCondominoTap;
   final ValueChanged<Condomino> onCondominoEdit;
@@ -111,7 +111,7 @@ class RegistryPage extends ConsumerWidget {
                                 key: ValueKey(condomino.id),
                                 condomino: condomino,
                                 isSelected: selectedCondominoId == condomino.id,
-                                canEdit: canEdit,
+                                canEdit: canEditCondomino(condomino),
                                 onRowTap: () => onCondominoRowTap(condomino),
                                 onViewDetail: () => onCondominoTap(condomino),
                                 onEdit: () => onCondominoEdit(condomino),
