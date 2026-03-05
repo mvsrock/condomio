@@ -1,164 +1,166 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../auth/application/keycloak_provider.dart';
+import '../../condominio_selection/application/managed_condominio_notifier.dart';
+import '../data/condomino_api_client.dart';
 import '../domain/condomino.dart';
 
-/// Stato anagrafica in memoria applicativa.
-///
-/// Nota:
-/// - persistente SOLO finche' l'app resta in memoria;
-/// - su refresh/logout+redirect web i dati tornano allo stato iniziale.
-class CondominiNotifier extends StateNotifier<List<Condomino>> {
-  CondominiNotifier() : super(_initialCondomini);
+class CondominiState {
+  const CondominiState({
+    required this.items,
+    required this.isLoading,
+    required this.errorMessage,
+  });
 
-  /// Aggiorna un solo condomino per id.
-  ///
-  /// Riverpod notifica i listener del provider e ricostruisce
-  /// solo i widget che stanno osservando `condominiProvider`.
-  void updateCondomino(Condomino updated) {
-    state = [
-      for (final condomino in state)
-        if (condomino.id == updated.id) updated else condomino,
-    ];
+  factory CondominiState.initial() {
+    return const CondominiState(
+      items: [],
+      isLoading: false,
+      errorMessage: null,
+    );
+  }
+
+  final List<Condomino> items;
+  final bool isLoading;
+  final String? errorMessage;
+
+  CondominiState copyWith({
+    List<Condomino>? items,
+    bool? isLoading,
+    String? errorMessage,
+    bool clearErrorMessage = false,
+  }) {
+    return CondominiState(
+      items: items ?? this.items,
+      isLoading: isLoading ?? this.isLoading,
+      errorMessage: clearErrorMessage
+          ? null
+          : (errorMessage ?? this.errorMessage),
+    );
   }
 }
 
-final condominiProvider = StateNotifierProvider<CondominiNotifier, List<Condomino>>((
-  ref,
-) {
-  return CondominiNotifier();
+/// Notifier dominio anagrafica (fonte dati: backend `core`).
+///
+/// Responsabilita':
+/// - caricare la lista condomini per condominio attivo
+/// - creare/aggiornare record su API `core`
+/// - mantenere stato UI (`loading`/`error`) riusabile dai widget
+class CondominiNotifier extends StateNotifier<CondominiState> {
+  CondominiNotifier(this._ref, this._api) : super(CondominiState.initial());
+
+  final Ref _ref;
+  final CondominoApiClient _api;
+
+  String _requireAccessToken() {
+    final token = _ref.read(keycloakServiceProvider).accessToken;
+    if (token == null || token.isEmpty) {
+      throw Exception('Sessione scaduta: token assente');
+    }
+    return token;
+  }
+
+  /// Richiede che sia stato selezionato un condominio attivo nel flusso post-login.
+  String _requireSelectedCondominioId() {
+    final selected = _ref.read(selectedManagedCondominioProvider);
+    if (selected == null) {
+      throw Exception('Nessun condominio selezionato');
+    }
+    return selected.id;
+  }
+
+  /// Ricarica l'anagrafica dal backend per il condominio attivo.
+  Future<void> loadForSelectedCondominio() async {
+    state = state.copyWith(isLoading: true, clearErrorMessage: true);
+    try {
+      final token = _requireAccessToken();
+      final condominioId = _requireSelectedCondominioId();
+      final items = await _api.fetchCondomini(
+        accessToken: token,
+        condominioId: condominioId,
+      );
+      state = state.copyWith(items: items, isLoading: false);
+    } catch (e, st) {
+      debugPrint('[REGISTRY][loadForSelectedCondominio] $e');
+      debugPrint('$st');
+      state = state.copyWith(isLoading: false, errorMessage: '$e');
+    }
+  }
+
+  /// Crea un nuovo condomino su backend e riallinea la lista locale.
+  Future<void> createCondomino(Condomino condomino) async {
+    state = state.copyWith(isLoading: true, clearErrorMessage: true);
+    try {
+      final token = _requireAccessToken();
+      final condominioId = _requireSelectedCondominioId();
+      await _api.createCondomino(
+        accessToken: token,
+        condomino: condomino,
+        condominioId: condominioId,
+      );
+      await loadForSelectedCondominio();
+    } catch (e, st) {
+      debugPrint('[REGISTRY][createCondomino] $e');
+      debugPrint('$st');
+      state = state.copyWith(isLoading: false, errorMessage: '$e');
+      rethrow;
+    }
+  }
+
+  /// Aggiorna un condomino su backend e riallinea la lista locale.
+  Future<void> updateCondomino(Condomino updated) async {
+    state = state.copyWith(isLoading: true, clearErrorMessage: true);
+    try {
+      final token = _requireAccessToken();
+      final condominioId = _requireSelectedCondominioId();
+      await _api.updateCondomino(
+        accessToken: token,
+        condomino: updated,
+        condominioId: condominioId,
+      );
+      await loadForSelectedCondominio();
+    } catch (e, st) {
+      debugPrint('[REGISTRY][updateCondomino] $e');
+      debugPrint('$st');
+      state = state.copyWith(isLoading: false, errorMessage: '$e');
+      rethrow;
+    }
+  }
+
+  void clear() {
+    state = CondominiState.initial();
+  }
+}
+
+final condominoApiClientProvider = Provider<CondominoApiClient>((ref) {
+  return const CondominoApiClient();
 });
 
-const List<Condomino> _initialCondomini = [
-  Condomino(
-    id: 'C001',
-    nome: 'Luca',
-    cognome: 'Bianchi',
-    scala: 'A',
-    interno: '1',
-    email: 'luca.bianchi@example.com',
-    telefono: '+39 333 100 0001',
-    millesimi: 74.50,
-    residente: true,
-  ),
-  Condomino(
-    id: 'C002',
-    nome: 'Giulia',
-    cognome: 'Rossi',
-    scala: 'A',
-    interno: '2',
-    email: 'giulia.rossi@example.com',
-    telefono: '+39 333 100 0002',
-    millesimi: 68.25,
-    residente: true,
-  ),
-  Condomino(
-    id: 'C003',
-    nome: 'Marco',
-    cognome: 'Verdi',
-    scala: 'A',
-    interno: '3',
-    email: 'marco.verdi@example.com',
-    telefono: '+39 333 100 0003',
-    millesimi: 71.00,
-    residente: false,
-  ),
-  Condomino(
-    id: 'C004',
-    nome: 'Elena',
-    cognome: 'Neri',
-    scala: 'B',
-    interno: '4',
-    email: 'elena.neri@example.com',
-    telefono: '+39 333 100 0004',
-    millesimi: 82.10,
-    residente: true,
-  ),
-  Condomino(
-    id: 'C005',
-    nome: 'Paolo',
-    cognome: 'Gallo',
-    scala: 'B',
-    interno: '5',
-    email: 'paolo.gallo@example.com',
-    telefono: '+39 333 100 0005',
-    millesimi: 77.90,
-    residente: true,
-  ),
-  Condomino(
-    id: 'C006',
-    nome: 'Francesca',
-    cognome: 'Romano',
-    scala: 'B',
-    interno: '6',
-    email: 'francesca.romano@example.com',
-    telefono: '+39 333 100 0006',
-    millesimi: 73.35,
-    residente: false,
-  ),
-  Condomino(
-    id: 'C007',
-    nome: 'Andrea',
-    cognome: 'Greco',
-    scala: 'C',
-    interno: '7',
-    email: 'andrea.greco@example.com',
-    telefono: '+39 333 100 0007',
-    millesimi: 69.20,
-    residente: true,
-  ),
-  Condomino(
-    id: 'C008',
-    nome: 'Sara',
-    cognome: 'Ferrari',
-    scala: 'C',
-    interno: '8',
-    email: 'sara.ferrari@example.com',
-    telefono: '+39 333 100 0008',
-    millesimi: 76.45,
-    residente: true,
-  ),
-  Condomino(
-    id: 'C009',
-    nome: 'Matteo',
-    cognome: 'Esposito',
-    scala: 'C',
-    interno: '9',
-    email: 'matteo.esposito@example.com',
-    telefono: '+39 333 100 0009',
-    millesimi: 80.70,
-    residente: false,
-  ),
-  Condomino(
-    id: 'C010',
-    nome: 'Alessia',
-    cognome: 'Marino',
-    scala: 'D',
-    interno: '10',
-    email: 'alessia.marino@example.com',
-    telefono: '+39 333 100 0010',
-    millesimi: 78.40,
-    residente: true,
-  ),
-  Condomino(
-    id: 'C011',
-    nome: 'Davide',
-    cognome: 'Leone',
-    scala: 'D',
-    interno: '11',
-    email: 'davide.leone@example.com',
-    telefono: '+39 333 100 0011',
-    millesimi: 66.85,
-    residente: true,
-  ),
-  Condomino(
-    id: 'C012',
-    nome: 'Chiara',
-    cognome: 'Costa',
-    scala: 'D',
-    interno: '12',
-    email: 'chiara.costa@example.com',
-    telefono: '+39 333 100 0012',
-    millesimi: 81.30,
-    residente: false,
-  ),
-];
+final condominiProvider =
+    StateNotifierProvider<CondominiNotifier, CondominiState>((ref) {
+      final api = ref.watch(condominoApiClientProvider);
+      final notifier = CondominiNotifier(ref, api);
+      if (ref.read(selectedManagedCondominioProvider) != null) {
+        notifier.loadForSelectedCondominio();
+      }
+      ref.listen<String?>(
+        selectedManagedCondominioProvider.select((value) => value?.id),
+        (previous, next) {
+          if (next == null) {
+            notifier.clear();
+            return;
+          }
+          // Su cambio condominio attivo, la tab anagrafica deve sempre riflettere
+          // il dataset del nuovo contesto.
+          if (previous != next) {
+            notifier.loadForSelectedCondominio();
+          }
+        },
+      );
+      return notifier;
+    });
+
+final condominiItemsProvider = Provider<List<Condomino>>((ref) {
+  return ref.watch(condominiProvider.select((state) => state.items));
+});

@@ -21,13 +21,6 @@ class DashboardPage extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Dashboard',
-          style: Theme.of(
-            context,
-          ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
-        ),
-        const SizedBox(height: 12),
         Expanded(
           child: GridView.count(
             crossAxisCount: MediaQuery.of(context).size.width >= 1280 ? 3 : 1,

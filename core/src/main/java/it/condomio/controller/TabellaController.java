@@ -17,6 +17,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import it.condomio.document.Tabella;
+import it.condomio.exception.ApiException;
+import it.condomio.exception.NotFoundException;
 import it.condomio.exception.ValidationFailedException;
 import it.condomio.service.TabellaService;
 import tools.jackson.databind.JsonNode;
@@ -34,10 +36,9 @@ public class TabellaController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Tabella> getTabellaById(@PathVariable String id) {
-        return tabellaService.getTabellaById(id)
-                .map(ResponseEntity::ok)
-                .orElseGet(() -> ResponseEntity.notFound().build());
+    public ResponseEntity<Tabella> getTabellaById(@PathVariable String id) throws ApiException {
+        return ResponseEntity.ok(
+                tabellaService.getTabellaById(id).orElseThrow(() -> new NotFoundException("tabella")));
     }
 
     @GetMapping
@@ -46,33 +47,24 @@ public class TabellaController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Tabella> updateTabella(@PathVariable String id, @RequestBody Tabella tabella) {
-        try {
-            return ResponseEntity.ok(tabellaService.updateTabella(id, tabella));
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.notFound().build();
-        }
+    public ResponseEntity<Tabella> updateTabella(
+            @PathVariable String id,
+            @RequestBody Tabella tabella) throws ApiException {
+        return ResponseEntity.ok(tabellaService.updateTabella(id, tabella));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteTabella(@PathVariable String id) {
-        try {
-            tabellaService.deleteTabella(id);
-            return ResponseEntity.noContent().build();
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.notFound().build();
-        }
+    public ResponseEntity<Void> deleteTabella(@PathVariable String id) throws ApiException {
+        tabellaService.deleteTabella(id);
+        return ResponseEntity.noContent().build();
     }
 
-    @PatchMapping("/{id}")
-    public ResponseEntity<Tabella> updateCondomino(
+    /** Update parziale via JSON Merge Patch, con mapping errori delegato a errorhandler. */
+    @PatchMapping(path = "/{id}", consumes = "application/merge-patch+json")
+    public ResponseEntity<Tabella> patchTabella(
             @PathVariable String id,
-            @RequestBody JsonNode mergePatch) throws IOException, ValidationFailedException {
-    	try {
-            return ResponseEntity.ok(tabellaService.patch(id, mergePatch));
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.notFound().build();
-        }
+            @RequestBody JsonNode mergePatch) throws IOException, ValidationFailedException, ApiException {
+        return ResponseEntity.ok(tabellaService.patch(id, mergePatch));
     }
 }
 

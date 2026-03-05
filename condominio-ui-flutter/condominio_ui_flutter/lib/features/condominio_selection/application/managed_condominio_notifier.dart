@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../auth/application/auth_notifier.dart';
+import '../../auth/domain/auth_state.dart';
 import '../../auth/application/keycloak_provider.dart';
 import '../data/managed_condominio_api_client.dart';
 import '../domain/managed_condominio.dart';
@@ -156,8 +157,13 @@ final managedCondominioProvider =
       final api = ref.watch(managedCondominioApiClientProvider);
       final notifier = ManagedCondominioNotifier(ref, api);
 
-      ref.listen<int>(authSessionRevisionProvider, (previous, next) {
-        notifier.resetForSession();
+      ref.listen<AuthState>(authStateProvider, (previous, next) {
+        // Reset solo quando la sessione viene realmente chiusa/invalidata.
+        // Non usare authSessionRevisionProvider: incrementa anche sul refresh
+        // token e causerebbe un ritorno indesiderato alla selezione condominio.
+        if (next == AuthState.unauthenticated || next == AuthState.error) {
+          notifier.resetForSession();
+        }
       });
 
       return notifier;

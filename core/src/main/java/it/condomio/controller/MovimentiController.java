@@ -17,6 +17,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import it.condomio.document.Movimenti;
+import it.condomio.exception.ApiException;
+import it.condomio.exception.NotFoundException;
 import it.condomio.exception.ValidationFailedException;
 import it.condomio.service.MovimentiService;
 import tools.jackson.databind.JsonNode;
@@ -34,10 +36,9 @@ public class MovimentiController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Movimenti> getMovimentoById(@PathVariable String id) {
-        return movimentiService.getMovimentoById(id)
-                .map(ResponseEntity::ok)
-                .orElseGet(() -> ResponseEntity.notFound().build());
+    public ResponseEntity<Movimenti> getMovimentoById(@PathVariable String id) throws ApiException {
+        return ResponseEntity.ok(
+                movimentiService.getMovimentoById(id).orElseThrow(() -> new NotFoundException("movimento")));
     }
 
     @GetMapping
@@ -46,33 +47,24 @@ public class MovimentiController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Movimenti> updateMovimento(@PathVariable String id, @RequestBody Movimenti movimento) {
-        try {
-            return ResponseEntity.ok(movimentiService.updateMovimento(id, movimento));
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.notFound().build();
-        }
+    public ResponseEntity<Movimenti> updateMovimento(
+            @PathVariable String id,
+            @RequestBody Movimenti movimento) throws ApiException {
+        return ResponseEntity.ok(movimentiService.updateMovimento(id, movimento));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteMovimento(@PathVariable String id) {
-        try {
-            movimentiService.deleteMovimento(id);
-            return ResponseEntity.noContent().build();
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.notFound().build();
-        }
+    public ResponseEntity<Void> deleteMovimento(@PathVariable String id) throws ApiException {
+        movimentiService.deleteMovimento(id);
+        return ResponseEntity.noContent().build();
     }
 
-    @PatchMapping("/{id}")
-    public ResponseEntity<Movimenti> updateCondomino(
+    /** Update parziale via JSON Merge Patch, con mapping errori delegato a errorhandler. */
+    @PatchMapping(path = "/{id}", consumes = "application/merge-patch+json")
+    public ResponseEntity<Movimenti> patchMovimento(
             @PathVariable String id,
-            @RequestBody JsonNode mergePatch) throws IOException, ValidationFailedException {
-    	try {
-            return ResponseEntity.ok(movimentiService.patch(id, mergePatch));
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.notFound().build();
-        }
+            @RequestBody JsonNode mergePatch) throws IOException, ValidationFailedException, ApiException {
+        return ResponseEntity.ok(movimentiService.patch(id, mergePatch));
     }
 }
 

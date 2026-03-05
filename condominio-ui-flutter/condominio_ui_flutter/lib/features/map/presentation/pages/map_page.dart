@@ -26,24 +26,15 @@ class MapPage extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                'Mappa Condominio',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-            OutlinedButton.icon(
-              onPressed: isLoadingLocation
-                  ? null
-                  : () => mapNotifier.refreshCurrentLocation(),
-              icon: const Icon(Icons.my_location),
-              label: const Text('Aggiorna posizione'),
-            ),
-          ],
+        Align(
+          alignment: Alignment.centerRight,
+          child: OutlinedButton.icon(
+            onPressed: isLoadingLocation
+                ? null
+                : () => mapNotifier.refreshCurrentLocation(),
+            icon: const Icon(Icons.my_location),
+            label: const Text('Aggiorna posizione'),
+          ),
         ),
         const SizedBox(height: 8),
         Text(

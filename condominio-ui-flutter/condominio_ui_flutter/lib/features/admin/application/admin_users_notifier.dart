@@ -107,6 +107,30 @@ class AdminUsersNotifier extends StateNotifier<AdminUsersState> {
     }
   }
 
+  Future<void> createUserOnly({
+    required String username,
+    required String firstName,
+    required String lastName,
+    required String email,
+    required String password,
+  }) async {
+    state = state.copyWith(isCreating: true, clearErrorMessage: true);
+    try {
+      final token = _requireAccessToken();
+      await _api.createUser(
+        accessToken: token,
+        username: username,
+        firstName: firstName,
+        lastName: lastName,
+        email: email,
+        password: password,
+      );
+      state = state.copyWith(isCreating: false);
+    } catch (e) {
+      state = state.copyWith(isCreating: false, errorMessage: '$e');
+    }
+  }
+
   Future<void> deleteUser(String userId) async {
     final nextDeleting = {...state.deletingIds, userId};
     state = state.copyWith(deletingIds: nextDeleting, clearErrorMessage: true);

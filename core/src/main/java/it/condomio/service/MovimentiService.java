@@ -8,6 +8,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import it.condomio.document.Movimenti;
+import it.condomio.exception.ApiException;
+import it.condomio.exception.NotFoundException;
 import it.condomio.exception.ValidationFailedException;
 import it.condomio.repository.MovimentiRepository;
 import it.condomio.util.JsonMergePatchHelper;
@@ -31,25 +33,26 @@ public class MovimentiService {
         return movimentiRepository.findAll();
     }
 
-    public Movimenti updateMovimento(String id, Movimenti updatedMovimento) {
+    public Movimenti updateMovimento(String id, Movimenti updatedMovimento) throws ApiException {
         if (!movimentiRepository.existsById(id)) {
-            throw new IllegalArgumentException("Movimento con ID " + id + " non trovato.");
+            throw new NotFoundException("movimento");
         }
         updatedMovimento.setId(id);
         return movimentiRepository.save(updatedMovimento);
     }
 
-    public void deleteMovimento(String id) {
+    public void deleteMovimento(String id) throws ApiException {
         if (!movimentiRepository.existsById(id)) {
-            throw new IllegalArgumentException("Movimento con ID " + id + " non trovato.");
+            throw new NotFoundException("movimento");
         }
         movimentiRepository.deleteById(id);
     }
 
-    public Movimenti patch(String id, JsonNode mergePatch) throws IOException, ValidationFailedException {
+    public Movimenti patch(String id, JsonNode mergePatch)
+            throws IOException, ValidationFailedException, ApiException {
         Optional<Movimenti> optionalMovimenti = movimentiRepository.findById(id);
-        if (!optionalMovimenti.isPresent()) {
-            throw new IllegalArgumentException("Tabella con ID " + id + " non trovato.");
+        if (optionalMovimenti.isEmpty()) {
+            throw new NotFoundException("movimento");
         }
         Movimenti movimenti = optionalMovimenti.get();
         Movimenti patchedMovimenti = JsonMergePatchHelper.applyMergePatch(mergePatch, movimenti, Movimenti.class);

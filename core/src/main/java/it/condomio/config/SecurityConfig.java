@@ -42,10 +42,22 @@ public class SecurityConfig {
                                 "/public/**",
                                 "/actuator/**"
                         ).permitAll()
+                        .requestMatchers(HttpMethod.POST, "/condominio/**").hasRole("amministratore")
+                        .requestMatchers(HttpMethod.PUT, "/condominio/**").hasRole("amministratore")
+                        .requestMatchers(HttpMethod.PATCH, "/condominio/**").hasRole("amministratore")
+                        .requestMatchers(HttpMethod.DELETE, "/condominio/**").hasRole("amministratore")
                         .requestMatchers(HttpMethod.POST, "/condomino/**").hasRole("amministratore")
                         .requestMatchers(HttpMethod.PUT, "/condomino/**").hasRole("amministratore")
                         .requestMatchers(HttpMethod.PATCH, "/condomino/**").hasRole("amministratore")
                         .requestMatchers(HttpMethod.DELETE, "/condomino/**").hasRole("amministratore")
+                        .requestMatchers(HttpMethod.POST, "/movimenti/**").hasRole("amministratore")
+                        .requestMatchers(HttpMethod.PUT, "/movimenti/**").hasRole("amministratore")
+                        .requestMatchers(HttpMethod.PATCH, "/movimenti/**").hasRole("amministratore")
+                        .requestMatchers(HttpMethod.DELETE, "/movimenti/**").hasRole("amministratore")
+                        .requestMatchers(HttpMethod.POST, "/tabelle/**").hasRole("amministratore")
+                        .requestMatchers(HttpMethod.PUT, "/tabelle/**").hasRole("amministratore")
+                        .requestMatchers(HttpMethod.PATCH, "/tabelle/**").hasRole("amministratore")
+                        .requestMatchers(HttpMethod.DELETE, "/tabelle/**").hasRole("amministratore")
                         .anyRequest().authenticated()
                 )
                 .oauth2ResourceServer(oauth2 ->

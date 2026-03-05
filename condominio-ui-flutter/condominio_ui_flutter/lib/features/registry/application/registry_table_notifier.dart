@@ -18,7 +18,6 @@ class RegistryTableState {
     required this.searchQuery,
     required this.sortField,
     required this.sortAscending,
-    required this.residentFilter,
     required this.rowsPerPage,
     required this.pageIndex,
   });
@@ -28,7 +27,6 @@ class RegistryTableState {
       searchQuery: '',
       sortField: null,
       sortAscending: true,
-      residentFilter: null,
       rowsPerPage: 8,
       pageIndex: 0,
     );
@@ -37,7 +35,6 @@ class RegistryTableState {
   final String searchQuery;
   final RegistrySortField? sortField;
   final bool sortAscending;
-  final bool? residentFilter;
   final int rowsPerPage;
   final int pageIndex;
 
@@ -46,8 +43,6 @@ class RegistryTableState {
     RegistrySortField? sortField,
     bool clearSortField = false,
     bool? sortAscending,
-    bool? residentFilter,
-    bool clearResidentFilter = false,
     int? rowsPerPage,
     int? pageIndex,
   }) {
@@ -55,9 +50,6 @@ class RegistryTableState {
       searchQuery: searchQuery ?? this.searchQuery,
       sortField: clearSortField ? null : (sortField ?? this.sortField),
       sortAscending: sortAscending ?? this.sortAscending,
-      residentFilter: clearResidentFilter
-          ? null
-          : (residentFilter ?? this.residentFilter),
       rowsPerPage: rowsPerPage ?? this.rowsPerPage,
       pageIndex: pageIndex ?? this.pageIndex,
     );
@@ -76,13 +68,6 @@ class RegistryTableNotifier extends StateNotifier<RegistryTableState> {
   /// Pulisce query ricerca e torna a pagina 1.
   void clearSearch() {
     state = state.copyWith(searchQuery: '', pageIndex: 0);
-  }
-
-  /// Imposta filtro residente (null = tutti) e torna a pagina 1.
-  void setResidentFilter(bool? value) {
-    state = value == null
-        ? state.copyWith(clearResidentFilter: true, pageIndex: 0)
-        : state.copyWith(residentFilter: value, pageIndex: 0);
   }
 
   /// Ordinamento a 3 stati sulla colonna cliccata:
@@ -154,15 +139,11 @@ final registryTableProvider =
 final registryFilteredSortedProvider = Provider.autoDispose<List<Condomino>>((
   ref,
 ) {
-  final source = ref.watch(condominiProvider);
+  final source = ref.watch(condominiItemsProvider);
   final tableState = ref.watch(registryTableProvider);
   final query = tableState.searchQuery.trim().toLowerCase();
 
   final result = source.where((c) {
-    if (tableState.residentFilter != null &&
-        c.residente != tableState.residentFilter) {
-      return false;
-    }
     if (query.isEmpty) return true;
     return c.nominativo.toLowerCase().contains(query) ||
         c.unita.toLowerCase().contains(query) ||
@@ -180,11 +161,8 @@ final registryFilteredSortedProvider = Provider.autoDispose<List<Condomino>>((
         case RegistrySortField.unita:
           cmp = a.unita.compareTo(b.unita);
           break;
-        case RegistrySortField.millesimi:
-          cmp = a.millesimi.compareTo(b.millesimi);
-          break;
-        case RegistrySortField.stato:
-          cmp = (a.residente ? 1 : 0).compareTo(b.residente ? 1 : 0);
+        case RegistrySortField.email:
+          cmp = a.email.compareTo(b.email);
           break;
       }
       return tableState.sortAscending ? cmp : -cmp;

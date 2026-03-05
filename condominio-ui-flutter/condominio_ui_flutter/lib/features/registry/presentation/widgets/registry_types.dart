@@ -1,1 +1,1 @@
-enum RegistrySortField { nominativo, unita, millesimi, stato }
+enum RegistrySortField { nominativo, unita, email }

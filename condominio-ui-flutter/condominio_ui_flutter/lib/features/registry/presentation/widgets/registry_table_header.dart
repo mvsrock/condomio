@@ -32,8 +32,7 @@ class RegistryTableHeader extends StatelessWidget {
         children: [
           _sortableLabel('Nominativo', RegistrySortField.nominativo, flex: 3),
           _sortableLabel('Unita', RegistrySortField.unita, flex: 2),
-          _sortableLabel('Millesimi', RegistrySortField.millesimi),
-          _sortableLabel('Stato', RegistrySortField.stato),
+          _sortableLabel('Email', RegistrySortField.email, flex: 3),
           const SizedBox(width: 44),
         ],
       ),

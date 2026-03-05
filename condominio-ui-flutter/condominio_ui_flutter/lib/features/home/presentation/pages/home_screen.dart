@@ -19,7 +19,7 @@ import '../widgets/home_navigation_rail.dart';
 /// ma dal router (`StatefulNavigationShell`) con route reali:
 /// - /home/dashboard
 /// - /home/map
-/// - /home/registry
+/// - /home/anagrafica
 /// - /home/session
 /// - /home/documents
 class HomeScreen extends ConsumerStatefulWidget {
@@ -91,12 +91,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               isAdmin: isAdmin,
               activeCondominioLabel: activeCondominio?.label,
               onManageCondomini: () => context.go('/select-condominio'),
-              onOpenAdminUsers: isAdmin
-                  ? () => context.go('/home/admin-users')
-                  : null,
-              onOpenAdminRoles: isAdmin
-                  ? () => context.go('/home/admin-roles')
-                  : null,
             ),
             Expanded(
               child: isWide

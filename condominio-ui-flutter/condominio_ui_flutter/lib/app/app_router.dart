@@ -2,15 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../features/admin/presentation/pages/admin_roles_page.dart';
-import '../features/admin/presentation/pages/admin_users_page.dart';
 import '../features/auth/application/auth_notifier.dart';
 import '../features/auth/domain/auth_state.dart';
 import '../features/auth/presentation/pages/login_screen.dart';
 import '../features/condominio_selection/application/managed_condominio_notifier.dart';
 import '../features/condominio_selection/presentation/pages/condominio_selection_page.dart';
 import '../features/documents/presentation/pages/documents_page.dart';
-import '../features/home/application/home_navigation_provider.dart';
 import '../features/home/presentation/pages/dashboard_page.dart';
 import '../features/home/presentation/pages/home_screen.dart';
 import '../features/home/presentation/pages/session_page.dart';
@@ -65,14 +62,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final isCondominioLoading = location == '/condominio-loading';
       final isCondominioSelection = location == '/select-condominio';
       final isHome = location.startsWith('/home');
-      final isAdminOnly =
-          location == '/home/admin-users' || location == '/home/admin-roles';
-
-      if (authState == AuthState.authenticated && isAdminOnly) {
-        final isAdmin = ref.read(homeIsAdminProvider);
-        if (!isAdmin) return '/home/dashboard';
-      }
-
       if (authState == AuthState.authenticated) {
         ref.read(managedCondominioProvider.notifier).bootstrap();
         final condominioState = ref.read(managedCondominioProvider);
@@ -157,7 +146,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           StatefulShellBranch(
             routes: [
               GoRoute(
-                path: '/home/registry',
+                path: '/home/anagrafica',
                 builder: (context, state) => const RegistryTabPage(),
               ),
             ],
@@ -175,22 +164,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: '/home/documents',
                 builder: (context, state) => const DocumentsPage(),
-              ),
-            ],
-          ),
-          StatefulShellBranch(
-            routes: [
-              GoRoute(
-                path: '/home/admin-users',
-                builder: (context, state) => const AdminUsersPage(),
-              ),
-            ],
-          ),
-          StatefulShellBranch(
-            routes: [
-              GoRoute(
-                path: '/home/admin-roles',
-                builder: (context, state) => const AdminRolesPage(),
               ),
             ],
           ),

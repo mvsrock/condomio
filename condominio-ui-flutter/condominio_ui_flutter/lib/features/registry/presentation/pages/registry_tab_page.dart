@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../admin/application/admin_users_notifier.dart';
+import '../../../admin/domain/admin_user.dart';
+import '../../../admin/presentation/pages/admin_users_page.dart';
+import '../../../home/application/home_navigation_provider.dart';
 import '../../../home/application/home_ui_notifier.dart';
 import '../../application/condomini_notifier.dart';
 import '../../domain/condomino.dart';
@@ -17,24 +21,137 @@ class RegistryTabPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.listen<String?>(
+      condominiProvider.select((state) => state.errorMessage),
+      (previous, next) {
+        if (next != null && next != previous) {
+          debugPrint('[REGISTRY][uiError] $next');
+        }
+      },
+    );
+
+    final items = ref.watch(
+      condominiProvider.select((state) => state.items),
+    );
+    final isLoading = ref.watch(
+      condominiProvider.select((state) => state.isLoading),
+    );
+    final error = ref.watch(
+      condominiProvider.select((state) => state.errorMessage),
+    );
     final selectedCondominoId = ref.watch(
       homeUiProvider.select((state) => state.selectedCondominoId),
     );
     final uiNotifier = ref.read(homeUiProvider.notifier);
+    final isAdmin = ref.watch(homeIsAdminProvider);
+    final tabCount = isAdmin ? 2 : 1;
 
-    return RegistryPage(
-      selectedCondominoId: selectedCondominoId,
-      onCondominoRowTap: (selected) => uiNotifier.selectCondomino(selected.id),
-      onCondominoTap: (selected) => _openCondominoDetailScreen(
-        context: context,
-        ref: ref,
-        selected: selected,
+    // La tab anagrafica diventa il punto unico per:
+    // - consultazione/ricerca condomini
+    // - gestione accessi (solo admin)
+    return DefaultTabController(
+      length: tabCount,
+      child: Column(
+        children: [
+          TabBar(
+            tabs: [
+              const Tab(text: 'Anagrafica'),
+              if (isAdmin) const Tab(text: 'Gestione Accessi'),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Expanded(
+            child: TabBarView(
+              children: [
+                if (isLoading)
+                  if (items.isEmpty)
+                    const Center(child: CircularProgressIndicator())
+                  else
+                    _buildRegistryContent(
+                      context: context,
+                      ref: ref,
+                      uiNotifier: uiNotifier,
+                      isAdmin: isAdmin,
+                      selectedCondominoId: selectedCondominoId,
+                      error: error,
+                    )
+                else
+                  _buildRegistryContent(
+                    context: context,
+                    ref: ref,
+                    uiNotifier: uiNotifier,
+                    isAdmin: isAdmin,
+                    selectedCondominoId: selectedCondominoId,
+                    error: error,
+                  ),
+                if (isAdmin) const AdminUsersPage(),
+              ],
+            ),
+          ),
+        ],
       ),
-      onCondominoEdit: (condomino) => _openCondominoEditScreen(
-        context: context,
-        ref: ref,
-        condomino: condomino,
-      ),
+    );
+  }
+
+  Widget _buildRegistryContent({
+    required BuildContext context,
+    required WidgetRef ref,
+    required HomeUiNotifier uiNotifier,
+    required bool isAdmin,
+    required String? selectedCondominoId,
+    required String? error,
+  }) {
+    return Column(
+      children: [
+        if (error != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Material(
+              color: Colors.red.shade50,
+              borderRadius: BorderRadius.circular(12),
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Row(
+                  children: [
+                    Icon(Icons.error_outline, color: Colors.red.shade900),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        error,
+                        style: TextStyle(color: Colors.red.shade900),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () => ref
+                          .read(condominiProvider.notifier)
+                          .loadForSelectedCondominio(),
+                      child: const Text('Riprova'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        Expanded(
+          child: RegistryPage(
+            selectedCondominoId: selectedCondominoId,
+            canEdit: isAdmin,
+            onCondominoRowTap: (selected) =>
+                uiNotifier.selectCondomino(selected.id),
+            onCondominoTap: (selected) => _openCondominoDetailScreen(
+              context: context,
+              ref: ref,
+              selected: selected,
+              canEdit: isAdmin,
+            ),
+            onCondominoEdit: (condomino) => _openCondominoEditScreen(
+              context: context,
+              ref: ref,
+              condomino: condomino,
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -42,11 +159,13 @@ class RegistryTabPage extends ConsumerWidget {
     required BuildContext context,
     required WidgetRef ref,
     required Condomino selected,
+    required bool canEdit,
   }) async {
     await Navigator.of(context).push<void>(
       MaterialPageRoute(
         builder: (_) => _CondominoDetailScreen(
           condomino: selected,
+          canEdit: canEdit,
           onUpdated: (updated) {
             ref.read(condominiProvider.notifier).updateCondomino(updated);
           },
@@ -60,17 +179,37 @@ class RegistryTabPage extends ConsumerWidget {
     required WidgetRef ref,
     required Condomino condomino,
   }) async {
+    final isAdmin = ref.read(homeIsAdminProvider);
+    // Guardia UI: la modifica anagrafica e' riservata agli admin.
+    // (La protezione definitiva resta comunque lato backend.)
+    if (!isAdmin) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Modifica consentita solo agli admin.')),
+        );
+      }
+      return;
+    }
+
     final updated = await Navigator.of(context).push<Condomino>(
       MaterialPageRoute(
         builder: (_) => _CondominoEditScreen(condomino: condomino),
       ),
     );
     if (updated != null) {
-      ref.read(condominiProvider.notifier).updateCondomino(updated);
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Modifica salvata.')),
-        );
+      try {
+        await ref.read(condominiProvider.notifier).updateCondomino(updated);
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Modifica salvata.')),
+          );
+        }
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Errore durante la modifica: $e')),
+          );
+        }
       }
     }
   }
@@ -79,10 +218,12 @@ class RegistryTabPage extends ConsumerWidget {
 class _CondominoDetailScreen extends StatefulWidget {
   const _CondominoDetailScreen({
     required this.condomino,
+    required this.canEdit,
     required this.onUpdated,
   });
 
   final Condomino condomino;
+  final bool canEdit;
   final ValueChanged<Condomino> onUpdated;
 
   @override
@@ -105,11 +246,12 @@ class _CondominoDetailScreenState extends State<_CondominoDetailScreen> {
       appBar: AppBar(
         title: const Text('Dettaglio condomino'),
         actions: [
-          FilledButton.tonalIcon(
-            onPressed: _openEdit,
-            icon: const Icon(Icons.edit_outlined),
-            label: const Text('Modifica'),
-          ),
+          if (widget.canEdit)
+            FilledButton.tonalIcon(
+              onPressed: _openEdit,
+              icon: const Icon(Icons.edit_outlined),
+              label: const Text('Modifica'),
+            ),
           const SizedBox(width: 12),
         ],
       ),
@@ -178,14 +320,8 @@ class _CondominoDetailScreenState extends State<_CondominoDetailScreen> {
                           children: [
                             _ValuePill(label: 'ID', value: _current.id),
                             _ValuePill(
-                              label: 'Millesimi',
-                              value: _current.millesimi.toStringAsFixed(2),
-                            ),
-                            _ValuePill(
-                              label: 'Stato',
-                              value: _current.residente
-                                  ? 'Residente'
-                                  : 'Non residente',
+                              label: 'Unita',
+                              value: _current.unita,
                             ),
                           ],
                         ),
@@ -269,16 +405,17 @@ class _ValuePill extends StatelessWidget {
   }
 }
 
-class _CondominoEditScreen extends StatefulWidget {
+class _CondominoEditScreen extends ConsumerStatefulWidget {
   const _CondominoEditScreen({required this.condomino});
 
   final Condomino condomino;
 
   @override
-  State<_CondominoEditScreen> createState() => _CondominoEditScreenState();
+  ConsumerState<_CondominoEditScreen> createState() =>
+      _CondominoEditScreenState();
 }
 
-class _CondominoEditScreenState extends State<_CondominoEditScreen> {
+class _CondominoEditScreenState extends ConsumerState<_CondominoEditScreen> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _nomeController;
   late final TextEditingController _cognomeController;
@@ -286,8 +423,9 @@ class _CondominoEditScreenState extends State<_CondominoEditScreen> {
   late final TextEditingController _internoController;
   late final TextEditingController _emailController;
   late final TextEditingController _telefonoController;
-  late final TextEditingController _millesimiController;
-  late bool _residente;
+  late final TextEditingController _keycloakUsernameController;
+  bool _hasAppAccess = false;
+  String? _selectedKeycloakUserId;
 
   @override
   void initState() {
@@ -298,10 +436,13 @@ class _CondominoEditScreenState extends State<_CondominoEditScreen> {
     _internoController = TextEditingController(text: widget.condomino.interno);
     _emailController = TextEditingController(text: widget.condomino.email);
     _telefonoController = TextEditingController(text: widget.condomino.telefono);
-    _millesimiController = TextEditingController(
-      text: widget.condomino.millesimi.toStringAsFixed(2),
+    _keycloakUsernameController = TextEditingController(
+      text: widget.condomino.keycloakUsername ?? '',
     );
-    _residente = widget.condomino.residente;
+    // In modifica mostriamo stato accesso applicativo persistito sul condomino.
+    _hasAppAccess = widget.condomino.hasAppAccess;
+    _selectedKeycloakUserId = widget.condomino.keycloakUserId;
+    Future.microtask(() => ref.read(adminUsersProvider.notifier).loadUsers());
   }
 
   @override
@@ -312,12 +453,16 @@ class _CondominoEditScreenState extends State<_CondominoEditScreen> {
     _internoController.dispose();
     _emailController.dispose();
     _telefonoController.dispose();
-    _millesimiController.dispose();
+    _keycloakUsernameController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final keycloakUsers = ref.watch(
+      adminUsersProvider.select((state) => state.items),
+    );
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Modifica condomino'),
@@ -412,7 +557,7 @@ class _CondominoEditScreenState extends State<_CondominoEditScreen> {
                           ),
                           const SizedBox(height: 16),
                           const Text(
-                            'Contatti e quote',
+                            'Contatti',
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w700,
@@ -428,37 +573,66 @@ class _CondominoEditScreenState extends State<_CondominoEditScreen> {
                             controller: _telefonoController,
                             decoration: const InputDecoration(labelText: 'Telefono'),
                           ),
-                          const SizedBox(height: 12),
-                          TextFormField(
-                            controller: _millesimiController,
-                            decoration: const InputDecoration(
-                              labelText: 'Millesimi',
+                          const SizedBox(height: 16),
+                          const Text(
+                            'Accesso App (Keycloak)',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
                             ),
-                            keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true,
-                            ),
-                            validator: (value) {
-                              if (value == null || value.trim().isEmpty) {
-                                return 'Campo obbligatorio';
-                              }
-                              final parsed = double.tryParse(
-                                value.trim().replaceAll(',', '.'),
-                              );
-                              if (parsed == null) {
-                                return 'Valore non valido';
-                              }
-                              return null;
-                            },
                           ),
-                          const SizedBox(height: 12),
-                          SwitchListTile(
+                          const SizedBox(height: 10),
+                          SwitchListTile.adaptive(
                             contentPadding: EdgeInsets.zero,
-                            title: const Text('Residente'),
-                            value: _residente,
-                            onChanged: (value) {
-                              setState(() => _residente = value);
-                            },
+                            title: const Text('Accesso app abilitato'),
+                            value: _hasAppAccess,
+                            onChanged: (value) => setState(() {
+                              _hasAppAccess = value;
+                              // Se l'accesso viene disabilitato da UI,
+                              // azzeriamo l'associazione utente.
+                              if (!value) {
+                                _selectedKeycloakUserId = null;
+                                _keycloakUsernameController.clear();
+                              }
+                            }),
                           ),
+                          if (_hasAppAccess) ...[
+                            const SizedBox(height: 8),
+                            DropdownButtonFormField<String>(
+                              initialValue: keycloakUsers.any(
+                                (u) => u.userId == _selectedKeycloakUserId,
+                              )
+                                  ? _selectedKeycloakUserId
+                                  : null,
+                              decoration: const InputDecoration(
+                                labelText: 'Utente Keycloak',
+                              ),
+                              items: keycloakUsers
+                                  .map(
+                                    (u) => DropdownMenuItem<String>(
+                                      value: u.userId,
+                                      child: Text('${u.username} (${u.email})'),
+                                    ),
+                                  )
+                                  .toList(),
+                              onChanged: (value) {
+                                setState(() => _selectedKeycloakUserId = value);
+                                final user = _findAdminUserById(
+                                  keycloakUsers,
+                                  value,
+                                );
+                                _keycloakUsernameController.text =
+                                    user?.username ?? '';
+                              },
+                              validator: (value) {
+                                if (!_hasAppAccess) return null;
+                                if (value == null || value.trim().isEmpty) {
+                                  return 'Seleziona utente Keycloak';
+                                }
+                                return null;
+                              },
+                            ),
+                          ],
                           const SizedBox(height: 18),
                           Align(
                             alignment: Alignment.centerRight,
@@ -485,9 +659,15 @@ class _CondominoEditScreenState extends State<_CondominoEditScreen> {
     if (!(_formKey.currentState?.validate() ?? false)) {
       return;
     }
-    final parsedMillesimi = double.parse(
-      _millesimiController.text.trim().replaceAll(',', '.'),
+    // Fonte utenti Keycloak usata per valorizzare legame applicativo
+    // (`keycloakUserId` + `keycloakUsername`) nel documento condomino.
+    final keycloakUsers = ref.read(
+      adminUsersProvider.select((state) => state.items),
     );
+    final selectedUser = _findAdminUserById(keycloakUsers, _selectedKeycloakUserId);
+    final resolvedRole = (_hasAppAccess && selectedUser != null)
+        ? _roleFromKeycloakUser(selectedUser)
+        : widget.condomino.ruolo;
     Navigator.of(context).pop(
       widget.condomino.copyWith(
         nome: _nomeController.text.trim(),
@@ -496,9 +676,34 @@ class _CondominoEditScreenState extends State<_CondominoEditScreen> {
         interno: _internoController.text.trim(),
         email: _emailController.text.trim(),
         telefono: _telefonoController.text.trim(),
-        millesimi: parsedMillesimi,
-        residente: _residente,
+        hasAppAccess: _hasAppAccess,
+        ruolo: resolvedRole,
+        keycloakUsername: _hasAppAccess
+            ? (selectedUser?.username ?? _keycloakUsernameController.text.trim())
+            : null,
+        keycloakUserId: _hasAppAccess ? selectedUser?.userId : null,
+        clearKeycloakUsername: !_hasAppAccess,
+        clearKeycloakUserId: !_hasAppAccess,
       ),
     );
+  }
+
+  AdminUser? _findAdminUserById(List<AdminUser> users, String? id) {
+    if (id == null || id.isEmpty) return null;
+    for (final u in users) {
+      if (u.userId == id) return u;
+    }
+    return null;
+  }
+
+  CondominoRuolo _roleFromKeycloakUser(AdminUser user) {
+    final raw = user.groupName.trim().toLowerCase();
+    if (raw.contains('amministratore') || raw.contains('role_amministratore')) {
+      return CondominoRuolo.amministratore;
+    }
+    if (raw.contains('consigliere') || raw.contains('role_consigliere')) {
+      return CondominoRuolo.consigliere;
+    }
+    return CondominoRuolo.standard;
   }
 }

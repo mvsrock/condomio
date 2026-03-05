@@ -9,15 +9,11 @@ class RegistryFiltersBar extends StatefulWidget {
     super.key,
     required this.searchQuery,
     required this.onSearchChanged,
-    required this.residentFilter,
-    required this.onSetResidentFilter,
     required this.onClearSearch,
   });
 
   final String searchQuery;
   final ValueChanged<String> onSearchChanged;
-  final bool? residentFilter;
-  final ValueChanged<bool?> onSetResidentFilter;
   final VoidCallback onClearSearch;
 
   @override
@@ -80,21 +76,6 @@ class _RegistryFiltersBarState extends State<RegistryFiltersBar> {
                     ),
             ),
           ),
-        ),
-        ChoiceChip(
-          label: const Text('Tutti'),
-          selected: widget.residentFilter == null,
-          onSelected: (_) => widget.onSetResidentFilter(null),
-        ),
-        ChoiceChip(
-          label: const Text('Solo residenti'),
-          selected: widget.residentFilter == true,
-          onSelected: (_) => widget.onSetResidentFilter(true),
-        ),
-        ChoiceChip(
-          label: const Text('Solo non residenti'),
-          selected: widget.residentFilter == false,
-          onSelected: (_) => widget.onSetResidentFilter(false),
         ),
       ],
     );

@@ -23,12 +23,14 @@ class RegistryPage extends ConsumerWidget {
   const RegistryPage({
     super.key,
     required this.selectedCondominoId,
+    required this.canEdit,
     required this.onCondominoRowTap,
     required this.onCondominoTap,
     required this.onCondominoEdit,
   });
 
   final String? selectedCondominoId;
+  final bool canEdit;
   final ValueChanged<Condomino> onCondominoRowTap;
   final ValueChanged<Condomino> onCondominoTap;
   final ValueChanged<Condomino> onCondominoEdit;
@@ -51,7 +53,6 @@ class RegistryPage extends ConsumerWidget {
         .toInt();
     final end = (start + tableState.rowsPerPage).clamp(0, totalItems).toInt();
     final paged = filteredSorted.sublist(start, end);
-    final residenti = filteredSorted.where((c) => c.residente).length;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -62,13 +63,6 @@ class RegistryPage extends ConsumerWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Anagrafica Condomini',
-              style: Theme.of(
-                context,
-              ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 8),
             Wrap(
               spacing: 8,
               runSpacing: 8,
@@ -78,12 +72,8 @@ class RegistryPage extends ConsumerWidget {
                   icon: Icons.people_alt_outlined,
                 ),
                 RegistryInfoChip(
-                  label: 'Residenti: $residenti',
-                  icon: Icons.home_outlined,
-                ),
-                RegistryInfoChip(
-                  label: 'Non residenti: ${filteredSorted.length - residenti}',
-                  icon: Icons.business_center_outlined,
+                  label: 'Pagina ${safePageIndex + 1} di $totalPages',
+                  icon: Icons.format_list_numbered_outlined,
                 ),
               ],
             ),
@@ -91,8 +81,6 @@ class RegistryPage extends ConsumerWidget {
             RegistryFiltersBar(
               searchQuery: tableState.searchQuery,
               onSearchChanged: tableNotifier.setSearchQuery,
-              residentFilter: tableState.residentFilter,
-              onSetResidentFilter: tableNotifier.setResidentFilter,
               onClearSearch: tableNotifier.clearSearch,
             ),
             const SizedBox(height: 12),
@@ -123,6 +111,7 @@ class RegistryPage extends ConsumerWidget {
                                 key: ValueKey(condomino.id),
                                 condomino: condomino,
                                 isSelected: selectedCondominoId == condomino.id,
+                                canEdit: canEdit,
                                 onRowTap: () => onCondominoRowTap(condomino),
                                 onViewDetail: () => onCondominoTap(condomino),
                                 onEdit: () => onCondominoEdit(condomino),

@@ -2,20 +2,13 @@ import 'package:flutter/material.dart';
 
 import '../../domain/condomino.dart';
 
-/// Riga tabella anagrafica.
-///
-/// Stato locale interno:
-/// - `_isHovered` per effetto hover desktop/web
-/// - `_isActionsExpanded` per pannello azioni riga
-///
-/// Motivazione performance:
-/// - hover/espansione non passano da provider globale;
-/// - al cambio hover/expand si ricostruisce solo questa riga.
+/// Riga tabella anagrafica allineata ai campi realmente persistiti da `core`.
 class RegistryRow extends StatefulWidget {
   const RegistryRow({
     super.key,
     required this.condomino,
     required this.isSelected,
+    required this.canEdit,
     required this.onRowTap,
     required this.onViewDetail,
     required this.onEdit,
@@ -23,6 +16,7 @@ class RegistryRow extends StatefulWidget {
 
   final Condomino condomino;
   final bool isSelected;
+  final bool canEdit;
   final VoidCallback onRowTap;
   final VoidCallback onViewDetail;
   final VoidCallback onEdit;
@@ -80,24 +74,13 @@ class _RegistryRowState extends State<RegistryRow> {
                                 children: [
                                   Text(
                                     widget.condomino.nominativo,
-                                    style: const TextStyle(fontWeight: FontWeight.w600),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text('Unita: ${widget.condomino.unita}'),
-                                  Text(
-                                    'Millesimi: ${widget.condomino.millesimi.toStringAsFixed(2)}',
-                                  ),
-                                  Text(
-                                    widget.condomino.residente
-                                        ? 'Residente'
-                                        : 'Non residente',
-                                    style: TextStyle(
-                                      color: widget.condomino.residente
-                                          ? const Color(0xFF147D64)
-                                          : const Color(0xFFB9770E),
+                                    style: const TextStyle(
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
+                                  const SizedBox(height: 2),
+                                  Text('Unita: ${widget.condomino.unita}'),
+                                  Text('Email: ${widget.condomino.email}'),
                                 ],
                               )
                             : Row(
@@ -106,25 +89,18 @@ class _RegistryRowState extends State<RegistryRow> {
                                     flex: 3,
                                     child: Text(
                                       widget.condomino.nominativo,
-                                      style: const TextStyle(fontWeight: FontWeight.w600),
-                                    ),
-                                  ),
-                                  Expanded(flex: 2, child: Text(widget.condomino.unita)),
-                                  Expanded(
-                                    child: Text(widget.condomino.millesimi.toStringAsFixed(2)),
-                                  ),
-                                  Expanded(
-                                    child: Text(
-                                      widget.condomino.residente
-                                          ? 'Residente'
-                                          : 'Non residente',
-                                      style: TextStyle(
-                                        color: widget.condomino.residente
-                                            ? const Color(0xFF147D64)
-                                            : const Color(0xFFB9770E),
+                                      style: const TextStyle(
                                         fontWeight: FontWeight.w600,
                                       ),
                                     ),
+                                  ),
+                                  Expanded(
+                                    flex: 2,
+                                    child: Text(widget.condomino.unita),
+                                  ),
+                                  Expanded(
+                                    flex: 3,
+                                    child: Text(widget.condomino.email),
                                   ),
                                 ],
                               ),
@@ -160,11 +136,12 @@ class _RegistryRowState extends State<RegistryRow> {
                       icon: const Icon(Icons.visibility_outlined),
                       label: const Text('Vedi dettaglio'),
                     ),
-                    FilledButton.tonalIcon(
-                      onPressed: widget.onEdit,
-                      icon: const Icon(Icons.edit_outlined),
-                      label: const Text('Modifica'),
-                    ),
+                    if (widget.canEdit)
+                      FilledButton.tonalIcon(
+                        onPressed: widget.onEdit,
+                        icon: const Icon(Icons.edit_outlined),
+                        label: const Text('Modifica'),
+                      ),
                   ],
                 ),
               ),
