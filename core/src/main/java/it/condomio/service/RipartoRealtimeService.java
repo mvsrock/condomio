@@ -8,6 +8,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.mongodb.core.BulkOperations;
 import org.springframework.data.mongodb.core.MongoTemplate;
@@ -33,6 +35,7 @@ import it.condomio.repository.MovimentiRepository;
  */
 @Service
 public class RipartoRealtimeService {
+    private static final Logger log = LoggerFactory.getLogger(RipartoRealtimeService.class);
 
     @Autowired
     private CondominioRepository condominioRepository;
@@ -89,7 +92,7 @@ public class RipartoRealtimeService {
             }
         }
 
-        double residuoCondominio = 0d;
+        double dovutoTotaleCondominio = 0d;
         final BulkOperations condominoBulk = mongoTemplate.bulkOps(BulkOperations.BulkMode.UNORDERED, Condomino.class);
         int updatesCount = 0;
         for (Condomino condomino : condomini) {
@@ -106,14 +109,17 @@ public class RipartoRealtimeService {
             final Update u = new Update().set("residuo", residuo);
             condominoBulk.updateOne(q, u);
             updatesCount++;
-            residuoCondominio += residuo;
+            dovutoTotaleCondominio += dovuto;
         }
         if (updatesCount > 0) {
             condominoBulk.execute();
         }
 
         final double saldoInizialeCondominio = condominio.getSaldoIniziale() == null ? 0d : condominio.getSaldoIniziale();
-        final double newCondominioResiduo = round2(saldoInizialeCondominio + residuoCondominio);
+        // Coerenza con logica delta (applyMovimentoDelta):
+        // residuo condominio = saldo iniziale condominio - totale dovuto dai movimenti.
+        // Non sommiamo i residui dei condomini per evitare doppio conteggio dei loro saldi iniziali.
+        final double newCondominioResiduo = round2(saldoInizialeCondominio - dovutoTotaleCondominio);
         // Caso singolo e update omogeneo: usiamo repository @Query/@Update.
         condominioRepository.setResiduoById(idCondominio, newCondominioResiduo);
         condominio.setResiduo(newCondominioResiduo);
@@ -192,6 +198,7 @@ public class RipartoRealtimeService {
                 rebuilt.add(enrichMovimentoWithRiparto(m));
             }
             movimentiRepository.saveAll(rebuilt);
+            logRipartoCoerenza(idCondominio, rebuilt);
         }
         recomputeCondominioResidui(idCondominio);
     }
@@ -224,12 +231,23 @@ public class RipartoRealtimeService {
             Condominio.ConfigurazioneSpesa configurazione,
             Movimenti movimento) {
         final List<Movimenti.RipartizioneTabella> result = new ArrayList<>();
-        for (Condominio.ConfigurazioneSpesa.TabellaPercentuale tabella : configurazione.getTabelle()) {
+        final List<Condominio.ConfigurazioneSpesa.TabellaPercentuale> tabelle = configurazione.getTabelle();
+        double allocated = 0d;
+        for (int i = 0; i < tabelle.size(); i++) {
+            final Condominio.ConfigurazioneSpesa.TabellaPercentuale tabella = tabelle.get(i);
             if (tabella == null) {
                 continue;
             }
-            final int percentuale = tabella.getPercentuale() != null ? tabella.getPercentuale() : 0;
-            final double quota = round2((movimento.getImporto() * percentuale) / 100d);
+            final double quota;
+            if (i == tabelle.size() - 1) {
+                // Correzione centesimi: garantisce che la somma quote tabella
+                // sia sempre uguale all'importo del movimento.
+                quota = round2(movimento.getImporto() - allocated);
+            } else {
+                final int percentuale = tabella.getPercentuale() != null ? tabella.getPercentuale() : 0;
+                quota = round2((movimento.getImporto() * percentuale) / 100d);
+                allocated += quota;
+            }
             Movimenti.RipartizioneTabella rt = new Movimenti.RipartizioneTabella();
             rt.setCodice(tabella.getCodice());
             rt.setDescrizione(tabella.getDescrizione());
@@ -388,5 +406,22 @@ public class RipartoRealtimeService {
             total += v;
         }
         return round2(total);
+    }
+
+    /**
+     * Check diagnostico post-rebuild:
+     * somma importi movimento deve coincidere con somma quote condomini.
+     * Se c'e' mismatch logghiamo warning dettagliato.
+     */
+    private void logRipartoCoerenza(String idCondominio, List<Movimenti> movimenti) {
+        for (Movimenti movimento : movimenti) {
+            final double totaleMovimento = round2(movimento.getImporto() == null ? 0d : movimento.getImporto());
+            final double totaleQuote = sumMovimentoShares(ripartoByCondomino(movimento));
+            if (Math.abs(totaleMovimento - totaleQuote) > 0.01d) {
+                log.warn(
+                        "[RipartoRealtimeService.rebuildStoricoCondominio] incoerenza quote movimento. idCondominio={} movimentoId={} importo={} sommaQuote={}",
+                        idCondominio, movimento.getId(), totaleMovimento, totaleQuote);
+            }
+        }
     }
 }

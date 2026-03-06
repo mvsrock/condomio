@@ -850,6 +850,7 @@ class DocumentsPage extends ConsumerWidget {
             selectedCondominio: selectedCondominio,
             selectedCondomino: selectedCondomino,
             condomini: condomini,
+            movimenti: movimenti,
             tabelle: tabelle,
           ),
         ),
@@ -921,6 +922,7 @@ class DocumentsPage extends ConsumerWidget {
                     _openCondominoDetailBottomSheet(
                       context: context,
                       condomino: selectedCondomino,
+                      movimenti: movimenti,
                       tabelle: tabelle,
                     );
                   },
@@ -1039,8 +1041,14 @@ class DocumentsPage extends ConsumerWidget {
   void _openCondominoDetailBottomSheet({
     required BuildContext context,
     required CondominoDocumentModel condomino,
+    required List<MovimentoModel> movimenti,
     required List<TabellaModel> tabelle,
   }) {
+    final quoteSpese = _buildCondominoQuoteSpese(
+      condominoId: condomino.id,
+      movimenti: movimenti,
+    );
+    final quoteByCodice = _buildCondominoQuoteByCodice(quoteSpese);
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -1065,6 +1073,44 @@ class DocumentsPage extends ConsumerWidget {
                 Text('Telefono: ${condomino.cellulare}'),
                 const SizedBox(height: 4),
                 Text('Residuo: ${condomino.residuo.toStringAsFixed(2)}'),
+                const SizedBox(height: 16),
+                const Text(
+                  'Riparto per spesa',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 8),
+                if (quoteSpese.isEmpty)
+                  const Text('Nessuna quota spesa disponibile')
+                else
+                  ...quoteSpese.map(
+                    (q) => ListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      title: Text('${q.codiceSpesa} - ${q.descrizione}'),
+                      subtitle: Text(_formatDate(q.data)),
+                      trailing: Text(q.importo.toStringAsFixed(2)),
+                    ),
+                  ),
+                const SizedBox(height: 12),
+                const Text(
+                  'Totale per codice spesa',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 8),
+                if (quoteByCodice.isEmpty)
+                  const Text('Nessun totale disponibile')
+                else
+                  ...quoteByCodice.map(
+                    (q) => ListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(q.codiceSpesa),
+                      trailing: Text(
+                        q.importo.toStringAsFixed(2),
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                  ),
                 const SizedBox(height: 16),
                 const Text(
                   'Tabelle condominio',
@@ -1365,9 +1411,17 @@ class DocumentsPage extends ConsumerWidget {
     required CondominioDocumentModel? selectedCondominio,
     required CondominoDocumentModel? selectedCondomino,
     required List<CondominoDocumentModel> condomini,
+    required List<MovimentoModel> movimenti,
     required List<TabellaModel> tabelle,
     bool shrinkListsForParentScroll = false,
   }) {
+    final quoteSpese = selectedCondomino == null
+        ? const <_CondominoQuotaSpesaRow>[]
+        : _buildCondominoQuoteSpese(
+            condominoId: selectedCondomino.id,
+            movimenti: movimenti,
+          );
+    final quoteByCodice = _buildCondominoQuoteByCodice(quoteSpese);
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(14),
@@ -1392,6 +1446,62 @@ class DocumentsPage extends ConsumerWidget {
               Text('Telefono: ${selectedCondomino.cellulare}'),
               const SizedBox(height: 4),
               Text('Residuo: ${selectedCondomino.residuo.toStringAsFixed(2)}'),
+                const SizedBox(height: 12),
+                const Text(
+                  'Riparto per spesa',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 6),
+                if (quoteSpese.isEmpty)
+                  const Text('Nessuna quota spesa disponibile')
+                else
+                  SizedBox(
+                    height: 170,
+                    child: ListView.separated(
+                      itemCount: quoteSpese.length,
+                      shrinkWrap: true,
+                      separatorBuilder: (_, _) => const Divider(height: 1),
+                      itemBuilder: (context, index) {
+                        final q = quoteSpese[index];
+                        return ListTile(
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                          title: Text('${q.codiceSpesa} - ${q.descrizione}'),
+                          subtitle: Text(_formatDate(q.data)),
+                          trailing: Text(q.importo.toStringAsFixed(2)),
+                        );
+                      },
+                    ),
+                  ),
+                const SizedBox(height: 10),
+                const Text(
+                  'Totale per codice spesa',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 6),
+                if (quoteByCodice.isEmpty)
+                  const Text('Nessun totale disponibile')
+                else
+                  SizedBox(
+                    height: 120,
+                    child: ListView.separated(
+                      itemCount: quoteByCodice.length,
+                      shrinkWrap: true,
+                      separatorBuilder: (_, _) => const Divider(height: 1),
+                      itemBuilder: (context, index) {
+                        final q = quoteByCodice[index];
+                        return ListTile(
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(q.codiceSpesa),
+                          trailing: Text(
+                            q.importo.toStringAsFixed(2),
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
                 const SizedBox(height: 12),
                 OutlinedButton.icon(
                   onPressed: () => _openCondominoQuoteDialog(
@@ -1478,6 +1588,57 @@ class DocumentsPage extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  List<_CondominoQuotaSpesaRow> _buildCondominoQuoteSpese({
+    required String condominoId,
+    required List<MovimentoModel> movimenti,
+  }) {
+    final rows = <_CondominoQuotaSpesaRow>[];
+    for (final movimento in movimenti) {
+      for (final quota in movimento.ripartizioneCondomini) {
+        if (quota.idCondomino != condominoId) continue;
+        rows.add(
+          _CondominoQuotaSpesaRow(
+            codiceSpesa: movimento.codiceSpesa,
+            descrizione: movimento.descrizione,
+            data: movimento.date,
+            importo: quota.importo,
+          ),
+        );
+      }
+    }
+    rows.sort((a, b) => b.data.compareTo(a.data));
+    return rows;
+  }
+
+  List<_CondominoQuotaByCodiceRow> _buildCondominoQuoteByCodice(
+    List<_CondominoQuotaSpesaRow> rows,
+  ) {
+    final byCodice = <String, double>{};
+    for (final row in rows) {
+      final code = row.codiceSpesa.trim();
+      if (code.isEmpty) continue;
+      byCodice[code] = (byCodice[code] ?? 0) + row.importo;
+    }
+    final result = byCodice.entries
+        .map(
+          (e) => _CondominoQuotaByCodiceRow(
+            codiceSpesa: e.key,
+            importo: e.value,
+          ),
+        )
+        .toList(growable: false);
+    result.sort((a, b) => a.codiceSpesa.compareTo(b.codiceSpesa));
+    return result;
+  }
+
+  String _formatDate(DateTime date) {
+    final local = date.toLocal();
+    final dd = local.day.toString().padLeft(2, '0');
+    final mm = local.month.toString().padLeft(2, '0');
+    final yyyy = local.year.toString();
+    return '$dd/$mm/$yyyy';
   }
 }
 
@@ -2501,4 +2662,28 @@ class _TabellaQuoteHealth {
   final String codice;
   final bool coherent;
   final String message;
+}
+
+class _CondominoQuotaSpesaRow {
+  const _CondominoQuotaSpesaRow({
+    required this.codiceSpesa,
+    required this.descrizione,
+    required this.data,
+    required this.importo,
+  });
+
+  final String codiceSpesa;
+  final String descrizione;
+  final DateTime data;
+  final double importo;
+}
+
+class _CondominoQuotaByCodiceRow {
+  const _CondominoQuotaByCodiceRow({
+    required this.codiceSpesa,
+    required this.importo,
+  });
+
+  final String codiceSpesa;
+  final double importo;
 }
