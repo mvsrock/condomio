@@ -93,6 +93,7 @@ public class RipartoRealtimeService {
         }
 
         double dovutoTotaleCondominio = 0d;
+        double versatoTotaleCondominio = 0d;
         final BulkOperations condominoBulk = mongoTemplate.bulkOps(BulkOperations.BulkMode.UNORDERED, Condomino.class);
         int updatesCount = 0;
         for (Condomino condomino : condomini) {
@@ -110,16 +111,17 @@ public class RipartoRealtimeService {
             condominoBulk.updateOne(q, u);
             updatesCount++;
             dovutoTotaleCondominio += dovuto;
+            versatoTotaleCondominio += versato;
         }
         if (updatesCount > 0) {
             condominoBulk.execute();
         }
 
         final double saldoInizialeCondominio = condominio.getSaldoIniziale() == null ? 0d : condominio.getSaldoIniziale();
-        // Coerenza con logica delta (applyMovimentoDelta):
-        // residuo condominio = saldo iniziale condominio - totale dovuto dai movimenti.
-        // Non sommiamo i residui dei condomini per evitare doppio conteggio dei loro saldi iniziali.
-        final double newCondominioResiduo = round2(saldoInizialeCondominio - dovutoTotaleCondominio);
+        // Regola condominio:
+        // residuo = saldoInizialeCondominio + versatoTotaleCondomini - dovutoTotaleMovimenti.
+        final double newCondominioResiduo = round2(
+                saldoInizialeCondominio + versatoTotaleCondominio - dovutoTotaleCondominio);
         // Caso singolo e update omogeneo: usiamo repository @Query/@Update.
         condominioRepository.setResiduoById(idCondominio, newCondominioResiduo);
         condominio.setResiduo(newCondominioResiduo);

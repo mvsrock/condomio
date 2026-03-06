@@ -138,6 +138,7 @@ class ImportoRataModel {
 
 class VersamentoModel {
   const VersamentoModel({
+    required this.id,
     required this.descrizione,
     required this.importo,
     required this.date,
@@ -145,6 +146,7 @@ class VersamentoModel {
     required this.ripartizioneTabelle,
   });
 
+  final String id;
   final String descrizione;
   final double importo;
   final DateTime date;
@@ -161,6 +163,7 @@ class VersamentoModel {
     }
 
     return VersamentoModel(
+      id: json['id'] as String? ?? '',
       descrizione: json['descrizione'] as String? ?? '',
       importo: (json['importo'] as num?)?.toDouble() ?? 0,
       date: parseDate('date'),

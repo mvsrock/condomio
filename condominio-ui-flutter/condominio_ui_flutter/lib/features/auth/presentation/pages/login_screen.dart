@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../utils/app_logger.dart';
 import '../../application/auth_notifier.dart';
+import '../widgets/login_hero_card.dart';
 
 /// Schermata di accesso.
 ///
@@ -41,7 +42,6 @@ class LoginScreen extends ConsumerWidget {
 
     return Scaffold(
       body: Container(
-        // Sfondo hero della pagina login.
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
@@ -50,66 +50,9 @@ class LoginScreen extends ConsumerWidget {
           ),
         ),
         child: Center(
-          child: ConstrainedBox(
-            // Limita larghezza card per mantenere layout pulito anche su desktop/web.
-            constraints: const BoxConstraints(maxWidth: 460),
-            child: Card(
-              color: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(24),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(28, 30, 28, 30),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Icona brand.
-                    Container(
-                      width: 52,
-                      height: 52,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFE3F0F4),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: const Icon(
-                        Icons.apartment_rounded,
-                        color: Color(0xFF155E75),
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    // Titolo prodotto.
-                    const Text(
-                      'Condominio',
-                      style: TextStyle(
-                        fontSize: 30,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    // Sottotitolo contesto auth.
-                    const Text(
-                      'Accesso sicuro con Keycloak',
-                      style: TextStyle(fontSize: 15, color: Color(0xFF52606D)),
-                    ),
-                    const SizedBox(height: 30),
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton.icon(
-                        // Click abilitato solo quando non stiamo gia' autenticando.
-                        onPressed: isLoading ? null : () => _handleLogin(ref),
-                        icon: const Icon(Icons.login),
-                        label: Text(isLoading ? 'Autenticazione...' : 'Accedi'),
-                        style: FilledButton.styleFrom(
-                          backgroundColor: const Color(0xFF155E75),
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+          child: LoginHeroCard(
+            isLoading: isLoading,
+            onLoginPressed: () => _handleLogin(ref),
           ),
         ),
       ),

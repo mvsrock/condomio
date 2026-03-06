@@ -10,7 +10,10 @@ import it.condomio.document.Tabella;
 
 @Repository
 public interface TabellaRepository extends MongoRepository<Tabella, String>, TabellaRepositoryCustom {
+    List<Tabella> findByIdCondominio(String idCondominio);
+    List<Tabella> findByIdCondominioOrderByCodiceAsc(String idCondominio);
     List<Tabella> findByIdCondominioIn(List<String> condominioIds);
+    boolean existsByIdCondominio(String idCondominio);
     Optional<Tabella> findByIdAndIdCondominioIn(String id, List<String> condominioIds);
     boolean existsByIdAndIdCondominioIn(String id, List<String> condominioIds);
     boolean existsByIdCondominioAndCodiceIgnoreCase(String idCondominio, String codice);

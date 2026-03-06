@@ -85,6 +85,8 @@ public class Condomino {
 
     @Data
     public static class Versamento {
+        /** Identificatore stabile per update/delete atomici del singolo versamento. */
+        private String id;
         private String descrizione;
         private Double importo;
         private Instant date;

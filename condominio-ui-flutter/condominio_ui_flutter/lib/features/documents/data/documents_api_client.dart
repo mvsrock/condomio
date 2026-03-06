@@ -15,6 +15,11 @@ class DocumentsApiClient {
 
   Uri _uri(String path) => Uri.parse('${KeycloakAppConfig.coreApiUrl}$path');
 
+  Uri _uriWithQuery(String path, Map<String, String> query) {
+    final base = Uri.parse('${KeycloakAppConfig.coreApiUrl}$path');
+    return base.replace(queryParameters: query);
+  }
+
   Map<String, String> _headers(String accessToken) => {
     'Content-Type': 'application/json',
     'Authorization': 'Bearer $accessToken',
@@ -50,7 +55,7 @@ class DocumentsApiClient {
     required String condominioId,
   }) async {
     final response = await http.get(
-      _uri('/condomino'),
+      _uriWithQuery('/condomino', {'idCondominio': condominioId}),
       headers: _headers(accessToken),
     );
     if (response.statusCode < 200 || response.statusCode >= 300) {
@@ -59,7 +64,6 @@ class DocumentsApiClient {
     final raw = (jsonDecode(response.body) as List?) ?? const [];
     return raw
         .whereType<Map<String, dynamic>>()
-        .where((e) => (e['idCondominio'] ?? '').toString() == condominioId)
         .map(CondominoDocumentModel.fromJson)
         .toList(growable: false);
   }
@@ -69,7 +73,7 @@ class DocumentsApiClient {
     required String condominioId,
   }) async {
     final response = await http.get(
-      _uri('/tabelle'),
+      _uriWithQuery('/tabelle', {'idCondominio': condominioId}),
       headers: _headers(accessToken),
     );
     if (response.statusCode < 200 || response.statusCode >= 300) {
@@ -78,7 +82,6 @@ class DocumentsApiClient {
     final raw = (jsonDecode(response.body) as List?) ?? const [];
     return raw
         .whereType<Map<String, dynamic>>()
-        .where((e) => (e['idCondominio'] ?? '').toString() == condominioId)
         .map(TabellaModel.fromJson)
         .toList(growable: false);
   }
@@ -88,7 +91,7 @@ class DocumentsApiClient {
     required String condominioId,
   }) async {
     final response = await http.get(
-      _uri('/movimenti'),
+      _uriWithQuery('/movimenti', {'idCondominio': condominioId}),
       headers: _headers(accessToken),
     );
     if (response.statusCode < 200 || response.statusCode >= 300) {
@@ -97,7 +100,6 @@ class DocumentsApiClient {
     final raw = (jsonDecode(response.body) as List?) ?? const [];
     return raw
         .whereType<Map<String, dynamic>>()
-        .where((e) => (e['idCondominio'] ?? '').toString() == condominioId)
         .map(MovimentoModel.fromJson)
         .toList(growable: false);
   }
@@ -263,6 +265,51 @@ class DocumentsApiClient {
     );
     if (response.statusCode < 200 || response.statusCode >= 300) {
       _throwHttpError('patchCondominoQuoteTabelle', response);
+    }
+  }
+
+  Future<void> addCondominoVersamento({
+    required String accessToken,
+    required String condominoId,
+    required Map<String, dynamic> versamento,
+  }) async {
+    final response = await http.post(
+      _uri('/condomino/$condominoId/versamenti'),
+      headers: _headers(accessToken),
+      body: jsonEncode(versamento),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      _throwHttpError('addCondominoVersamento', response);
+    }
+  }
+
+  Future<void> updateCondominoVersamento({
+    required String accessToken,
+    required String condominoId,
+    required String versamentoId,
+    required Map<String, dynamic> versamento,
+  }) async {
+    final response = await http.patch(
+      _uri('/condomino/$condominoId/versamenti/$versamentoId'),
+      headers: _headers(accessToken),
+      body: jsonEncode(versamento),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      _throwHttpError('updateCondominoVersamento', response);
+    }
+  }
+
+  Future<void> deleteCondominoVersamento({
+    required String accessToken,
+    required String condominoId,
+    required String versamentoId,
+  }) async {
+    final response = await http.delete(
+      _uri('/condomino/$condominoId/versamenti/$versamentoId'),
+      headers: _headers(accessToken),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      _throwHttpError('deleteCondominoVersamento', response);
     }
   }
 

@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -66,8 +67,10 @@ public class CondominoController {
     }
 
     @GetMapping
-    public ResponseEntity<List<Condomino>> getAllCondomini(@AuthenticationPrincipal Jwt jwt) {
-        return ResponseEntity.ok(condominoService.getAllCondomini(jwt.getSubject()));
+    public ResponseEntity<List<Condomino>> getAllCondomini(
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestParam(name = "idCondominio", required = false) String idCondominio) {
+        return ResponseEntity.ok(condominoService.getAllCondomini(jwt.getSubject(), idCondominio));
     }
 
     @PutMapping("/{id}")
@@ -93,5 +96,36 @@ public class CondominoController {
             @RequestBody JsonNode mergePatch,
             @AuthenticationPrincipal Jwt jwt) throws IOException, ValidationFailedException, ApiException {
         return ResponseEntity.ok(condominoService.patch(id, mergePatch, jwt.getSubject()));
+    }
+
+    /** Add versamento atomico sul condomino target (solo admin condominio). */
+    @PostMapping("/{id}/versamenti")
+    public ResponseEntity<Void> addVersamento(
+            @PathVariable String id,
+            @RequestBody Condomino.Versamento versamento,
+            @AuthenticationPrincipal Jwt jwt) throws ApiException {
+        condominoService.addVersamento(id, versamento, jwt.getSubject());
+        return ResponseEntity.noContent().build();
+    }
+
+    /** Update versamento atomico sul condomino target (solo admin condominio). */
+    @PatchMapping("/{id}/versamenti/{versamentoId}")
+    public ResponseEntity<Void> updateVersamento(
+            @PathVariable String id,
+            @PathVariable String versamentoId,
+            @RequestBody Condomino.Versamento versamento,
+            @AuthenticationPrincipal Jwt jwt) throws ApiException {
+        condominoService.updateVersamento(id, versamentoId, versamento, jwt.getSubject());
+        return ResponseEntity.noContent().build();
+    }
+
+    /** Delete versamento atomico sul condomino target (solo admin condominio). */
+    @DeleteMapping("/{id}/versamenti/{versamentoId}")
+    public ResponseEntity<Void> deleteVersamento(
+            @PathVariable String id,
+            @PathVariable String versamentoId,
+            @AuthenticationPrincipal Jwt jwt) throws ApiException {
+        condominoService.deleteVersamento(id, versamentoId, jwt.getSubject());
+        return ResponseEntity.noContent().build();
     }
 }

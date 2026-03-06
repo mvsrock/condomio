@@ -94,6 +94,18 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
     return selected.id;
   }
 
+  void _ensureSelectedExerciseWritable() {
+    final selected = _ref.read(selectedManagedCondominioProvider);
+    if (selected == null) {
+      throw Exception('Nessun condominio selezionato');
+    }
+    if (selected.isClosed) {
+      throw Exception(
+        'Esercizio chiuso: operazione documentale non consentita in modalita sola lettura.',
+      );
+    }
+  }
+
   Future<void> _refreshAllForSelectedCondominio() async {
     final token = _requireAccessToken();
     final condominioId = _requireSelectedCondominioId();
@@ -247,6 +259,7 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
   }) async {
     state = state.copyWith(isSaving: true, clearErrorMessage: true);
     try {
+      _ensureSelectedExerciseWritable();
       final token = _requireAccessToken();
       final condominioId = _requireSelectedCondominioId();
       await _api.createTabella(
@@ -276,6 +289,7 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
   }) async {
     state = state.copyWith(isSaving: true, clearErrorMessage: true);
     try {
+      _ensureSelectedExerciseWritable();
       final token = _requireAccessToken();
       final condominioId = _requireSelectedCondominioId();
       await _api.createMovimento(
@@ -307,6 +321,7 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
   }) async {
     state = state.copyWith(isSaving: true, clearErrorMessage: true);
     try {
+      _ensureSelectedExerciseWritable();
       final token = _requireAccessToken();
       await _api.updateMovimento(
         accessToken: token,
@@ -334,6 +349,7 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
   }) async {
     state = state.copyWith(isSaving: true, clearErrorMessage: true);
     try {
+      _ensureSelectedExerciseWritable();
       final token = _requireAccessToken();
       await _api.deleteMovimento(
         accessToken: token,
@@ -360,6 +376,7 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
   }) async {
     state = state.copyWith(isSaving: true, clearErrorMessage: true);
     try {
+      _ensureSelectedExerciseWritable();
       final token = _requireAccessToken();
       await _api.updateTabella(
         accessToken: token,
@@ -386,6 +403,7 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
   }) async {
     state = state.copyWith(isSaving: true, clearErrorMessage: true);
     try {
+      _ensureSelectedExerciseWritable();
       final token = _requireAccessToken();
       await _api.deleteTabella(
         accessToken: token,
@@ -410,6 +428,7 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
   }) async {
     state = state.copyWith(isSaving: true, clearErrorMessage: true);
     try {
+      _ensureSelectedExerciseWritable();
       final token = _requireAccessToken();
       await _api.cleanupDeleteTabella(
         accessToken: token,
@@ -434,6 +453,7 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
   }) async {
     state = state.copyWith(isSaving: true, clearErrorMessage: true);
     try {
+      _ensureSelectedExerciseWritable();
       final token = _requireAccessToken();
       final condominioId = _requireSelectedCondominioId();
       await _api.patchCondominioConfigurazioniSpesa(
@@ -461,6 +481,7 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
   }) async {
     state = state.copyWith(isSaving: true, clearErrorMessage: true);
     try {
+      _ensureSelectedExerciseWritable();
       final token = _requireAccessToken();
       await _api.patchCondominoQuoteTabelle(
         accessToken: token,
@@ -481,10 +502,94 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
     }
   }
 
+  Future<void> addCondominoVersamento({
+    required String condominoId,
+    required CondominoVersamentoDraft versamento,
+  }) async {
+    state = state.copyWith(isSaving: true, clearErrorMessage: true);
+    try {
+      _ensureSelectedExerciseWritable();
+      final token = _requireAccessToken();
+      await _api.addCondominoVersamento(
+        accessToken: token,
+        condominoId: condominoId,
+        versamento: versamento.toJson(),
+      );
+      state = state.copyWith(isSaving: false);
+      await _refreshCondominioCondominiMovimenti();
+    } catch (e, st) {
+      if (e is ApiError) {
+        debugPrint('[DOCUMENTS][addCondominoVersamento] ${e.technicalMessage}');
+      } else {
+        debugPrint('[DOCUMENTS][addCondominoVersamento] $e');
+      }
+      debugPrint('$st');
+      state = state.copyWith(isSaving: false, errorMessage: '$e');
+      rethrow;
+    }
+  }
+
+  Future<void> updateCondominoVersamento({
+    required String condominoId,
+    required String versamentoId,
+    required CondominoVersamentoDraft versamento,
+  }) async {
+    state = state.copyWith(isSaving: true, clearErrorMessage: true);
+    try {
+      _ensureSelectedExerciseWritable();
+      final token = _requireAccessToken();
+      await _api.updateCondominoVersamento(
+        accessToken: token,
+        condominoId: condominoId,
+        versamentoId: versamentoId,
+        versamento: versamento.toJson(),
+      );
+      state = state.copyWith(isSaving: false);
+      await _refreshCondominioCondominiMovimenti();
+    } catch (e, st) {
+      if (e is ApiError) {
+        debugPrint('[DOCUMENTS][updateCondominoVersamento] ${e.technicalMessage}');
+      } else {
+        debugPrint('[DOCUMENTS][updateCondominoVersamento] $e');
+      }
+      debugPrint('$st');
+      state = state.copyWith(isSaving: false, errorMessage: '$e');
+      rethrow;
+    }
+  }
+
+  Future<void> deleteCondominoVersamento({
+    required String condominoId,
+    required String versamentoId,
+  }) async {
+    state = state.copyWith(isSaving: true, clearErrorMessage: true);
+    try {
+      _ensureSelectedExerciseWritable();
+      final token = _requireAccessToken();
+      await _api.deleteCondominoVersamento(
+        accessToken: token,
+        condominoId: condominoId,
+        versamentoId: versamentoId,
+      );
+      state = state.copyWith(isSaving: false);
+      await _refreshCondominioCondominiMovimenti();
+    } catch (e, st) {
+      if (e is ApiError) {
+        debugPrint('[DOCUMENTS][deleteCondominoVersamento] ${e.technicalMessage}');
+      } else {
+        debugPrint('[DOCUMENTS][deleteCondominoVersamento] $e');
+      }
+      debugPrint('$st');
+      state = state.copyWith(isSaving: false, errorMessage: '$e');
+      rethrow;
+    }
+  }
+
   /// Rebuild storico completo (movimenti + residui) per il condominio selezionato.
   Future<void> rebuildStoricoCondominio() async {
     state = state.copyWith(isSaving: true, clearErrorMessage: true);
     try {
+      _ensureSelectedExerciseWritable();
       final token = _requireAccessToken();
       final condominioId = _requireSelectedCondominioId();
       await _api.rebuildStoricoCondominio(
@@ -602,6 +707,33 @@ class CondominoTabellaQuotaDraft {
       },
       'numeratore': numeratore,
       'denominatore': denominatore,
+    };
+  }
+}
+
+class CondominoVersamentoDraft {
+  const CondominoVersamentoDraft({
+    this.id,
+    required this.descrizione,
+    required this.importo,
+    required this.date,
+    required this.insertedAt,
+  });
+
+  final String? id;
+  final String descrizione;
+  final double importo;
+  final DateTime date;
+  final DateTime insertedAt;
+
+  Map<String, dynamic> toJson() {
+    return {
+      if (id != null && id!.isNotEmpty) 'id': id,
+      'descrizione': descrizione,
+      'importo': importo,
+      'date': date.toUtc().toIso8601String(),
+      'insertedAt': insertedAt.toUtc().toIso8601String(),
+      'ripartizioneTabelle': const <Map<String, dynamic>>[],
     };
   }
 }

@@ -1,30 +1,33 @@
 package it.condomio.document;
 
+import java.time.Instant;
 import java.util.List;
 
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.Version;
-import org.springframework.data.mongodb.core.index.CompoundIndex;
-import org.springframework.data.mongodb.core.index.CompoundIndexes;
-import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import lombok.Data;
 
 @Data
 @Document(collection = "condominio")
-@CompoundIndexes({
-    @CompoundIndex(name = "anno_label_idx", def = "{'anno' : 1, 'label': 1}", unique = true)
-})
 public class Condominio {
     @Id
     private String id;
     @Version
     private Integer version;
 
+    /**
+     * Riferimento al condominio "stabile" (root/master document).
+     *
+     * Il documento corrente rappresenta l'esercizio annuale del root.
+     */
+    private String condominioRootId;
     private String label;
     private Long anno;
-    @Indexed
+    private Instant dataInizio;
+    private Instant dataFine;
+    private EsercizioStato stato;
     private String adminKeycloakUserId;
     private List<ConfigurazioneSpesa> configurazioniSpesa;
     /**
@@ -33,6 +36,11 @@ public class Condominio {
      */
     private Double saldoIniziale;
     private Double residuo;
+
+    public enum EsercizioStato {
+        OPEN,
+        CLOSED
+    }
 
     @Data
     public static class ConfigurazioneSpesa {

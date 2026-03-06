@@ -37,6 +37,9 @@ public class TabellaService {
     @Autowired
     private TenantAccessService tenantAccessService;
 
+    @Autowired
+    private EsercizioGuardService esercizioGuardService;
+
     public Tabella createTabella(Tabella tabella, String keycloakUserId) throws ApiException {
         validateTabella(tabella);
         ensureAdminOwnsCondominio(tabella.getIdCondominio(), keycloakUserId);
@@ -54,7 +57,13 @@ public class TabellaService {
         return tabellaRepository.findByIdAndIdCondominioIn(id, visibleCondominioIds);
     }
 
-    public List<Tabella> getAllTabelle(String keycloakUserId) {
+    public List<Tabella> getAllTabelle(String keycloakUserId, String idCondominio) {
+        if (idCondominio != null && !idCondominio.isBlank()) {
+            if (!tenantAccessService.canViewCondominio(keycloakUserId, idCondominio)) {
+                return List.of();
+            }
+            return tabellaRepository.findByIdCondominioOrderByCodiceAsc(idCondominio);
+        }
         List<String> visibleCondominioIds = tenantAccessService.findVisibleCondominioIds(keycloakUserId);
         if (visibleCondominioIds.isEmpty()) {
             return List.of();
@@ -154,9 +163,7 @@ public class TabellaService {
         if (condominioId == null || condominioId.isBlank()) {
             throw new ValidationFailedException("validation.required.tabella.idCondominio");
         }
-        if (!tenantAccessService.ownsCondominio(keycloakUserId, condominioId)) {
-            throw new ForbiddenException();
-        }
+        esercizioGuardService.requireOwnedOpenExercise(condominioId, keycloakUserId);
     }
 
     private void validateTabella(Tabella tabella) throws ValidationFailedException {

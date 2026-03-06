@@ -29,6 +29,9 @@ public class MovimentiService {
     @Autowired
     private RipartoRealtimeService ripartoRealtimeService;
 
+    @Autowired
+    private EsercizioGuardService esercizioGuardService;
+
     /**
      * Create movimento + aggiornamento residui come unita' atomica logica.
      * In Mongo la vera atomicita' multi-documento richiede replica set attivo.
@@ -53,7 +56,13 @@ public class MovimentiService {
         return movimentiRepository.findByIdAndIdCondominioIn(id, visibleCondominioIds);
     }
 
-    public List<Movimenti> getAllMovimenti(String keycloakUserId) {
+    public List<Movimenti> getAllMovimenti(String keycloakUserId, String idCondominio) {
+        if (idCondominio != null && !idCondominio.isBlank()) {
+            if (!tenantAccessService.canViewCondominio(keycloakUserId, idCondominio)) {
+                return List.of();
+            }
+            return movimentiRepository.findByIdCondominioOrderByDateDesc(idCondominio);
+        }
         List<String> visibleCondominioIds = tenantAccessService.findVisibleCondominioIds(keycloakUserId);
         if (visibleCondominioIds.isEmpty()) {
             return List.of();
@@ -139,9 +148,7 @@ public class MovimentiService {
         if (condominioId == null || condominioId.isBlank()) {
             throw new ValidationFailedException("validation.required.movimento.idCondominio");
         }
-        if (!tenantAccessService.ownsCondominio(keycloakUserId, condominioId)) {
-            throw new ForbiddenException();
-        }
+        esercizioGuardService.requireOwnedOpenExercise(condominioId, keycloakUserId);
     }
 
     private void validateMovimento(Movimenti movimento) throws ValidationFailedException {

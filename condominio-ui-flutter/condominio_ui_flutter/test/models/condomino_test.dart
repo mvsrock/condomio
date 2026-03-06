@@ -11,6 +11,7 @@ void main() {
       interno: '1',
       email: 'luca@example.com',
       telefono: '+39 333 000 0000',
+      saldoIniziale: 0,
       millesimi: 75.5,
       residente: true,
     );

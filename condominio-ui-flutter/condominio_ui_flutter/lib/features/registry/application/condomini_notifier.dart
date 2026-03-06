@@ -71,6 +71,18 @@ class CondominiNotifier extends StateNotifier<CondominiState> {
     return selected.id;
   }
 
+  void _ensureSelectedExerciseWritable() {
+    final selected = _ref.read(selectedManagedCondominioProvider);
+    if (selected == null) {
+      throw Exception('Nessun condominio selezionato');
+    }
+    if (selected.isClosed) {
+      throw Exception(
+        'Esercizio chiuso: modifica anagrafica non consentita in modalita sola lettura.',
+      );
+    }
+  }
+
   /// Ricarica l'anagrafica dal backend per il condominio attivo.
   Future<void> loadForSelectedCondominio() async {
     state = state.copyWith(isLoading: true, clearErrorMessage: true);
@@ -97,6 +109,7 @@ class CondominiNotifier extends StateNotifier<CondominiState> {
   Future<void> createCondomino(Condomino condomino) async {
     state = state.copyWith(isLoading: true, clearErrorMessage: true);
     try {
+      _ensureSelectedExerciseWritable();
       final token = _requireAccessToken();
       final condominioId = _requireSelectedCondominioId();
       final created = await _api.createCondomino(
@@ -123,6 +136,7 @@ class CondominiNotifier extends StateNotifier<CondominiState> {
   Future<void> updateCondomino(Condomino updated) async {
     state = state.copyWith(isLoading: true, clearErrorMessage: true);
     try {
+      _ensureSelectedExerciseWritable();
       final token = _requireAccessToken();
       final condominioId = _requireSelectedCondominioId();
       final saved = await _api.updateCondomino(

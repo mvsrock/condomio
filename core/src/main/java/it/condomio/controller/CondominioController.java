@@ -16,8 +16,10 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import it.condomio.controller.model.CondominioRootSummaryResponse;
 import it.condomio.document.Condominio;
 import it.condomio.exception.ApiException;
 import it.condomio.exception.NotFoundException;
@@ -55,6 +57,23 @@ public class CondominioController {
         return ResponseEntity.ok(condominioService.getAllCondomini(jwt.getSubject()));
     }
 
+    @GetMapping("/roots")
+    public ResponseEntity<List<CondominioRootSummaryResponse>> getOwnedRoots(
+            @AuthenticationPrincipal Jwt jwt) {
+        return ResponseEntity.ok(condominioService.getOwnedRoots(jwt.getSubject()));
+    }
+
+    @PostMapping("/root/{rootId}/esercizi")
+    public ResponseEntity<Condominio> createEsercizio(
+            @PathVariable String rootId,
+            @RequestBody Condominio esercizio,
+            @RequestParam(name = "carryOverBalances", defaultValue = "false") boolean carryOverBalances,
+            @AuthenticationPrincipal Jwt jwt) throws ApiException {
+        return new ResponseEntity<>(
+                condominioService.createEsercizio(rootId, esercizio, carryOverBalances, jwt.getSubject()),
+                HttpStatus.CREATED);
+    }
+
     @PutMapping("/{id}")
     public ResponseEntity<Condominio> updateCondominio(
             @PathVariable String id,
@@ -69,6 +88,13 @@ public class CondominioController {
             @AuthenticationPrincipal Jwt jwt) throws ApiException {
         condominioService.deleteCondominio(id, jwt.getSubject());
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/{id}/close")
+    public ResponseEntity<Condominio> closeEsercizio(
+            @PathVariable String id,
+            @AuthenticationPrincipal Jwt jwt) throws ApiException {
+        return ResponseEntity.ok(condominioService.closeEsercizio(id, jwt.getSubject()));
     }
 
     /** Update parziale via JSON Merge Patch (validationhandler + errorhandler). */

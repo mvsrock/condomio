@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../auth/application/auth_notifier.dart';
 import '../../../auth/application/keycloak_provider.dart';
+import '../widgets/session_token_section.dart';
 
 /// Pagina diagnostica sessione/token.
 ///
@@ -28,7 +29,7 @@ class SessionPage extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _TokenSection(
+                    SessionTokenSection(
                       title: 'Access Token',
                       rawToken: keycloak.accessToken,
                       parsedToken: keycloak.tokenParsed,
@@ -36,7 +37,7 @@ class SessionPage extends ConsumerWidget {
                       prettyJson: prettyJson,
                     ),
                     const SizedBox(height: 20),
-                    _TokenSection(
+                    SessionTokenSection(
                       title: 'ID Token',
                       rawToken: keycloak.idToken,
                       parsedToken: keycloak.idTokenParsed,
@@ -44,7 +45,7 @@ class SessionPage extends ConsumerWidget {
                       prettyJson: prettyJson,
                     ),
                     const SizedBox(height: 20),
-                    _TokenSection(
+                    SessionTokenSection(
                       title: 'Refresh Token',
                       rawToken: keycloak.refreshToken,
                       parsedToken: keycloak.refreshTokenParsed,
@@ -56,49 +57,6 @@ class SessionPage extends ConsumerWidget {
               ),
             ),
           ),
-        ),
-      ],
-    );
-  }
-}
-
-class _TokenSection extends StatelessWidget {
-  const _TokenSection({
-    required this.title,
-    required this.rawToken,
-    required this.parsedToken,
-    required this.emptyKey,
-    required this.prettyJson,
-  });
-
-  final String title;
-  final String? rawToken;
-  final Map<String, dynamic>? parsedToken;
-  final String emptyKey;
-  final JsonEncoder prettyJson;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
-        const SizedBox(height: 8),
-        const Text(
-          'Raw',
-          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
-        ),
-        const SizedBox(height: 6),
-        SelectableText(rawToken ?? 'N/A', style: const TextStyle(fontSize: 12)),
-        const SizedBox(height: 12),
-        const Text(
-          'Parsed JSON',
-          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
-        ),
-        const SizedBox(height: 6),
-        SelectableText(
-          prettyJson.convert(parsedToken ?? {emptyKey: 'N/A'}),
-          style: const TextStyle(fontSize: 12),
         ),
       ],
     );

@@ -89,9 +89,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             HomeHeader(
               onLogout: _logout,
               isAdmin: isAdmin,
-              activeCondominioLabel: activeCondominio?.label,
+              activeCondominioLabel: activeCondominio?.displayLabel,
+              activeExerciseClosed: activeCondominio?.isClosed ?? false,
               onManageCondomini: () => context.go('/select-condominio'),
             ),
+            if (activeCondominio?.isClosed ?? false)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
+                color: const Color(0xFFFEE2E2),
+                child: const Text(
+                  'Esercizio chiuso: l\'app e\' in modalita\' sola lettura.',
+                  style: TextStyle(
+                    color: Color(0xFF9B1C1C),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
             Expanded(
               child: isWide
                   ? Row(

@@ -12,8 +12,19 @@ import java.util.Optional;
 @Repository
 public interface CondominioRepository extends MongoRepository<Condominio, String>, CondominioRepositoryCustom {
     List<Condominio> findByAdminKeycloakUserId(String adminKeycloakUserId);
+    List<Condominio> findByAdminKeycloakUserIdOrderByAnnoDesc(String adminKeycloakUserId);
+    List<Condominio> findByCondominioRootIdOrderByAnnoDesc(String condominioRootId);
+    List<Condominio> findByCondominioRootIdAndStatoOrderByAnnoDesc(
+            String condominioRootId,
+            Condominio.EsercizioStato stato);
+    Optional<Condominio> findFirstByCondominioRootIdOrderByAnnoDesc(String condominioRootId);
+    Optional<Condominio> findFirstByCondominioRootIdAndStatoOrderByAnnoDesc(
+            String condominioRootId,
+            Condominio.EsercizioStato stato);
     Optional<Condominio> findByIdAndAdminKeycloakUserId(String id, String adminKeycloakUserId);
+    Optional<Condominio> findByCondominioRootIdAndAnno(String condominioRootId, Long anno);
     boolean existsByIdAndAdminKeycloakUserId(String id, String adminKeycloakUserId);
+    boolean existsByCondominioRootIdAndAnno(String condominioRootId, Long anno);
     boolean existsByAnnoAndLabelIgnoreCase(Long anno, String label);
 
     /** Update puntuale residuo: singolo documento condominio. */
@@ -25,6 +36,11 @@ public interface CondominioRepository extends MongoRepository<Condominio, String
     @Query("{ '_id': ?0 }")
     @Update("{ '$inc': { 'residuo': ?1 } }")
     long incResiduoById(String id, double delta);
+
+    /** Propaga il label snapshot su tutti gli esercizi del root. */
+    @Query("{ 'condominioRootId': ?0 }")
+    @Update("{ '$set': { 'label': ?1 } }")
+    long setLabelSnapshotByRootId(String condominioRootId, String label);
 }
 
 interface CondominioRepositoryCustom {

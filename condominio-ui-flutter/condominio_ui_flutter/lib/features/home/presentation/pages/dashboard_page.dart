@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../auth/application/keycloak_provider.dart';
+import '../widgets/dashboard_stat_card.dart';
 
 class DashboardPage extends ConsumerWidget {
   const DashboardPage({super.key});
@@ -28,19 +29,19 @@ class DashboardPage extends ConsumerWidget {
             mainAxisSpacing: 14,
             childAspectRatio: 2.6,
             children: [
-              _StatCard(
+              DashboardStatCard(
                 title: 'Utente autenticato',
                 value: '$username',
                 subtitle: 'Sessione attiva su Keycloak',
                 icon: Icons.verified_user,
               ),
-              _StatCard(
+              DashboardStatCard(
                 title: 'Ruoli rilevati',
                 value: '$roleCount',
                 subtitle: 'Dai claims del token',
                 icon: Icons.security,
               ),
-              _StatCard(
+              DashboardStatCard(
                 title: 'Piattaforma',
                 value: Theme.of(context).platform.name,
                 subtitle: 'Build multi piattaforma',
@@ -50,75 +51,6 @@ class DashboardPage extends ConsumerWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _StatCard extends StatelessWidget {
-  const _StatCard({
-    required this.title,
-    required this.value,
-    required this.subtitle,
-    required this.icon,
-  });
-
-  final String title;
-  final String value;
-  final String subtitle;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Row(
-          children: [
-            Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                color: const Color(0xFFE6F0F4),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(icon, color: const Color(0xFF155E75)),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: Color(0xFF486581),
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    value,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Color(0xFF7B8794),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

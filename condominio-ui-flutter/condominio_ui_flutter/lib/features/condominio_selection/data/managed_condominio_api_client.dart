@@ -5,11 +5,15 @@ import 'package:http/http.dart' as http;
 import '../../../config/keycloak_config.dart';
 import '../../../utils/api_error.dart';
 import '../domain/managed_condominio.dart';
+import '../domain/managed_condominio_root.dart';
 
 class ManagedCondominioApiClient {
   const ManagedCondominioApiClient();
 
   Uri _uri(String path) => Uri.parse('${KeycloakAppConfig.coreApiUrl}$path');
+
+  Uri _uriWithQuery(String path, Map<String, String> queryParameters) =>
+      _uri(path).replace(queryParameters: queryParameters);
 
   Map<String, String> _headers(String accessToken) => {
     'Content-Type': 'application/json',
@@ -37,7 +41,24 @@ class ManagedCondominioApiClient {
         .toList();
   }
 
-  Future<void> create({
+  Future<List<ManagedCondominioRoot>> fetchOwnedRoots({
+    required String accessToken,
+  }) async {
+    final response = await http.get(
+      _uri('/condominio/roots'),
+      headers: _headers(accessToken),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      _throwHttpError('fetchCondominioRoots', response);
+    }
+    final list = (jsonDecode(response.body) as List?) ?? const [];
+    return list
+        .whereType<Map<String, dynamic>>()
+        .map(ManagedCondominioRoot.fromJson)
+        .toList();
+  }
+
+  Future<ManagedCondominio> create({
     required String accessToken,
     required String label,
     required int anno,
@@ -56,6 +77,52 @@ class ManagedCondominioApiClient {
     );
     if (response.statusCode < 200 || response.statusCode >= 300) {
       _throwHttpError('createCondominio', response);
+    }
+    return ManagedCondominio.fromJson(
+      (jsonDecode(response.body) as Map?)?.cast<String, dynamic>() ??
+          const <String, dynamic>{},
+    );
+  }
+
+  Future<ManagedCondominio> createExercise({
+    required String accessToken,
+    required String rootId,
+    required String label,
+    required int anno,
+    required double saldoIniziale,
+    required bool carryOverBalances,
+  }) async {
+    final response = await http.post(
+      _uriWithQuery('/condominio/root/$rootId/esercizi', {
+        'carryOverBalances': carryOverBalances.toString(),
+      }),
+      headers: _headers(accessToken),
+      body: jsonEncode({
+        'label': label.trim(),
+        'anno': anno,
+        'saldoIniziale': saldoIniziale,
+        'configurazioniSpesa': <Map<String, Object?>>[],
+      }),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      _throwHttpError('createEsercizio', response);
+    }
+    return ManagedCondominio.fromJson(
+      (jsonDecode(response.body) as Map?)?.cast<String, dynamic>() ??
+          const <String, dynamic>{},
+    );
+  }
+
+  Future<void> closeExercise({
+    required String accessToken,
+    required String exerciseId,
+  }) async {
+    final response = await http.post(
+      _uri('/condominio/$exerciseId/close'),
+      headers: _headers(accessToken),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      _throwHttpError('closeEsercizio', response);
     }
   }
 }

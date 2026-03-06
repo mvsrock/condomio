@@ -6,12 +6,14 @@ class HomeHeader extends StatelessWidget {
     required this.onLogout,
     required this.isAdmin,
     this.activeCondominioLabel,
+    this.activeExerciseClosed = false,
     this.onManageCondomini,
   });
 
   final VoidCallback onLogout;
   final bool isAdmin;
   final String? activeCondominioLabel;
+  final bool activeExerciseClosed;
   final VoidCallback? onManageCondomini;
 
   @override
@@ -56,6 +58,11 @@ class HomeHeader extends StatelessWidget {
                   ),
                   icon: const Icon(Icons.home_work_outlined),
                 ),
+                if (hasCondominio && activeExerciseClosed)
+                  const Padding(
+                    padding: EdgeInsets.only(left: 4),
+                    child: Icon(Icons.lock_outline, size: 18),
+                  ),
                 IconButton(
                   tooltip: 'Logout',
                   onPressed: onLogout,
@@ -101,6 +108,10 @@ class HomeHeader extends StatelessWidget {
                             fontWeight: FontWeight.w700,
                           ),
                         ),
+                        if (activeExerciseClosed) ...[
+                          const SizedBox(width: 6),
+                          const Icon(Icons.lock_outline, size: 16),
+                        ],
                       ],
                     ),
                   ),

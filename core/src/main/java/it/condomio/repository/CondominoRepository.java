@@ -13,7 +13,9 @@ import it.condomio.document.Condomino;
 @Repository
 public interface CondominoRepository extends MongoRepository<Condomino, String>, CondominoRepositoryCustom {
     List<Condomino> findByIdCondominio(String idCondominio);
+    List<Condomino> findByIdCondominioOrderByCognomeAscNomeAsc(String idCondominio);
     List<Condomino> findByIdCondominioIn(List<String> condominioIds);
+    boolean existsByIdCondominio(String idCondominio);
     Optional<Condomino> findByIdAndIdCondominioIn(String id, List<String> condominioIds);
     boolean existsByIdAndIdCondominioIn(String id, List<String> condominioIds);
     boolean existsByIdCondominioAndEmailIgnoreCase(String idCondominio, String email);
@@ -33,6 +35,16 @@ public interface CondominoRepository extends MongoRepository<Condomino, String>,
     @Query("{ '_id': ?0, 'idCondominio': ?1 }")
     @Update("{ '$inc': { 'residuo': ?2 } }")
     long incResiduoByIdAndCondominio(String id, String idCondominio, double delta);
+
+    /** Add atomica di un versamento sul condomino target. */
+    @Query("{ '_id': ?0, 'idCondominio': ?1 }")
+    @Update("{ '$push': { 'versamenti': ?2 } }")
+    long addVersamentoByIdAndCondominio(String id, String idCondominio, Condomino.Versamento versamento);
+
+    /** Delete atomica del versamento selezionato per id. */
+    @Query("{ '_id': ?0, 'idCondominio': ?1 }")
+    @Update("{ '$pull': { 'versamenti': { 'id': ?2 } } }")
+    long removeVersamentoByIdAndCondominio(String id, String idCondominio, String versamentoId);
 }
 
 interface CondominoRepositoryCustom {

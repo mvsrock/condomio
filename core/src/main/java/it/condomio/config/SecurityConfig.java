@@ -42,6 +42,7 @@ public class SecurityConfig {
                                 "/public/**",
                                 "/actuator/**"
                         ).permitAll()
+                        .requestMatchers(HttpMethod.GET, "/condominio/roots").hasRole("amministratore")
                         .requestMatchers(HttpMethod.POST, "/condominio/**").hasRole("amministratore")
                         .requestMatchers(HttpMethod.PUT, "/condominio/**").hasRole("amministratore")
                         .requestMatchers(HttpMethod.PATCH, "/condominio/**").hasRole("amministratore")

@@ -11,6 +11,11 @@ class CondominoApiClient {
 
   Uri _uri(String path) => Uri.parse('${KeycloakAppConfig.coreApiUrl}$path');
 
+  Uri _uriWithQuery(String path, Map<String, String> query) {
+    final base = Uri.parse('${KeycloakAppConfig.coreApiUrl}$path');
+    return base.replace(queryParameters: query);
+  }
+
   Map<String, String> _jsonHeaders(String accessToken) => {
     'Content-Type': 'application/json',
     'Authorization': 'Bearer $accessToken',
@@ -30,18 +35,14 @@ class CondominoApiClient {
     required String condominioId,
   }) async {
     final response = await http.get(
-      _uri('/condomino'),
+      _uriWithQuery('/condomino', {'idCondominio': condominioId}),
       headers: _jsonHeaders(accessToken),
     );
     if (response.statusCode < 200 || response.statusCode >= 300) {
       _throwHttpError('fetchCondomini', response);
     }
     final raw = (jsonDecode(response.body) as List?) ?? const [];
-    return raw
-        .whereType<Map<String, dynamic>>()
-        .where((e) => (e['idCondominio'] ?? '').toString() == condominioId)
-        .map(Condomino.fromCoreJson)
-        .toList();
+    return raw.whereType<Map<String, dynamic>>().map(Condomino.fromCoreJson).toList();
   }
 
   Future<Condomino> createCondomino({
