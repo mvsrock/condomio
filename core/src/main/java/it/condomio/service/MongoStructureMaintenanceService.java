@@ -6,9 +6,12 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import org.bson.Document;
 import org.slf4j.Logger;
@@ -390,31 +393,7 @@ public class MongoStructureMaintenanceService implements ApplicationRunner {
      * - riallinea gli snapshot denormalizzati sulla posizione
      */
     private void backfillCondominoRootsAndPositions() {
-        Query legacyQuery = new Query(new Criteria().orOperator(
-                Criteria.where("condominoRootId").exists(false),
-                Criteria.where("condominoRootId").is(null),
-                Criteria.where("condominoRootId").is(""),
-                Criteria.where("anno").exists(false),
-                Criteria.where("anno").is(null),
-                Criteria.where("nome").exists(false),
-                Criteria.where("nome").is(null),
-                Criteria.where("cognome").exists(false),
-                Criteria.where("cognome").is(null),
-                Criteria.where("email").exists(false),
-                Criteria.where("email").is(null),
-                Criteria.where("cellulare").exists(false),
-                Criteria.where("cellulare").is(null),
-                Criteria.where("keycloakUserId").exists(false),
-                Criteria.where("keycloakUserId").is(null),
-                Criteria.where("keycloakUsername").exists(false),
-                Criteria.where("keycloakUsername").is(null),
-                Criteria.where("appRole").exists(false),
-                Criteria.where("appRole").is(null),
-                Criteria.where("appEnabled").exists(false),
-                Criteria.where("appEnabled").is(null),
-                Criteria.where("snapshotUpdatedAt").exists(false),
-                Criteria.where("snapshotUpdatedAt").is(null)));
-        List<Document> legacyPositions = mongoTemplate.find(legacyQuery, Document.class, "condomino");
+        List<Document> legacyPositions = loadCondominoPositionsNeedingBackfill();
         if (legacyPositions.isEmpty()) {
             return;
         }
@@ -491,6 +470,82 @@ public class MongoStructureMaintenanceService implements ApplicationRunner {
                     createdRoots,
                     syncedPositions);
         }
+    }
+
+    /**
+     * Non basta cercare solo documenti con campi mancanti: dopo un refactor
+     * parziale possono esistere posizioni formalmente complete ma collegate a un
+     * `condominoRootId` che non ha alcun documento reale in `condomino_root`.
+     */
+    private List<Document> loadCondominoPositionsNeedingBackfill() {
+        Map<String, Document> candidatesById = new LinkedHashMap<>();
+        for (Document legacyPosition : mongoTemplate.find(buildLegacyCondominoBackfillQuery(), Document.class, "condomino")) {
+            candidatesById.put(String.valueOf(legacyPosition.get("_id")), legacyPosition);
+        }
+
+        Set<String> missingRootIds = findMissingReferencedCondominoRootIds();
+        if (!missingRootIds.isEmpty()) {
+            Query missingRootQuery = Query.query(Criteria.where("condominoRootId").in(new ArrayList<>(missingRootIds)));
+            for (Document rawPosition : mongoTemplate.find(missingRootQuery, Document.class, "condomino")) {
+                candidatesById.putIfAbsent(String.valueOf(rawPosition.get("_id")), rawPosition);
+            }
+        }
+        return new ArrayList<>(candidatesById.values());
+    }
+
+    private Query buildLegacyCondominoBackfillQuery() {
+        return new Query(new Criteria().orOperator(
+                Criteria.where("condominoRootId").exists(false),
+                Criteria.where("condominoRootId").is(null),
+                Criteria.where("condominoRootId").is(""),
+                Criteria.where("anno").exists(false),
+                Criteria.where("anno").is(null),
+                Criteria.where("nome").exists(false),
+                Criteria.where("nome").is(null),
+                Criteria.where("cognome").exists(false),
+                Criteria.where("cognome").is(null),
+                Criteria.where("email").exists(false),
+                Criteria.where("email").is(null),
+                Criteria.where("cellulare").exists(false),
+                Criteria.where("cellulare").is(null),
+                Criteria.where("keycloakUserId").exists(false),
+                Criteria.where("keycloakUserId").is(null),
+                Criteria.where("keycloakUsername").exists(false),
+                Criteria.where("keycloakUsername").is(null),
+                Criteria.where("appRole").exists(false),
+                Criteria.where("appRole").is(null),
+                Criteria.where("appEnabled").exists(false),
+                Criteria.where("appEnabled").is(null),
+                Criteria.where("snapshotUpdatedAt").exists(false),
+                Criteria.where("snapshotUpdatedAt").is(null)));
+    }
+
+    private Set<String> findMissingReferencedCondominoRootIds() {
+        List<String> referencedRootIds = mongoTemplate.getCollection("condomino")
+                .distinct("condominoRootId", String.class)
+                .into(new ArrayList<>());
+        if (referencedRootIds.isEmpty()) {
+            return Set.of();
+        }
+
+        Set<String> existingRootIds = new LinkedHashSet<>();
+        for (Document rawRoot : mongoTemplate.findAll(Document.class, "condomino_root")) {
+            Object existingRootId = rawRoot.get("_id");
+            if (existingRootId != null) {
+                existingRootIds.add(existingRootId.toString());
+            }
+        }
+        Set<String> missingRootIds = new LinkedHashSet<>();
+        for (String referencedRootId : referencedRootIds) {
+            String normalizedRootId = normalizeBlank(referencedRootId);
+            if (normalizedRootId == null) {
+                continue;
+            }
+            if (!existingRootIds.contains(normalizedRootId)) {
+                missingRootIds.add(normalizedRootId);
+            }
+        }
+        return missingRootIds;
     }
 
     /**

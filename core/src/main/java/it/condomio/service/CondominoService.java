@@ -77,12 +77,16 @@ public class CondominoService {
                 adminKeycloakUserId);
         normalizeStableFields(resource);
 
-        CondominoRoot stableRoot = resolveOrCreateStableRootForCreate(exercise, resource);
+        StableRootWriteResult rootWrite = resolveOrCreateStableRootForCreate(exercise, resource);
+        CondominoRoot stableRoot = rootWrite.root();
         ensureUniquePositionOnExercise(exercise.getId(), stableRoot.getId(), null);
 
         Condomino position = buildPositionForCreate(resource, exercise, stableRoot);
         normalizeFinancialFieldsForCreate(position);
         Condomino saved = condominoRepository.save(position);
+        if (rootWrite.syncOtherPositions()) {
+            syncPositionSnapshots(stableRoot, saved.getId());
+        }
         return toResource(saved, stableRoot);
     }
 
@@ -169,7 +173,11 @@ public class CondominoService {
 
         Condominio exercise = condominioRepository.findById(aggregate.position().getIdCondominio())
                 .orElseThrow(() -> new NotFoundException("condominio"));
-        CondominoRoot updatedRoot = syncStableRoot(aggregate.root(), exercise.getCondominioRootId(), updatedResource);
+        StableRootWriteResult rootWrite = syncStableRoot(
+                aggregate.root(),
+                exercise.getCondominioRootId(),
+                updatedResource);
+        CondominoRoot updatedRoot = rootWrite.root();
 
         Condomino updatedPosition = buildPositionForUpdate(aggregate.position(), updatedResource);
         applySnapshotFields(updatedPosition, updatedRoot);
@@ -177,6 +185,9 @@ public class CondominoService {
         ensureUniquePositionOnExercise(updatedPosition.getIdCondominio(), updatedRoot.getId(), updatedPosition.getId());
 
         Condomino saved = condominoRepository.save(updatedPosition);
+        if (rootWrite.syncOtherPositions()) {
+            syncPositionSnapshots(updatedRoot, saved.getId());
+        }
         return toResource(saved, updatedRoot);
     }
 
@@ -362,7 +373,7 @@ public class CondominoService {
                 .orElseThrow(() -> new NotFoundException("condominoRoot"));
     }
 
-    private CondominoRoot resolveOrCreateStableRootForCreate(Condominio exercise, CondominoResource resource)
+    private StableRootWriteResult resolveOrCreateStableRootForCreate(Condominio exercise, CondominoResource resource)
             throws ApiException {
         if (resource.getCondominoRootId() != null && !resource.getCondominoRootId().isBlank()) {
             CondominoRoot existing = loadStableRoot(resource.getCondominoRootId());
@@ -376,7 +387,9 @@ public class CondominoService {
         if (existing != null) {
             return syncStableRoot(existing, exercise.getCondominioRootId(), resource);
         }
-        return createStableRoot(exercise.getCondominioRootId(), resource);
+        return new StableRootWriteResult(
+                createStableRoot(exercise.getCondominioRootId(), resource),
+                false);
     }
 
     private CondominoRoot findStableRootMatch(String condominioRootId, CondominoResource resource) {
@@ -408,15 +421,21 @@ public class CondominoService {
         return condominoRootRepository.save(root);
     }
 
-    private CondominoRoot syncStableRoot(CondominoRoot existing, String condominioRootId, CondominoResource resource)
+    private StableRootWriteResult syncStableRoot(
+            CondominoRoot existing,
+            String condominioRootId,
+            CondominoResource resource)
             throws ValidationFailedException {
         ensureUniqueStableIdentity(condominioRootId, resource, existing.getId());
+        boolean changed = stableRootChanged(existing, condominioRootId, resource);
+        if (!changed) {
+            return new StableRootWriteResult(existing, false);
+        }
         existing.setCondominioRootId(condominioRootId);
         existing.setUpdatedAt(Instant.now());
         copyStableFields(resource, existing);
         CondominoRoot saved = condominoRootRepository.save(existing);
-        syncPositionSnapshots(saved);
-        return saved;
+        return new StableRootWriteResult(saved, changed);
     }
 
     private void ensureUniqueStableIdentity(
@@ -584,11 +603,21 @@ public class CondominoService {
         target.setSnapshotUpdatedAt(stableRoot.getUpdatedAt() == null ? Instant.now() : stableRoot.getUpdatedAt());
     }
 
-    private void syncPositionSnapshots(CondominoRoot stableRoot) {
+    /**
+     * Propaga lo snapshot stabile alle altre posizioni collegate.
+     *
+     * La posizione corrente viene esclusa esplicitamente dopo il suo `save` per
+     * evitare conflitti di versione ottimistica sul documento appena aggiornato.
+     */
+    private void syncPositionSnapshots(CondominoRoot stableRoot, String excludePositionId) {
         if (stableRoot.getId() == null || stableRoot.getId().isBlank()) {
             return;
         }
-        Query query = Query.query(Criteria.where("condominoRootId").is(stableRoot.getId()));
+        Criteria criteria = Criteria.where("condominoRootId").is(stableRoot.getId());
+        if (excludePositionId != null && !excludePositionId.isBlank()) {
+            criteria = criteria.and("_id").ne(excludePositionId);
+        }
+        Query query = Query.query(criteria);
         Update update = new Update()
                 .set("nome", stableRoot.getNome())
                 .set("cognome", stableRoot.getCognome())
@@ -600,6 +629,21 @@ public class CondominoService {
                 .set("appEnabled", Boolean.TRUE.equals(stableRoot.getAppEnabled()))
                 .set("snapshotUpdatedAt", stableRoot.getUpdatedAt() == null ? Instant.now() : stableRoot.getUpdatedAt());
         mongoTemplate.updateMulti(query, update, Condomino.class);
+    }
+
+    private boolean stableRootChanged(
+            CondominoRoot existing,
+            String condominioRootId,
+            CondominoResource resource) {
+        return !defaultString(existing.getCondominioRootId()).equals(defaultString(condominioRootId))
+                || !defaultString(existing.getNome()).equals(defaultString(resource.getNome()))
+                || !defaultString(existing.getCognome()).equals(defaultString(resource.getCognome()))
+                || !defaultString(existing.getEmail()).equals(defaultString(resource.getEmail()))
+                || !defaultString(existing.getCellulare()).equals(defaultString(resource.getCellulare()))
+                || !defaultString(existing.getKeycloakUserId()).equals(defaultString(resource.getKeycloakUserId()))
+                || !defaultString(existing.getKeycloakUsername()).equals(defaultString(resource.getKeycloakUsername()))
+                || !defaultString(existing.getAppRole()).equals(defaultString(resource.getAppRole()))
+                || Boolean.TRUE.equals(existing.getAppEnabled()) != Boolean.TRUE.equals(resource.getAppEnabled());
     }
 
     private void applyNonAdminUpdateGuards(CondominoResource target, CondominoAggregate aggregate) {
@@ -772,6 +816,9 @@ public class CondominoService {
     }
 
     private record CondominoAggregate(Condomino position, CondominoRoot root) {
+    }
+
+    private record StableRootWriteResult(CondominoRoot root, boolean syncOtherPositions) {
     }
 
 }
