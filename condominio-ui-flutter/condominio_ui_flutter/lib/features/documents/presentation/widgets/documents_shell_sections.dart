@@ -55,7 +55,7 @@ class DocumentsCondominioSelectorBar extends ConsumerWidget {
               selectedExercise?.id == condominio.id && selectedExercise!.isClosed;
           return ChoiceChip(
             label: Text(
-              '${condominio.label} (${condominio.anno})${isClosed ? ' - chiuso' : ''}',
+              '${condominio.label} / ${condominio.gestioneLabel} (${condominio.anno})${isClosed ? ' - chiuso' : ''}',
             ),
             selected: selected,
             onSelected: (_) => ui.selectCondominio(condominio.id),
@@ -90,6 +90,10 @@ class DocumentsSummaryHeader extends ConsumerWidget {
           icon: Icons.account_balance_wallet_outlined,
           label:
               'Residuo condominio: ${selectedCondominio.residuo.toStringAsFixed(2)}',
+        ),
+        DocumentsStatChip(
+          icon: Icons.layers_outlined,
+          label: 'Gestione: ${selectedCondominio.gestioneLabel}',
         ),
         DocumentsStatChip(
           icon: Icons.people_outline,

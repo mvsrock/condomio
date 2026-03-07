@@ -27,6 +27,7 @@ class _CondominioSelectionPageState
   final _labelCtrl = TextEditingController();
   final _annoCtrl = TextEditingController(text: '${DateTime.now().year}');
   final _saldoInizialeCtrl = TextEditingController(text: '0');
+  final _exerciseGestioneCtrl = TextEditingController(text: 'Ordinaria');
   final _exerciseAnnoCtrl = TextEditingController(
     text: '${DateTime.now().year}',
   );
@@ -38,6 +39,7 @@ class _CondominioSelectionPageState
   @override
   void initState() {
     super.initState();
+    _exerciseGestioneCtrl.addListener(_handleGestioneChanged);
     Future.microtask(() {
       ref.read(managedCondominioProvider.notifier).bootstrap();
     });
@@ -48,6 +50,8 @@ class _CondominioSelectionPageState
     _labelCtrl.dispose();
     _annoCtrl.dispose();
     _saldoInizialeCtrl.dispose();
+    _exerciseGestioneCtrl.removeListener(_handleGestioneChanged);
+    _exerciseGestioneCtrl.dispose();
     _exerciseAnnoCtrl.dispose();
     _exerciseSaldoInizialeCtrl.dispose();
     super.dispose();
@@ -64,12 +68,21 @@ class _CondominioSelectionPageState
 
     final effectiveRootId = _selectedRootId ??
         (state.roots.isNotEmpty ? state.roots.first.id : null);
+    final effectiveGestioneCode = _normalizeGestione(_exerciseGestioneCtrl.text);
     final latestExercise = effectiveRootId == null
         ? null
-        : _latestExerciseForRoot(effectiveRootId, state.items);
+        : _latestExerciseForRootAndGestione(
+            effectiveRootId,
+            effectiveGestioneCode,
+            state.items,
+          );
     final hasOpenExercise = effectiveRootId == null
         ? false
-        : _hasOpenExerciseForRoot(effectiveRootId, state.items);
+        : _hasOpenExerciseForRootAndGestione(
+            effectiveRootId,
+            effectiveGestioneCode,
+            state.items,
+          );
 
     return Scaffold(
       appBar: AppBar(
@@ -183,6 +196,7 @@ class _CondominioSelectionPageState
                   formKey: _createExerciseFormKey,
                   roots: state.roots,
                   selectedRootId: effectiveRootId,
+                  gestioneController: _exerciseGestioneCtrl,
                   annoController: _exerciseAnnoCtrl,
                   saldoInizialeController: _exerciseSaldoInizialeCtrl,
                   isCreatingExercise: state.isCreatingExercise,
@@ -190,6 +204,9 @@ class _CondominioSelectionPageState
                   latestExercise: latestExercise,
                   hasOpenExercise: hasOpenExercise,
                   onRootChanged: (value) => _onRootChanged(value, state.items),
+                  onGestioneChanged: (_) => _applyExerciseDefaultsForCurrentContext(
+                    items: state.items,
+                  ),
                   onCarryOverChanged: (value) =>
                       _onCarryOverChanged(value, latestExercise),
                   onSubmit: () async {
@@ -207,6 +224,7 @@ class _CondominioSelectionPageState
                     await notifier.createExercise(
                       rootId: root.id,
                       label: root.label,
+                      gestioneLabel: _exerciseGestioneCtrl.text,
                       anno: int.parse(_exerciseAnnoCtrl.text),
                       saldoIniziale: double.parse(
                         _exerciseSaldoInizialeCtrl.text
@@ -236,6 +254,7 @@ class _CondominioSelectionPageState
             _selectedRootId = null;
             _carryOverBalances = false;
           });
+          _exerciseGestioneCtrl.text = 'Ordinaria';
           _exerciseAnnoCtrl.text = '${DateTime.now().year}';
           _exerciseSaldoInizialeCtrl.text = '0';
         });
@@ -258,10 +277,7 @@ class _CondominioSelectionPageState
         _selectedRootId = fallbackRootId;
         _carryOverBalances = false;
       });
-      _applyExerciseDefaultsForRoot(
-        rootId: fallbackRootId,
-        items: state.items,
-      );
+      _applyExerciseDefaultsForRoot(rootId: fallbackRootId, items: state.items);
     });
   }
 
@@ -293,14 +309,13 @@ class _CondominioSelectionPageState
     required String rootId,
     required List<ManagedCondominio> items,
   }) {
-    final latest = _latestExerciseForRoot(rootId, items);
-    final suggestedYear = latest == null ? DateTime.now().year : latest.anno + 1;
-    _exerciseAnnoCtrl.text = '$suggestedYear';
-    if (_carryOverBalances && latest != null) {
-      _exerciseSaldoInizialeCtrl.text = _formatAmount(latest.residuo);
-    } else {
-      _exerciseSaldoInizialeCtrl.text = '0';
+    final latestForRoot = _latestExerciseForRoot(rootId, items);
+    if (latestForRoot != null) {
+      _exerciseGestioneCtrl.text = latestForRoot.gestioneLabel;
+    } else if (_exerciseGestioneCtrl.text.trim().isEmpty) {
+      _exerciseGestioneCtrl.text = 'Ordinaria';
     }
+    _applyExerciseDefaultsForCurrentContext(items: items);
   }
 
   ManagedCondominio? _latestExerciseForRoot(
@@ -319,9 +334,33 @@ class _CondominioSelectionPageState
     return latest;
   }
 
-  bool _hasOpenExerciseForRoot(String rootId, List<ManagedCondominio> items) {
+  ManagedCondominio? _latestExerciseForRootAndGestione(
+    String rootId,
+    String gestioneCode,
+    List<ManagedCondominio> items,
+  ) {
+    ManagedCondominio? latest;
+    for (final item in items) {
+      if (item.condominioRootId != rootId || item.gestioneCode != gestioneCode) {
+        continue;
+      }
+      if (latest == null || item.anno > latest.anno) {
+        latest = item;
+      }
+    }
+    return latest;
+  }
+
+  bool _hasOpenExerciseForRootAndGestione(
+    String rootId,
+    String gestioneCode,
+    List<ManagedCondominio> items,
+  ) {
     return items.any(
-      (item) => item.condominioRootId == rootId && !item.isClosed,
+      (item) =>
+          item.condominioRootId == rootId &&
+          item.gestioneCode == gestioneCode &&
+          !item.isClosed,
     );
   }
 
@@ -342,5 +381,46 @@ class _CondominioSelectionPageState
       return value.toStringAsFixed(0);
     }
     return value.toStringAsFixed(2);
+  }
+
+  void _handleGestioneChanged() {
+    if (!mounted) {
+      return;
+    }
+    setState(() {});
+  }
+
+  void _applyExerciseDefaultsForCurrentContext({
+    required List<ManagedCondominio> items,
+  }) {
+    final rootId = _selectedRootId;
+    if (rootId == null) {
+      return;
+    }
+    final latest = _latestExerciseForRootAndGestione(
+      rootId,
+      _normalizeGestione(_exerciseGestioneCtrl.text),
+      items,
+    );
+    if (latest == null && _carryOverBalances) {
+      setState(() {
+        _carryOverBalances = false;
+      });
+    }
+    final suggestedYear = latest == null ? DateTime.now().year : latest.anno + 1;
+    _exerciseAnnoCtrl.text = '$suggestedYear';
+    if (_carryOverBalances && latest != null) {
+      _exerciseSaldoInizialeCtrl.text = _formatAmount(latest.residuo);
+    } else {
+      _exerciseSaldoInizialeCtrl.text = '0';
+    }
+  }
+
+  String _normalizeGestione(String value) {
+    final normalized = value.trim().replaceAll(RegExp(r'\s+'), ' ');
+    if (normalized.isEmpty) {
+      return 'ordinaria';
+    }
+    return normalized.toLowerCase();
   }
 }

@@ -42,11 +42,12 @@ public class SecurityConfig {
                                 "/public/**",
                                 "/actuator/**"
                         ).permitAll()
-                        .requestMatchers(HttpMethod.GET, "/condominio/roots").hasRole("amministratore")
-                        .requestMatchers(HttpMethod.POST, "/condominio/**").hasRole("amministratore")
-                        .requestMatchers(HttpMethod.PUT, "/condominio/**").hasRole("amministratore")
-                        .requestMatchers(HttpMethod.PATCH, "/condominio/**").hasRole("amministratore")
-                        .requestMatchers(HttpMethod.DELETE, "/condominio/**").hasRole("amministratore")
+                        .requestMatchers(HttpMethod.GET, "/condomini/**").hasRole("amministratore")
+                        .requestMatchers(HttpMethod.POST, "/condomini/**").hasRole("amministratore")
+                        .requestMatchers(HttpMethod.POST, "/esercizi/**").hasRole("amministratore")
+                        .requestMatchers(HttpMethod.PUT, "/esercizi/**").hasRole("amministratore")
+                        .requestMatchers(HttpMethod.PATCH, "/esercizi/**").hasRole("amministratore")
+                        .requestMatchers(HttpMethod.DELETE, "/esercizi/**").hasRole("amministratore")
                         .requestMatchers(HttpMethod.POST, "/movimenti/**").hasRole("amministratore")
                         .requestMatchers(HttpMethod.PUT, "/movimenti/**").hasRole("amministratore")
                         .requestMatchers(HttpMethod.PATCH, "/movimenti/**").hasRole("amministratore")

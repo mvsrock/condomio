@@ -1,6 +1,6 @@
 services:
   keycloak:
-    image: quay.io/keycloak/keycloak:26.3.0
+    image: condomio-keycloak:26.3.0
     environment:
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: admin
@@ -11,7 +11,13 @@ services:
       KC_DB_SCHEMA: auth
       KC_LOG_LEVEL: INFO
       KC_LOG_CONSOLE_OUTPUT: json
-    command: ["start-dev","--http-port=8082","--features=preview"]
+    command:
+      - start-dev
+      - --http-port=8082
+      - --features=preview
+      - --spi-theme-static-max-age=-1
+      - --spi-theme-cache-themes=false
+      - --spi-theme-cache-templates=false
     ports:
       - target: 8082
         published: 8082

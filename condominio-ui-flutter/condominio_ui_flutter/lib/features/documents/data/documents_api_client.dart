@@ -10,6 +10,11 @@ import '../domain/condomino_document_model.dart';
 import '../domain/movimento_model.dart';
 import '../domain/tabella_model.dart';
 
+/// Client HTTP del modulo documenti.
+///
+/// Le letture/scritture del modulo lavorano sempre sull'esercizio selezionato,
+/// anche se alcuni parametri locali mantengono il nome storico `condominioId`
+/// per compatibilita' con il resto del frontend.
 class DocumentsApiClient {
   const DocumentsApiClient();
 
@@ -39,11 +44,11 @@ class DocumentsApiClient {
     required String condominioId,
   }) async {
     final response = await http.get(
-      _uri('/condominio/$condominioId'),
+      _uri('/esercizi/$condominioId'),
       headers: _headers(accessToken),
     );
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      _throwHttpError('fetchCondominioById', response);
+      _throwHttpError('fetchEsercizioById', response);
     }
     final json = (jsonDecode(response.body) as Map?)?.cast<String, dynamic>() ??
         const <String, dynamic>{};
@@ -236,16 +241,16 @@ class DocumentsApiClient {
     final payload = {'configurazioniSpesa': configurazioniSpesa};
     if (kDebugMode) {
       debugPrint(
-        '[DOCUMENTS][patchCondominioConfigurazioniSpesa] condominioId=$condominioId payload=${jsonEncode(payload)}',
+        '[DOCUMENTS][patchEsercizioConfigurazioniSpesa] condominioId=$condominioId payload=${jsonEncode(payload)}',
       );
     }
     final response = await http.patch(
-      _uri('/condominio/$condominioId'),
+      _uri('/esercizi/$condominioId'),
       headers: _mergePatchHeaders(accessToken),
       body: jsonEncode(payload),
     );
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      _throwHttpError('patchCondominioConfigurazioniSpesa', response);
+      _throwHttpError('patchEsercizioConfigurazioniSpesa', response);
     }
   }
 

@@ -1,0 +1,1 @@
+http://localhost:8082/realms/condominio/protocol/openid-connect/auth?client_id=condominio&redirect_uri=http%3A%2F%2Flocalhost%3A8089%2Fcallback&response_type=code&scope=openid&code_challenge=SN7Xo0mG5iswT1WHmWr8nc4hlxTC1X3azUaqLymrSMo&code_challenge_method=S256&prompt=login

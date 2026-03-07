@@ -10,8 +10,10 @@ import org.springframework.data.mongodb.core.mapping.Document;
 import lombok.Data;
 
 @Data
-@Document(collection = "condominio")
+@Document(collection = "esercizio")
 public class Condominio {
+    public static final String DEFAULT_GESTIONE_LABEL = "Ordinaria";
+
     @Id
     private String id;
     @Version
@@ -24,6 +26,12 @@ public class Condominio {
      */
     private String condominioRootId;
     private String label;
+    /**
+     * Dimensione gestionale del condominio per consentire esercizi paralleli
+     * nello stesso anno (es. ordinaria, riscaldamento, straordinaria).
+     */
+    private String gestioneCodice;
+    private String gestioneLabel;
     private Long anno;
     private Instant dataInizio;
     private Instant dataFine;

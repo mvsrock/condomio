@@ -224,14 +224,21 @@ class _RegistryCondominoEditPageState
                                   RegistryCondominoAnagraficaSection(
                                     nomeController: _nomeController,
                                     cognomeController: _cognomeController,
-                                    scalaController: _scalaController,
-                                    internoController: _internoController,
                                     requiredFieldValidator: _requiredField,
+                                  ),
+                                  const SizedBox(height: 16),
+                                  RegistryCondominoScopeNotice(
+                                    condomino: widget.condomino,
                                   ),
                                   const SizedBox(height: 16),
                                   RegistryCondominoContactsSection(
                                     emailController: _emailController,
                                     telefonoController: _telefonoController,
+                                  ),
+                                  const SizedBox(height: 16),
+                                  RegistryCondominoExerciseSection(
+                                    scalaController: _scalaController,
+                                    internoController: _internoController,
                                     saldoInizialeController:
                                         _saldoInizialeController,
                                     decimalFieldValidator: _decimalField,

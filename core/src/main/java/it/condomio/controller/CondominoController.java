@@ -15,10 +15,11 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import it.condomio.controller.model.CondominoResource;
 import it.condomio.document.Condomino;
 import it.condomio.exception.ApiException;
 import it.condomio.exception.NotFoundException;
@@ -39,8 +40,8 @@ public class CondominoController {
 
     /** Create standard. */
     @PostMapping
-    public ResponseEntity<Condomino> createCondomino(
-            @RequestBody Condomino condomino,
+    public ResponseEntity<CondominoResource> createCondomino(
+            @RequestBody CondominoResource condomino,
             @AuthenticationPrincipal Jwt jwt) throws ApiException {
         return new ResponseEntity<>(
                 condominoService.createCondomino(condomino, jwt.getSubject()),
@@ -49,8 +50,8 @@ public class CondominoController {
 
     /** Compat legacy: alcuni client inviano create via PUT /condomino. */
     @PutMapping
-    public ResponseEntity<Condomino> createCondominoPut(
-            @RequestBody Condomino condomino,
+    public ResponseEntity<CondominoResource> createCondominoPut(
+            @RequestBody CondominoResource condomino,
             @AuthenticationPrincipal Jwt jwt) throws ApiException {
         return new ResponseEntity<>(
                 condominoService.createCondomino(condomino, jwt.getSubject()),
@@ -58,25 +59,25 @@ public class CondominoController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Condomino> getCondominoById(
+    public ResponseEntity<CondominoResource> getCondominoById(
             @PathVariable String id,
             @AuthenticationPrincipal Jwt jwt) throws ApiException {
-        final Condomino result = condominoService.getCondominoById(id, jwt.getSubject())
+        final CondominoResource result = condominoService.getCondominoById(id, jwt.getSubject())
                 .orElseThrow(() -> new NotFoundException("condomino"));
         return ResponseEntity.ok(result);
     }
 
     @GetMapping
-    public ResponseEntity<List<Condomino>> getAllCondomini(
+    public ResponseEntity<List<CondominoResource>> getAllCondomini(
             @AuthenticationPrincipal Jwt jwt,
             @RequestParam(name = "idCondominio", required = false) String idCondominio) {
         return ResponseEntity.ok(condominoService.getAllCondomini(jwt.getSubject(), idCondominio));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Condomino> updateCondomino(
+    public ResponseEntity<CondominoResource> updateCondomino(
             @PathVariable String id,
-            @RequestBody Condomino condomino,
+            @RequestBody CondominoResource condomino,
             @AuthenticationPrincipal Jwt jwt) throws ApiException {
         return ResponseEntity.ok(condominoService.updateCondomino(id, condomino, jwt.getSubject()));
     }
@@ -91,7 +92,7 @@ public class CondominoController {
 
     /** Update parziale via JSON Merge Patch. */
     @PatchMapping(path = "/{id}", consumes = "application/merge-patch+json")
-    public ResponseEntity<Condomino> patchCondomino(
+    public ResponseEntity<CondominoResource> patchCondomino(
             @PathVariable String id,
             @RequestBody JsonNode mergePatch,
             @AuthenticationPrincipal Jwt jwt) throws IOException, ValidationFailedException, ApiException {

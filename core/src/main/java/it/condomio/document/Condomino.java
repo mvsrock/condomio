@@ -15,33 +15,66 @@ import lombok.Data;
 @Data
 @Document(collection = "condomino")
 @CompoundIndexes({
-    // Non univoco: piu' persone possono avere stesso nome/cognome.
-    @CompoundIndex(name = "nome_cognome_idx", def = "{'nome' : 1, 'cognome': 1}"),
-    // Vincolo business: email unica per condominio (non globale).
-    @CompoundIndex(name = "condominio_email_idx", def = "{'idCondominio' : 1, 'email': 1}", unique = true)
+    /**
+     * Una stessa anagrafica stabile puo' comparire una sola volta per esercizio.
+     * Questo indice evita posizioni duplicate sullo stesso esercizio.
+     */
+    @CompoundIndex(name = "exercise_root_uidx", def = "{'idCondominio' : 1, 'condominoRootId': 1}", unique = true),
+    /**
+     * Read path principale per liste e paginazione ordinata per nominativo.
+     * Lo snapshot su posizione evita lookup o merge applicativi per l'anagrafica.
+     */
+    @CompoundIndex(name = "exercise_name_idx", def = "{'idCondominio' : 1, 'cognome': 1, 'nome': 1}"),
+    /**
+     * Supporta accesso tenant diretto da utente applicativo alle posizioni visibili.
+     */
+    @CompoundIndex(name = "keycloak_exercise_idx", def = "{'keycloakUserId' : 1, 'idCondominio': 1}"),
+    /**
+     * Indice di join stabile: dato un condomino root recuperiamo rapidamente tutte
+     * le sue posizioni sui diversi esercizi.
+     */
+    @CompoundIndex(name = "root_exercise_idx", def = "{'condominoRootId' : 1, 'idCondominio': 1}")
 })
 public class Condomino {
     @Id
     private String id;
     @Version
     private Integer version;
-    private String nome;
-    private String cognome;
+
+    /**
+     * Riferimento all'anagrafica stabile del condomino.
+     * La collection `condomino` rappresenta solo la posizione nel singolo esercizio.
+     */
+    @Indexed(unique = false)
+    private String condominoRootId;
+
     @Indexed(unique = false)
     private String idCondominio;
-    @Indexed(name = "email_idx", unique = false)
+    /**
+     * Snapshot denormalizzato dell'anagrafica stabile.
+     *
+     * Source of truth:
+     * - `condomino_root`
+     *
+     * Read model:
+     * - `condomino`
+     *
+     * Questo consente query calde su anagrafica, ordinamento e tenant visibility
+     * senza join/lookup lato Mongo o merge applicativi a ogni richiesta.
+     */
+    private String nome;
+    private String cognome;
     private String email;
     private String cellulare;
-    private String scala;
-    private Long interno;
-    private Long anno;
-
-    // Legame applicativo con Keycloak (utente e stato abilitazione accesso app).
-    @Indexed(unique = false)
     private String keycloakUserId;
     private String keycloakUsername;
     private String appRole;
     private Boolean appEnabled;
+    /** Ultimo timestamp di sincronizzazione dello snapshot stabile sulla posizione. */
+    private Instant snapshotUpdatedAt;
+    private String scala;
+    private Long interno;
+    private Long anno;
 
     private Config config;
     private List<Versamento> versamenti;

@@ -16,6 +16,7 @@ class Condomino {
     required this.residente,
     this.ruolo = CondominoRuolo.standard,
     this.hasAppAccess = false,
+    this.condominoRootId,
     this.keycloakUsername,
     this.keycloakUserId,
   });
@@ -32,6 +33,7 @@ class Condomino {
   final bool residente;
   final CondominoRuolo ruolo;
   final bool hasAppAccess;
+  final String? condominoRootId;
   final String? keycloakUsername;
   final String? keycloakUserId;
 
@@ -59,6 +61,9 @@ class Condomino {
       residente: true,
       ruolo: _roleFromString(roleRaw),
       hasAppAccess: hasAccess,
+      condominoRootId: (json['condominoRootId'] as String?)?.trim().isEmpty ?? true
+          ? null
+          : (json['condominoRootId'] as String),
       keycloakUsername: keycloakUsername.isEmpty ? null : keycloakUsername,
       keycloakUserId: keycloakUserId.isEmpty ? null : keycloakUserId,
     );
@@ -84,6 +89,9 @@ class Condomino {
       'keycloakUsername': keycloakUsername,
       'keycloakUserId': keycloakUserId,
     };
+    if (condominoRootId != null && condominoRootId!.trim().isNotEmpty) {
+      payload['condominoRootId'] = condominoRootId;
+    }
     if (id.trim().isNotEmpty) {
       payload['id'] = id;
     }
@@ -95,6 +103,16 @@ class Condomino {
 
   /// Etichetta sintetica unita' abitativa.
   String get unita => 'Scala $scala - Int. $interno';
+
+  /// Il backend assegna un root stabile quando il condomino appartiene a un
+  /// profilo condiviso tra esercizi e gestioni dello stesso condominio.
+  bool get hasStableProfile =>
+      condominoRootId != null && condominoRootId!.trim().isNotEmpty;
+
+  /// Accesso applicativo realmente collegato a un utente del realm.
+  bool get hasLinkedAppUser =>
+      (keycloakUserId?.trim().isNotEmpty ?? false) ||
+      (keycloakUsername?.trim().isNotEmpty ?? false);
 
   Condomino copyWith({
     String? id,
@@ -109,8 +127,10 @@ class Condomino {
     bool? residente,
     CondominoRuolo? ruolo,
     bool? hasAppAccess,
+    String? condominoRootId,
     String? keycloakUsername,
     String? keycloakUserId,
+    bool clearCondominoRootId = false,
     bool clearKeycloakUsername = false,
     bool clearKeycloakUserId = false,
   }) {
@@ -127,6 +147,9 @@ class Condomino {
       residente: residente ?? this.residente,
       ruolo: ruolo ?? this.ruolo,
       hasAppAccess: hasAppAccess ?? this.hasAppAccess,
+      condominoRootId: clearCondominoRootId
+          ? null
+          : (condominoRootId ?? this.condominoRootId),
       keycloakUsername: clearKeycloakUsername
           ? null
           : (keycloakUsername ?? this.keycloakUsername),

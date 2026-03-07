@@ -247,6 +247,7 @@ class CreateEsercizioCard extends StatelessWidget {
     required this.formKey,
     required this.roots,
     required this.selectedRootId,
+    required this.gestioneController,
     required this.annoController,
     required this.saldoInizialeController,
     required this.isCreatingExercise,
@@ -254,6 +255,7 @@ class CreateEsercizioCard extends StatelessWidget {
     required this.latestExercise,
     required this.hasOpenExercise,
     required this.onRootChanged,
+    required this.onGestioneChanged,
     required this.onCarryOverChanged,
     required this.onSubmit,
   });
@@ -261,6 +263,7 @@ class CreateEsercizioCard extends StatelessWidget {
   final GlobalKey<FormState> formKey;
   final List<ManagedCondominioRoot> roots;
   final String? selectedRootId;
+  final TextEditingController gestioneController;
   final TextEditingController annoController;
   final TextEditingController saldoInizialeController;
   final bool isCreatingExercise;
@@ -268,6 +271,7 @@ class CreateEsercizioCard extends StatelessWidget {
   final ManagedCondominio? latestExercise;
   final bool hasOpenExercise;
   final ValueChanged<String?> onRootChanged;
+  final ValueChanged<String> onGestioneChanged;
   final ValueChanged<bool> onCarryOverChanged;
   final Future<void> Function() onSubmit;
 
@@ -310,6 +314,22 @@ class CreateEsercizioCard extends StatelessWidget {
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
                     return 'Seleziona il condominio';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: gestioneController,
+                decoration: const InputDecoration(
+                  labelText: 'Gestione',
+                  helperText:
+                      'Esempi: Ordinaria, Riscaldamento, Straordinaria ascensore',
+                ),
+                onChanged: onGestioneChanged,
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Inserisci la gestione';
                   }
                   return null;
                 },
@@ -420,8 +440,8 @@ class _LatestExerciseCard extends StatelessWidget {
         ? const Color(0xFFFEE2E2)
         : const Color(0xFFE3F0F4);
     final message = hasOpenExercise
-        ? 'Chiudi prima l\'esercizio aperto ${latestExercise.displayLabel} per poterne creare uno nuovo.'
-        : 'Ultimo esercizio disponibile: ${latestExercise.displayLabel}.';
+        ? 'Chiudi prima l\'esercizio aperto ${latestExercise.displayLabel} per poterne creare uno nuovo nella stessa gestione.'
+        : 'Ultimo esercizio disponibile per questa gestione: ${latestExercise.displayLabel}.';
 
     return Container(
       width: double.infinity,

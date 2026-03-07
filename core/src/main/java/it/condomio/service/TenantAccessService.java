@@ -46,9 +46,9 @@ public class TenantAccessService {
             }
         }
 
-        for (Condomino c : condominoRepository.findByKeycloakUserId(keycloakUserId)) {
-            if (c.getIdCondominio() != null && !c.getIdCondominio().isBlank()) {
-                ids.add(c.getIdCondominio());
+        for (Condomino posizione : condominoRepository.findByKeycloakUserId(keycloakUserId)) {
+            if (posizione.getIdCondominio() != null && !posizione.getIdCondominio().isBlank()) {
+                ids.add(posizione.getIdCondominio());
             }
         }
 
@@ -60,7 +60,9 @@ public class TenantAccessService {
     }
 
     public boolean canViewCondominio(String keycloakUserId, String condominioId) {
-        return ownsCondominio(keycloakUserId, condominioId)
-                || condominoRepository.existsByIdCondominioAndKeycloakUserId(condominioId, keycloakUserId);
+        if (ownsCondominio(keycloakUserId, condominioId)) {
+            return true;
+        }
+        return condominoRepository.existsByIdCondominioAndKeycloakUserId(condominioId, keycloakUserId);
     }
 }

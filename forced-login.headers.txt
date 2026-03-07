@@ -1,0 +1,8 @@
+HTTP/1.1 302 Found
+Cache-Control: no-store, must-revalidate, max-age=0
+Location: http://localhost:8089/callback?error=invalid_request&error_description=Missing+parameter%3A+code_challenge_method&iss=http%3A%2F%2Flocalhost%3A8082%2Frealms%2Fcondominio
+Referrer-Policy: no-referrer
+Strict-Transport-Security: max-age=31536000; includeSubDomains
+X-Content-Type-Options: nosniff
+content-length: 0
+

@@ -7,6 +7,11 @@ import '../../../utils/api_error.dart';
 import '../domain/managed_condominio.dart';
 import '../domain/managed_condominio_root.dart';
 
+/// Client HTTP del modulo selezione contesto.
+///
+/// Espone due concetti distinti:
+/// - `condomini`: root stabili del dominio
+/// - `esercizi`: contesti annuali/gestionali su cui l'app opera davvero
 class ManagedCondominioApiClient {
   const ManagedCondominioApiClient();
 
@@ -28,11 +33,11 @@ class ManagedCondominioApiClient {
     required String accessToken,
   }) async {
     final response = await http.get(
-      _uri('/condominio'),
+      _uri('/esercizi'),
       headers: _headers(accessToken),
     );
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      _throwHttpError('fetchCondomini', response);
+      _throwHttpError('fetchEsercizi', response);
     }
     final list = (jsonDecode(response.body) as List?) ?? const [];
     return list
@@ -45,11 +50,11 @@ class ManagedCondominioApiClient {
     required String accessToken,
   }) async {
     final response = await http.get(
-      _uri('/condominio/roots'),
+      _uri('/condomini'),
       headers: _headers(accessToken),
     );
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      _throwHttpError('fetchCondominioRoots', response);
+      _throwHttpError('fetchCondomini', response);
     }
     final list = (jsonDecode(response.body) as List?) ?? const [];
     return list
@@ -65,10 +70,11 @@ class ManagedCondominioApiClient {
     required double saldoIniziale,
   }) async {
     final response = await http.post(
-      _uri('/condominio'),
+      _uri('/condomini'),
       headers: _headers(accessToken),
       body: jsonEncode({
         'label': label.trim(),
+        'gestioneLabel': 'Ordinaria',
         'anno': anno,
         // In creazione il backend inizializza residuo a saldoIniziale.
         'saldoIniziale': saldoIniziale,
@@ -88,17 +94,19 @@ class ManagedCondominioApiClient {
     required String accessToken,
     required String rootId,
     required String label,
+    required String gestioneLabel,
     required int anno,
     required double saldoIniziale,
     required bool carryOverBalances,
   }) async {
     final response = await http.post(
-      _uriWithQuery('/condominio/root/$rootId/esercizi', {
+      _uriWithQuery('/condomini/$rootId/esercizi', {
         'carryOverBalances': carryOverBalances.toString(),
       }),
       headers: _headers(accessToken),
       body: jsonEncode({
         'label': label.trim(),
+        'gestioneLabel': gestioneLabel.trim(),
         'anno': anno,
         'saldoIniziale': saldoIniziale,
         'configurazioniSpesa': <Map<String, Object?>>[],
@@ -118,7 +126,7 @@ class ManagedCondominioApiClient {
     required String exerciseId,
   }) async {
     final response = await http.post(
-      _uri('/condominio/$exerciseId/close'),
+      _uri('/esercizi/$exerciseId/close'),
       headers: _headers(accessToken),
     );
     if (response.statusCode < 200 || response.statusCode >= 300) {

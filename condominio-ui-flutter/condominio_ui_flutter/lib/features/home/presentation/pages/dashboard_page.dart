@@ -32,7 +32,7 @@ class DashboardPage extends ConsumerWidget {
               DashboardStatCard(
                 title: 'Utente autenticato',
                 value: '$username',
-                subtitle: 'Sessione attiva su Keycloak',
+                subtitle: 'Sessione attiva',
                 icon: Icons.verified_user,
               ),
               DashboardStatCard(

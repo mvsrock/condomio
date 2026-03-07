@@ -75,6 +75,12 @@ class ManagedCondominioState {
   }
 }
 
+/// StateNotifier del contesto operativo selezionato.
+///
+/// Mantiene:
+/// - lista esercizi visibili all'utente
+/// - lista root disponibili per creare nuovi esercizi
+/// - esercizio attivo nella sessione corrente
 class ManagedCondominioNotifier extends StateNotifier<ManagedCondominioState> {
   ManagedCondominioNotifier(this._ref, this._api)
     : super(ManagedCondominioState.initial());
@@ -185,6 +191,7 @@ class ManagedCondominioNotifier extends StateNotifier<ManagedCondominioState> {
   Future<void> createExercise({
     required String rootId,
     required String label,
+    required String gestioneLabel,
     required int anno,
     required double saldoIniziale,
     required bool carryOverBalances,
@@ -206,6 +213,7 @@ class ManagedCondominioNotifier extends StateNotifier<ManagedCondominioState> {
         accessToken: token,
         rootId: rootId,
         label: label,
+        gestioneLabel: gestioneLabel,
         anno: anno,
         saldoIniziale: saldoIniziale,
         carryOverBalances: carryOverBalances,

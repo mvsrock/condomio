@@ -376,6 +376,10 @@ public class RipartoRealtimeService {
         return total;
     }
 
+    /**
+     * Il nominativo mostrato nei riparti usa lo snapshot sulla posizione: in
+     * questo modo i rebuild storici restano autosufficienti senza join addizionali.
+     */
     private String buildNominativo(Condomino condomino) {
         final String nome = condomino.getNome() != null ? condomino.getNome().trim() : "";
         final String cognome = condomino.getCognome() != null ? condomino.getCognome().trim() : "";

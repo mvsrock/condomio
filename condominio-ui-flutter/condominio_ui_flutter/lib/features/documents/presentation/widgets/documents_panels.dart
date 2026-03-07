@@ -406,6 +406,25 @@ class _DocumentsCondominoDetailContent extends StatelessWidget {
         Text('Telefono: ${selectedCondomino.cellulare}'),
         const SizedBox(height: 4),
         Text('Residuo: ${selectedCondomino.residuo.toStringAsFixed(2)}'),
+        const SizedBox(height: 10),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFD9E2EC)),
+          ),
+          child: Text(
+            selectedCondomino.hasStableProfile
+                ? 'Quote, versamenti e residuo mostrati qui appartengono solo all\'esercizio corrente. Il profilo anagrafico del condomino resta condiviso tra gli esercizi collegati.'
+                : 'Quote, versamenti e residuo mostrati qui appartengono solo all\'esercizio corrente.',
+            style: const TextStyle(
+              color: Color(0xFF334E68),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
         const SizedBox(height: 12),
         const Text(
           'Riparto per spesa',

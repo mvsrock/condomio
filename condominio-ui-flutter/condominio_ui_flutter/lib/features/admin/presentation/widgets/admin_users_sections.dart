@@ -124,6 +124,8 @@ class AdminUsersCreateCondominoCard extends ConsumerWidget {
                         ),
                       ),
                     ),
+                  const _AdminUsersProfileScopeBanner(),
+                  const SizedBox(height: 12),
                   AbsorbPointer(
                     absorbing: isReadOnly,
                     child: Opacity(
@@ -188,7 +190,7 @@ class AdminUsersCreateCondominoCard extends ConsumerWidget {
                           const SizedBox(height: 8),
                           SwitchListTile.adaptive(
                             contentPadding: EdgeInsets.zero,
-                            title: const Text('Associa utente Keycloak esistente'),
+                            title: const Text('Associa utente app esistente'),
                             value: linkExistingAccess,
                             onChanged:
                                 isReadOnly ? null : onLinkExistingAccessChanged,
@@ -202,7 +204,7 @@ class AdminUsersCreateCondominoCard extends ConsumerWidget {
                                   ? selectedExistingUserId
                                   : null,
                               decoration: const InputDecoration(
-                                labelText: 'Utente Keycloak',
+                                labelText: 'Utente app',
                               ),
                               items: keycloakUsers
                                   .map(
@@ -229,7 +231,7 @@ class AdminUsersCreateCondominoCard extends ConsumerWidget {
                           const SizedBox(height: 8),
                           SwitchListTile.adaptive(
                             contentPadding: EdgeInsets.zero,
-                            title: const Text('Crea utenza Keycloak adesso'),
+                            title: const Text('Crea utenza app adesso'),
                             value: createAccessNow,
                             onChanged:
                                 isReadOnly ? null : onCreateAccessNowChanged,
@@ -344,6 +346,30 @@ class AdminUsersCondominiListCard extends ConsumerWidget {
                   ),
           );
         },
+      ),
+    );
+  }
+}
+
+class _AdminUsersProfileScopeBanner extends StatelessWidget {
+  const _AdminUsersProfileScopeBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF0F9FF),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFF7DD3FC)),
+      ),
+      child: const Text(
+        'Nome, contatti e accesso app appartengono al profilo condiviso del condomino e vengono riutilizzati anche negli altri esercizi collegati. Unita, quote e saldo iniziale restano specifici dell\'esercizio corrente.',
+        style: TextStyle(
+          color: Color(0xFF0C4A6E),
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }
@@ -531,7 +557,7 @@ class _AdminUsersCredentialsFields extends StatelessWidget {
   Widget build(BuildContext context) {
     final usernameField = TextFormField(
       controller: usernameCtrl,
-      decoration: const InputDecoration(labelText: 'Username Keycloak'),
+      decoration: const InputDecoration(labelText: 'Username app'),
     );
     final passwordField = TextFormField(
       controller: passwordCtrl,

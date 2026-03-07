@@ -3,6 +3,7 @@ class CondominoDocumentModel {
   const CondominoDocumentModel({
     required this.id,
     required this.version,
+    required this.condominoRootId,
     required this.nome,
     required this.cognome,
     required this.idCondominio,
@@ -18,6 +19,7 @@ class CondominoDocumentModel {
 
   final String id;
   final int version;
+  final String condominoRootId;
   final String nome;
   final String cognome;
   final String idCondominio;
@@ -31,11 +33,13 @@ class CondominoDocumentModel {
   final double residuo;
 
   String get nominativo => '$cognome $nome';
+  bool get hasStableProfile => condominoRootId.trim().isNotEmpty;
 
   factory CondominoDocumentModel.fromJson(Map<String, dynamic> json) {
     return CondominoDocumentModel(
       id: json['id'] as String? ?? '',
       version: (json['version'] as num?)?.toInt() ?? 0,
+      condominoRootId: json['condominoRootId'] as String? ?? '',
       nome: json['nome'] as String? ?? '',
       cognome: json['cognome'] as String? ?? '',
       idCondominio: json['idCondominio'] as String? ?? '',

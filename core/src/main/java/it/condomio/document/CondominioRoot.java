@@ -14,7 +14,7 @@ import lombok.Data;
  * Non contiene dati contabili annuali: quelli vivono negli esercizi collegati.
  */
 @Data
-@Document(collection = "condominio_root")
+@Document(collection = "condominio")
 public class CondominioRoot {
     @Id
     private String id;

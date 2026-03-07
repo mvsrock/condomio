@@ -18,12 +18,11 @@ public interface CondominoRepository extends MongoRepository<Condomino, String>,
     boolean existsByIdCondominio(String idCondominio);
     Optional<Condomino> findByIdAndIdCondominioIn(String id, List<String> condominioIds);
     boolean existsByIdAndIdCondominioIn(String id, List<String> condominioIds);
-    boolean existsByIdCondominioAndEmailIgnoreCase(String idCondominio, String email);
-    boolean existsByIdCondominioAndEmailIgnoreCaseAndIdNot(String idCondominio, String email, String id);
-
-    // Associazione utente applicativo (Keycloak) <-> condomino.
+    List<Condomino> findByCondominoRootIdIn(List<String> condominoRootIds);
     List<Condomino> findByKeycloakUserId(String keycloakUserId);
-    Optional<Condomino> findByKeycloakUserIdAndIdCondominio(String keycloakUserId, String idCondominio);
+    boolean existsByCondominoRootId(String condominoRootId);
+    boolean existsByIdCondominioAndCondominoRootId(String idCondominio, String condominoRootId);
+    boolean existsByIdCondominioAndCondominoRootIdIn(String idCondominio, List<String> condominoRootIds);
     boolean existsByIdCondominioAndKeycloakUserId(String idCondominio, String keycloakUserId);
 
     /** Update puntuale residuo di un condomino specifico nel condominio atteso. */

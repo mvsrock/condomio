@@ -4,6 +4,8 @@ class CondominioDocumentModel {
     required this.id,
     required this.version,
     required this.label,
+    required this.gestioneCode,
+    required this.gestioneLabel,
     required this.anno,
     required this.configurazioniSpesa,
     required this.saldoIniziale,
@@ -13,6 +15,8 @@ class CondominioDocumentModel {
   final String id;
   final int version;
   final String label;
+  final String gestioneCode;
+  final String gestioneLabel;
   final int anno;
   final List<ConfigurazioneSpesaModel> configurazioniSpesa;
   final double saldoIniziale;
@@ -23,6 +27,8 @@ class CondominioDocumentModel {
       id: json['id'] as String? ?? '',
       version: (json['version'] as num?)?.toInt() ?? 0,
       label: json['label'] as String? ?? '',
+      gestioneCode: json['gestioneCodice'] as String? ?? 'ordinaria',
+      gestioneLabel: json['gestioneLabel'] as String? ?? 'Ordinaria',
       anno: (json['anno'] as num?)?.toInt() ?? 0,
       configurazioniSpesa:
           (json['configurazioniSpesa'] as List<dynamic>? ?? const [])
@@ -38,6 +44,8 @@ class CondominioDocumentModel {
       'id': id,
       'version': version,
       'label': label,
+      'gestioneCodice': gestioneCode,
+      'gestioneLabel': gestioneLabel,
       'anno': anno,
       'configurazioniSpesa': configurazioniSpesa.map((e) => e.toJson()).toList(),
       'saldoIniziale': saldoIniziale,

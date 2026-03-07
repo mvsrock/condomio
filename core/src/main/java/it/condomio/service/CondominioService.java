@@ -107,6 +107,7 @@ public class CondominioService {
         return condominioRepository.findAllById(ids).stream()
                 .sorted(Comparator
                         .comparing(Condominio::getLabel, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER))
+                        .thenComparing(Condominio::getGestioneLabel, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER))
                         .thenComparing(Condominio::getAnno, Comparator.nullsLast(Comparator.reverseOrder())))
                 .toList();
     }
@@ -127,7 +128,11 @@ public class CondominioService {
             throws ApiException {
         Condominio existing = esercizioGuardService.requireOwnedOpenExercise(id, adminKeycloakUserId);
         validateCreatePayload(updatedCondominio);
-        ensureUniqueExerciseYear(existing.getCondominioRootId(), updatedCondominio.getAnno(), existing.getId());
+        ensureUniqueExercise(existing.getCondominioRootId(),
+                updatedCondominio.getGestioneCodice(),
+                updatedCondominio.getAnno(),
+                existing.getId());
+        ensureUniqueOpenExercise(existing.getCondominioRootId(), updatedCondominio.getGestioneCodice(), existing.getId());
 
         final String resolvedLabel = resolveAndMaybePropagateRootRename(existing, updatedCondominio.getLabel(),
                 adminKeycloakUserId);
@@ -162,7 +167,11 @@ public class CondominioService {
         Condominio existing = esercizioGuardService.requireOwnedOpenExercise(id, adminKeycloakUserId);
         Condominio patchedCondominio = JsonMergePatchHelper.applyMergePatch(mergePatch, existing, Condominio.class);
         validateCreatePayload(patchedCondominio);
-        ensureUniqueExerciseYear(existing.getCondominioRootId(), patchedCondominio.getAnno(), existing.getId());
+        ensureUniqueExercise(existing.getCondominioRootId(),
+                patchedCondominio.getGestioneCodice(),
+                patchedCondominio.getAnno(),
+                existing.getId());
+        ensureUniqueOpenExercise(existing.getCondominioRootId(), patchedCondominio.getGestioneCodice(), existing.getId());
 
         final String resolvedLabel = resolveAndMaybePropagateRootRename(existing, patchedCondominio.getLabel(),
                 adminKeycloakUserId);
@@ -228,10 +237,13 @@ public class CondominioService {
             boolean carryOverBalances,
             String adminKeycloakUserId)
             throws ValidationFailedException {
-        final Condominio previousExercise = condominioRepository.findFirstByCondominioRootIdOrderByAnnoDesc(root.getId())
+        final String gestioneCodice = payload.getGestioneCodice();
+        final Condominio previousExercise = condominioRepository
+                .findFirstByCondominioRootIdAndGestioneCodiceOrderByAnnoDesc(root.getId(), gestioneCodice)
                 .orElse(null);
-        ensureCanCreateNextExercise(previousExercise, root.getId(), payload.getAnno());
-        ensureUniqueExerciseYear(root.getId(), payload.getAnno(), null);
+        ensureCanCreateNextExercise(previousExercise, root.getId(), gestioneCodice, payload.getAnno());
+        ensureUniqueExercise(root.getId(), gestioneCodice, payload.getAnno(), null);
+        ensureUniqueOpenExercise(root.getId(), gestioneCodice, null);
         payload.setId(null);
         payload.setVersion(null);
         payload.setConfigurazioniSpesa(resolveInitialConfigurazioni(payload, previousExercise));
@@ -264,6 +276,7 @@ public class CondominioService {
             Condominio.EsercizioStato existingState) {
         target.setCondominioRootId(rootId);
         target.setLabel(CondominioLabelKeyUtil.normalizeLabel(label));
+        normalizeGestioneFields(target);
         target.setAdminKeycloakUserId(adminKeycloakUserId);
         target.setStato(existingState == null ? Condominio.EsercizioStato.OPEN : existingState);
         target.setSaldoIniziale(target.getSaldoIniziale() == null ? 0d : target.getSaldoIniziale());
@@ -306,36 +319,55 @@ public class CondominioService {
         return normalizedRequested;
     }
 
-    private void ensureUniqueExerciseYear(String rootId, Long anno, String excludeExerciseId)
+    private void ensureUniqueExercise(String rootId, String gestioneCodice, Long anno, String excludeExerciseId)
             throws ValidationFailedException {
-        Optional<Condominio> existing = condominioRepository.findByCondominioRootIdAndAnno(rootId, anno);
+        Optional<Condominio> existing = condominioRepository.findByCondominioRootIdAndGestioneCodiceAndAnno(
+                rootId,
+                gestioneCodice,
+                anno);
         if (existing.isEmpty()) {
             return;
         }
         if (excludeExerciseId != null && excludeExerciseId.equals(existing.get().getId())) {
             return;
         }
-        throw new ValidationFailedException("validation.duplicate.esercizio.root_anno");
+        throw new ValidationFailedException("validation.duplicate.esercizio.root_gestione_anno");
     }
 
     /**
-     * Nuovo esercizio consentito solo se il root non ha un altro esercizio OPEN
-     * e l'anno richiesto e' progressivo rispetto all'ultimo storico disponibile.
+     * Nuovo esercizio consentito solo se la gestione selezionata non ha un altro
+     * esercizio OPEN e l'anno richiesto e' progressivo rispetto allo storico
+     * della stessa gestione.
      */
-    private void ensureCanCreateNextExercise(Condominio previousExercise, String rootId, Long requestedAnno)
+    private void ensureCanCreateNextExercise(
+            Condominio previousExercise,
+            String rootId,
+            String gestioneCodice,
+            Long requestedAnno)
             throws ValidationFailedException {
-        Optional<Condominio> existingOpen = condominioRepository.findFirstByCondominioRootIdAndStatoOrderByAnnoDesc(
-                rootId,
-                Condominio.EsercizioStato.OPEN);
-        if (existingOpen.isPresent()) {
-            throw new ValidationFailedException("validation.exercise.openAlreadyExists");
-        }
+        ensureUniqueOpenExercise(rootId, gestioneCodice, null);
         if (previousExercise != null
                 && previousExercise.getAnno() != null
                 && requestedAnno != null
                 && requestedAnno <= previousExercise.getAnno()) {
-            throw new ValidationFailedException("validation.invalid.esercizio.annoProgression");
+            throw new ValidationFailedException("validation.invalid.esercizio.annoProgressionGestione");
         }
+    }
+
+    private void ensureUniqueOpenExercise(String rootId, String gestioneCodice, String excludeExerciseId)
+            throws ValidationFailedException {
+        Optional<Condominio> existingOpen = condominioRepository
+                .findFirstByCondominioRootIdAndGestioneCodiceAndStatoOrderByAnnoDesc(
+                        rootId,
+                        gestioneCodice,
+                        Condominio.EsercizioStato.OPEN);
+        if (existingOpen.isEmpty()) {
+            return;
+        }
+        if (excludeExerciseId != null && excludeExerciseId.equals(existingOpen.get().getId())) {
+            return;
+        }
+        throw new ValidationFailedException("validation.exercise.gestioneOpenAlreadyExists");
     }
 
     private void ensureExerciseIsEmpty(String exerciseId) throws ValidationFailedException {
@@ -403,26 +435,38 @@ public class CondominioService {
     }
 
     /**
-     * Ereditiamo anagrafica, accesso app e quote tabellari.
+     * Ereditiamo solo la posizione annuale:
+     * - stesso collegamento all'anagrafica stabile (`condominoRootId`)
+     * - stesse quote tabellari
+     *
+     * Non duplichiamo l'identita' del condomino tra esercizi.
      * Non ereditiamo movimenti, versamenti e rate annuali.
      * Il carry-over dei saldi e' esplicito e opzionale.
      */
     private Condomino cloneCondomino(Condomino source, Condominio newExercise, boolean carryOverBalances) {
+        if (source.getCondominoRootId() == null || source.getCondominoRootId().isBlank()) {
+            throw new IllegalStateException(
+                    "Cannot clone exercise position without condominoRootId. positionId=" + source.getId());
+        }
         Condomino clone = new Condomino();
         clone.setId(null);
         clone.setVersion(null);
+        clone.setCondominoRootId(source.getCondominoRootId());
+        clone.setIdCondominio(newExercise.getId());
+        // Gli snapshot denormalizzati vanno copiati nel nuovo esercizio: in questo
+        // modo il read model resta autosufficiente anche dopo l'apertura anno.
         clone.setNome(source.getNome());
         clone.setCognome(source.getCognome());
-        clone.setIdCondominio(newExercise.getId());
         clone.setEmail(source.getEmail());
         clone.setCellulare(source.getCellulare());
-        clone.setScala(source.getScala());
-        clone.setInterno(source.getInterno());
-        clone.setAnno(newExercise.getAnno());
         clone.setKeycloakUserId(source.getKeycloakUserId());
         clone.setKeycloakUsername(source.getKeycloakUsername());
         clone.setAppRole(source.getAppRole());
         clone.setAppEnabled(source.getAppEnabled());
+        clone.setSnapshotUpdatedAt(source.getSnapshotUpdatedAt());
+        clone.setScala(source.getScala());
+        clone.setInterno(source.getInterno());
+        clone.setAnno(newExercise.getAnno());
         clone.setConfig(cloneCondominoConfig(source.getConfig()));
         clone.setVersamenti(new ArrayList<>());
         final double startingBalance = carryOverBalances ? safeAmount(source.getResiduo()) : 0d;
@@ -550,6 +594,7 @@ public class CondominioService {
         if (condominio.getLabel() == null || condominio.getLabel().trim().isEmpty()) {
             throw new ValidationFailedException("validation.required.condominio.label");
         }
+        normalizeGestioneFields(condominio);
         if (condominio.getAnno() == null) {
             throw new ValidationFailedException("validation.required.condominio.anno");
         }
@@ -564,6 +609,23 @@ public class CondominioService {
             throw new ValidationFailedException("validation.invalid.condominio.saldoIniziale");
         }
         validatePercentuali(condominio);
+    }
+
+    /**
+     * La gestione e' opzionale lato payload, ma obbligatoria lato dominio:
+     * se manca, il sistema la tratta come gestione ordinaria.
+     */
+    private void normalizeGestioneFields(Condominio condominio) {
+        String rawGestione = condominio.getGestioneLabel();
+        if (rawGestione == null || rawGestione.isBlank()) {
+            rawGestione = condominio.getGestioneCodice();
+        }
+        if (rawGestione == null || rawGestione.isBlank()) {
+            rawGestione = Condominio.DEFAULT_GESTIONE_LABEL;
+        }
+        final String normalizedGestione = CondominioLabelKeyUtil.normalizeLabel(rawGestione);
+        condominio.setGestioneLabel(normalizedGestione);
+        condominio.setGestioneCodice(CondominioLabelKeyUtil.toLabelKey(normalizedGestione));
     }
 
     private void reconcileAccountingFieldsOnUpdate(Condominio existing, Condominio target) {

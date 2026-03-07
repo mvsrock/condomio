@@ -59,18 +59,97 @@ class RegistryCondominoOverviewCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 18),
+            RegistryCondominoScopeNotice(condomino: condomino),
+            const SizedBox(height: 18),
             Wrap(
               spacing: 10,
               runSpacing: 10,
               children: [
-                _RegistryValuePill(label: 'ID', value: condomino.id),
+                _RegistryValuePill(
+                  label: 'Profilo',
+                  value: condomino.hasStableProfile
+                      ? 'Condiviso tra esercizi'
+                      : 'Solo esercizio corrente',
+                ),
                 _RegistryValuePill(label: 'Unita', value: condomino.unita),
+                _RegistryValuePill(
+                  label: 'Accesso app',
+                  value: condomino.hasAppAccess ? 'Attivo' : 'Non abilitato',
+                ),
+                if (condomino.hasAppAccess)
+                  _RegistryValuePill(
+                    label: 'Ruolo',
+                    value: condomino.ruolo.label,
+                  ),
               ],
             ),
             const SizedBox(height: 18),
+            const Text(
+              'Profilo condiviso',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 12),
             _RegistryDetailRow(label: 'Email', value: condomino.email),
             _RegistryDetailRow(label: 'Telefono', value: condomino.telefono),
+            _RegistryDetailRow(
+              label: 'Utente app',
+              value: condomino.hasLinkedAppUser
+                  ? (condomino.keycloakUsername ?? '')
+                  : 'Non collegato',
+            ),
+            const SizedBox(height: 18),
+            const Text(
+              'Posizione esercizio',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 12),
+            _RegistryDetailRow(label: 'Unita', value: condomino.unita),
+            _RegistryDetailRow(
+              label: 'Saldo iniziale',
+              value: condomino.saldoIniziale.toStringAsFixed(2),
+            ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Banner che spiega in modo funzionale cosa e' condiviso tra esercizi.
+class RegistryCondominoScopeNotice extends StatelessWidget {
+  const RegistryCondominoScopeNotice({
+    super.key,
+    required this.condomino,
+  });
+
+  final Condomino condomino;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasStableProfile = condomino.hasStableProfile;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: hasStableProfile
+            ? const Color(0xFFF0F9FF)
+            : const Color(0xFFFFF7ED),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: hasStableProfile
+              ? const Color(0xFF7DD3FC)
+              : const Color(0xFFF59E0B),
+        ),
+      ),
+      child: Text(
+        hasStableProfile
+            ? 'Nome, contatti e accesso app fanno parte del profilo condiviso del condomino e si riflettono su tutti gli esercizi collegati. Unita, quote e saldo iniziale restano specifici dell\'esercizio corrente.'
+            : 'Questo record appartiene all\'esercizio corrente. Quando il profilo condiviso viene allineato, nome, contatti e accesso app vengono riutilizzati anche sugli altri esercizi collegati.',
+        style: TextStyle(
+          color: hasStableProfile
+              ? const Color(0xFF0C4A6E)
+              : const Color(0xFF9A3412),
+          fontWeight: FontWeight.w600,
         ),
       ),
     );
@@ -83,15 +162,11 @@ class RegistryCondominoAnagraficaSection extends StatelessWidget {
     super.key,
     required this.nomeController,
     required this.cognomeController,
-    required this.scalaController,
-    required this.internoController,
     required this.requiredFieldValidator,
   });
 
   final TextEditingController nomeController;
   final TextEditingController cognomeController;
-  final TextEditingController scalaController;
-  final TextEditingController internoController;
   final FormFieldValidator<String> requiredFieldValidator;
 
   @override
@@ -100,8 +175,13 @@ class RegistryCondominoAnagraficaSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Dati anagrafici',
+          'Profilo condiviso',
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 6),
+        const Text(
+          'Questi dati vengono condivisi tra gli esercizi collegati dello stesso condominio.',
+          style: TextStyle(color: Color(0xFF52606D)),
         ),
         const SizedBox(height: 14),
         Row(
@@ -123,7 +203,81 @@ class RegistryCondominoAnagraficaSection extends StatelessWidget {
             ),
           ],
         ),
+      ],
+    );
+  }
+}
+
+/// Sezione contatti condivisi del profilo.
+class RegistryCondominoContactsSection extends StatelessWidget {
+  const RegistryCondominoContactsSection({
+    super.key,
+    required this.emailController,
+    required this.telefonoController,
+  });
+
+  final TextEditingController emailController;
+  final TextEditingController telefonoController;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Contatti condivisi',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 6),
+        const Text(
+          'Email e telefono seguono il profilo condiviso del condomino.',
+          style: TextStyle(color: Color(0xFF52606D)),
+        ),
+        const SizedBox(height: 14),
+        TextFormField(
+          controller: emailController,
+          decoration: const InputDecoration(labelText: 'Email'),
+        ),
         const SizedBox(height: 12),
+        TextFormField(
+          controller: telefonoController,
+          decoration: const InputDecoration(labelText: 'Telefono'),
+        ),
+      ],
+    );
+  }
+}
+
+/// Sezione dei dati specifici dell'esercizio corrente.
+class RegistryCondominoExerciseSection extends StatelessWidget {
+  const RegistryCondominoExerciseSection({
+    super.key,
+    required this.scalaController,
+    required this.internoController,
+    required this.saldoInizialeController,
+    required this.decimalFieldValidator,
+  });
+
+  final TextEditingController scalaController;
+  final TextEditingController internoController;
+  final TextEditingController saldoInizialeController;
+  final FormFieldValidator<String> decimalFieldValidator;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Posizione esercizio',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 6),
+        const Text(
+          'Unita e saldo iniziale restano locali all\'esercizio selezionato.',
+          style: TextStyle(color: Color(0xFF52606D)),
+        ),
+        const SizedBox(height: 14),
         Row(
           children: [
             Expanded(
@@ -141,45 +295,6 @@ class RegistryCondominoAnagraficaSection extends StatelessWidget {
             ),
           ],
         ),
-      ],
-    );
-  }
-}
-
-/// Sezione contatti e saldo iniziale.
-class RegistryCondominoContactsSection extends StatelessWidget {
-  const RegistryCondominoContactsSection({
-    super.key,
-    required this.emailController,
-    required this.telefonoController,
-    required this.saldoInizialeController,
-    required this.decimalFieldValidator,
-  });
-
-  final TextEditingController emailController;
-  final TextEditingController telefonoController;
-  final TextEditingController saldoInizialeController;
-  final FormFieldValidator<String> decimalFieldValidator;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Contatti',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-        ),
-        const SizedBox(height: 14),
-        TextFormField(
-          controller: emailController,
-          decoration: const InputDecoration(labelText: 'Email'),
-        ),
-        const SizedBox(height: 12),
-        TextFormField(
-          controller: telefonoController,
-          decoration: const InputDecoration(labelText: 'Telefono'),
-        ),
         const SizedBox(height: 12),
         TextFormField(
           controller: saldoInizialeController,
@@ -192,7 +307,7 @@ class RegistryCondominoContactsSection extends StatelessWidget {
   }
 }
 
-/// Sezione di associazione utente Keycloak per il condomino.
+/// Sezione di associazione dell'utente app condiviso del condomino.
 class RegistryCondominoAppAccessSection extends StatelessWidget {
   const RegistryCondominoAppAccessSection({
     super.key,
@@ -215,8 +330,13 @@ class RegistryCondominoAppAccessSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Accesso App (Keycloak)',
+          'Accesso app condiviso',
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 6),
+        const Text(
+          'L\'utente app collegato viene riutilizzato su tutti gli esercizi dello stesso profilo.',
+          style: TextStyle(color: Color(0xFF52606D)),
         ),
         const SizedBox(height: 10),
         SwitchListTile.adaptive(
@@ -233,7 +353,7 @@ class RegistryCondominoAppAccessSection extends StatelessWidget {
             )
                 ? selectedKeycloakUserId
                 : null,
-            decoration: const InputDecoration(labelText: 'Utente Keycloak'),
+            decoration: const InputDecoration(labelText: 'Utente app'),
             items: keycloakUsers
                 .map(
                   (user) => DropdownMenuItem<String>(
@@ -246,7 +366,7 @@ class RegistryCondominoAppAccessSection extends StatelessWidget {
             validator: (value) {
               if (!hasAppAccess) return null;
               if (value == null || value.trim().isEmpty) {
-                return 'Seleziona utente Keycloak';
+                return 'Seleziona utente app';
               }
               return null;
             },

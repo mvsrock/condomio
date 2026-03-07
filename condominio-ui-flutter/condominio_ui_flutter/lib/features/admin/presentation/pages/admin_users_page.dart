@@ -186,7 +186,7 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Condomino creato, ma utenza Keycloak non abilitata: $accessError',
+              'Condomino creato, ma accesso app non abilitato: $accessError',
             ),
           ),
         );

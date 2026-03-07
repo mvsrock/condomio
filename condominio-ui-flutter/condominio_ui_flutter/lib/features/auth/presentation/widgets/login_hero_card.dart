@@ -46,7 +46,7 @@ class LoginHeroCard extends StatelessWidget {
               ),
               const SizedBox(height: 6),
               const Text(
-                'Accesso sicuro con Keycloak',
+                'Accedi alla tua area personale Condomio',
                 style: TextStyle(fontSize: 15, color: Color(0xFF52606D)),
               ),
               const SizedBox(height: 30),
@@ -55,7 +55,7 @@ class LoginHeroCard extends StatelessWidget {
                 child: FilledButton.icon(
                   onPressed: isLoading ? null : onLoginPressed,
                   icon: const Icon(Icons.login),
-                  label: Text(isLoading ? 'Autenticazione...' : 'Accedi'),
+                  label: Text(isLoading ? 'Accesso in corso...' : 'Accedi'),
                   style: FilledButton.styleFrom(
                     backgroundColor: const Color(0xFF155E75),
                     padding: const EdgeInsets.symmetric(vertical: 16),

@@ -1,0 +1,75 @@
+body {
+  background:
+    radial-gradient(circle at top left, rgba(21, 94, 117, 0.28), transparent 32%),
+    linear-gradient(135deg, #0a3342 0%, #155e75 56%, #0f4c5c 100%);
+  min-height: 100vh;
+}
+
+#kc-header {
+  display: none;
+}
+
+.pf-v5-c-login__main {
+  max-width: 30rem;
+}
+
+.pf-v5-c-login__main,
+.card-pf,
+.pf-v5-c-panel {
+  border-radius: 24px;
+  box-shadow: 0 24px 64px rgba(15, 23, 42, 0.18);
+}
+
+.pf-v5-c-panel__main-body,
+.pf-v5-c-login__main-body {
+  padding-top: 1.75rem;
+}
+
+.condomio-login-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.condomio-login-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  color: #0f172a;
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.condomio-login-brand::before {
+  content: "";
+  width: 3.5rem;
+  height: 3.5rem;
+  flex: 0 0 3.5rem;
+  background: url("../img/condomio-mark.svg") no-repeat center / contain;
+}
+
+.condomio-login-subtitle {
+  color: #475569;
+  font-size: 0.98rem;
+}
+
+.pf-v5-c-button.pf-m-primary {
+  background-color: #155e75;
+  border-color: #155e75;
+}
+
+.pf-v5-c-button.pf-m-primary:hover,
+.pf-v5-c-button.pf-m-primary:focus {
+  background-color: #0f4c5c;
+  border-color: #0f4c5c;
+}
+
+.pf-v5-c-form-control:focus {
+  --pf-v5-c-form-control--BorderBottomColor: #155e75;
+  --pf-v5-c-form-control--after--BorderBottomColor: #155e75;
+}
+
+a {
+  color: #155e75;
+}

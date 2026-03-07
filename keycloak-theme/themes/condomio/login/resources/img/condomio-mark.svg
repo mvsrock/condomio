@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Condomio">
+  <defs>
+    <linearGradient id="g" x1="0%" x2="100%" y1="0%" y2="100%">
+      <stop offset="0%" stop-color="#155E75"/>
+      <stop offset="100%" stop-color="#0F4C5C"/>
+    </linearGradient>
+  </defs>
+  <rect x="16" y="18" width="96" height="96" rx="24" fill="#E3F0F4"/>
+  <path d="M42 90V52h18V38h28v52h8v8H34v-8h8Zm10 0h10V62H52v28Zm20 0h6V48h-6v42Z" fill="url(#g)"/>
+  <rect x="54" y="46" width="6" height="6" rx="1.5" fill="#0A3342"/>
+  <rect x="54" y="56" width="6" height="6" rx="1.5" fill="#0A3342"/>
+  <rect x="70" y="56" width="6" height="6" rx="1.5" fill="#0A3342"/>
+  <rect x="70" y="66" width="6" height="6" rx="1.5" fill="#0A3342"/>
+</svg>

@@ -20,7 +20,7 @@ public class MongoConfig {
 
 	@Bean
     MongoDatabaseFactory mongoDatabaseFactory(Environment env) {
-        final String uri = env.getRequiredProperty("spring.data.mongodb.uri");
+        final String uri = env.getRequiredProperty("spring.mongodb.uri");
         return new SimpleMongoClientDatabaseFactory(uri);
     }
 

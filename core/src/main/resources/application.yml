@@ -17,10 +17,10 @@ spring:
         jwt:
        #   issuer-uri: ${keycloak.auth-server-url}/realms/${keycloak.realm}
           jwk-set-uri: ${keycloak.auth-server-url}/realms/${keycloak.realm}/protocol/openid-connect/certs
+  mongodb:
+    uri: ${SPRING_MONGODB_URI:${SPRING_DATA_MONGODB_URI:mongodb://localhost:27017/condomio}}
+    database: ${SPRING_MONGODB_DATABASE:${SPRING_DATA_MONGODB_DATABASE:condomio}}
   data:
-    mongodb:
-      uri: ${SPRING_DATA_MONGODB_URI:mongodb://localhost:27017/condomio}
-      database: ${SPRING_DATA_MONGODB_DATABASE:condomio}
     redis:
       host: localhost
       port: 6379
@@ -70,11 +70,11 @@ app:
 
 logging:
   level:
-    org.springframework.security: INFO
-    it.condomio: DEBUG
-    org.springframework.security.oauth2: INFO
-    jboss.resteasy.client: INFO
-    org.springframework.cache: TRACE
-    org.springframework.data.redis.cache: DEBUG
-    org.springframework.data.redis.core: DEBUG
-    org.springframework.boot.context.config: DEBUG
+    "[org.springframework.security]": INFO
+    "[it.condomio]": DEBUG
+    "[org.springframework.security.oauth2]": INFO
+    "[jboss.resteasy.client]": INFO
+    "[org.springframework.cache]": TRACE
+    "[org.springframework.data.redis.cache]": DEBUG
+    "[org.springframework.data.redis.core]": DEBUG
+    "[org.springframework.boot.context.config]": DEBUG

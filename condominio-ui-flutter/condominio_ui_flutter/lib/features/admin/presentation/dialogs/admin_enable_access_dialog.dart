@@ -80,9 +80,26 @@ class _AdminEnableAccessDialogState extends State<AdminEnableAccessDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF0F9FF),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFF7DD3FC)),
+              ),
+              child: const Text(
+                'L\'utente app collegato fa parte del profilo condiviso del condomino e verra riutilizzato anche negli altri esercizi collegati.',
+                style: TextStyle(
+                  color: Color(0xFF0C4A6E),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
             SwitchListTile.adaptive(
               contentPadding: EdgeInsets.zero,
-              title: const Text('Crea nuovo utente Keycloak'),
+              title: const Text('Crea nuovo utente app'),
               value: _createNewUser,
               onChanged: (value) {
                 setState(() => _createNewUser = value);
@@ -93,7 +110,7 @@ class _AdminEnableAccessDialogState extends State<AdminEnableAccessDialog> {
               DropdownButtonFormField<String>(
                 initialValue: _selectedUserId,
                 decoration: const InputDecoration(
-                  labelText: 'Utente Keycloak esistente',
+                  labelText: 'Utente app esistente',
                 ),
                 items: widget.users
                     .map(
@@ -111,7 +128,7 @@ class _AdminEnableAccessDialogState extends State<AdminEnableAccessDialog> {
               TextFormField(
                 controller: _usernameCtrl,
                 decoration: const InputDecoration(
-                  labelText: 'Username Keycloak',
+                  labelText: 'Username app',
                 ),
                 validator: (value) => (value == null || value.trim().isEmpty)
                     ? 'Username obbligatorio'

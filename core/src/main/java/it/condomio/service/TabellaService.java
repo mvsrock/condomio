@@ -2,8 +2,8 @@ package it.condomio.service;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.Optional;
 import java.util.Locale;
+import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -13,7 +13,6 @@ import it.condomio.document.Condominio;
 import it.condomio.document.Condomino;
 import it.condomio.document.Tabella;
 import it.condomio.exception.ApiException;
-import it.condomio.exception.ForbiddenException;
 import it.condomio.exception.NotFoundException;
 import it.condomio.exception.ValidationFailedException;
 import it.condomio.repository.CondominioRepository;

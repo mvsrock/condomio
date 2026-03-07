@@ -10,7 +10,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import it.condomio.document.Movimenti;
 import it.condomio.exception.ApiException;
-import it.condomio.exception.ForbiddenException;
 import it.condomio.exception.NotFoundException;
 import it.condomio.exception.ValidationFailedException;
 import it.condomio.repository.MovimentiRepository;
