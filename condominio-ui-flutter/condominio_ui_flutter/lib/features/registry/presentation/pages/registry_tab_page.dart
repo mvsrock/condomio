@@ -8,6 +8,7 @@ import '../../../home/application/home_navigation_provider.dart';
 import '../../../home/application/home_ui_notifier.dart';
 import '../../application/condomini_notifier.dart';
 import '../../domain/condomino.dart';
+import '../dialogs/registry_position_dialogs.dart';
 import 'registry_condomino_pages.dart';
 import 'registry_page.dart';
 
@@ -32,14 +33,10 @@ class RegistryTabPage extends ConsumerWidget {
     );
 
     final items = ref.watch(
-      condominiProvider.select((state) => state.items),
+      condominiItemsProvider,
     );
-    final isLoading = ref.watch(
-      condominiProvider.select((state) => state.isLoading),
-    );
-    final error = ref.watch(
-      condominiProvider.select((state) => state.errorMessage),
-    );
+    final isLoading = ref.watch(condominiIsLoadingProvider);
+    final error = ref.watch(condominiErrorMessageProvider);
     final selectedCondominoId = ref.watch(
       homeUiProvider.select((state) => state.selectedCondominoId),
     );
@@ -203,12 +200,153 @@ class RegistryTabPage extends ConsumerWidget {
         builder: (_) => RegistryCondominoDetailPage(
           condomino: selected,
           canEdit: canEdit,
-          onUpdated: (updated) {
-            ref.read(condominiProvider.notifier).updateCondomino(updated);
-          },
+          onUpdated: (updated) => _saveCondominoUpdate(
+            context: context,
+            ref: ref,
+            updated: updated,
+          ),
+          onDelete: (condomino) => _deleteCondominoPosition(
+            context: context,
+            ref: ref,
+            condomino: condomino,
+          ),
+          onCease: (condomino) => _ceaseCondominoPosition(
+            context: context,
+            ref: ref,
+            condomino: condomino,
+          ),
+          onSubentro: (condomino) => _subentraCondominoPosition(
+            context: context,
+            ref: ref,
+            condomino: condomino,
+          ),
         ),
       ),
     );
+  }
+
+  Future<Condomino> _saveCondominoUpdate({
+    required BuildContext context,
+    required WidgetRef ref,
+    required Condomino updated,
+  }) async {
+    final notifier = ref.read(condominiProvider.notifier);
+    await notifier.updateCondomino(updated);
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Modifica salvata.')),
+      );
+    }
+    return updated;
+  }
+
+  Future<void> _deleteCondominoPosition({
+    required BuildContext context,
+    required WidgetRef ref,
+    required Condomino condomino,
+  }) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Elimina posizione'),
+        content: const Text(
+          'Usa questa azione solo se l\'anagrafica e stata inserita per errore. Se esiste storico contabile, il backend blocchera l\'eliminazione.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Annulla'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Elimina'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) {
+      return;
+    }
+    await ref.read(condominiProvider.notifier).deleteCondomino(condomino.id);
+    ref.read(homeUiProvider.notifier).clearSelectedCondomino();
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Posizione eliminata.')),
+      );
+    }
+  }
+
+  Future<Condomino> _ceaseCondominoPosition({
+    required BuildContext context,
+    required WidgetRef ref,
+    required Condomino condomino,
+  }) async {
+    final result = await showDialog<RegistryCessazioneResult>(
+      context: context,
+      builder: (_) => RegistryCessazioneDialog(
+        initialDate: DateTime.now(),
+      ),
+    );
+    if (result == null) {
+      return condomino;
+    }
+    final updated = await ref.read(condominiProvider.notifier).cessaCondomino(
+      condominoId: condomino.id,
+      dataCessazione: result.dataCessazione,
+      motivo: result.motivo,
+    );
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Posizione cessata.')),
+      );
+    }
+    return updated;
+  }
+
+  Future<Condomino> _subentraCondominoPosition({
+    required BuildContext context,
+    required WidgetRef ref,
+    required Condomino condomino,
+  }) async {
+    final result = await showDialog<RegistrySubentroResult>(
+      context: context,
+      builder: (_) => RegistrySubentroDialog(
+        initialDate: DateTime.now(),
+        initialNome: '',
+        initialCognome: '',
+        initialEmail: '',
+        initialTelefono: '',
+      ),
+    );
+    if (result == null) {
+      return condomino;
+    }
+    final created = await ref.read(condominiProvider.notifier).subentraCondomino(
+      precedenteCondominoId: condomino.id,
+      nuovoCondomino: Condomino(
+        id: '',
+        nome: result.nome,
+        cognome: result.cognome,
+        scala: condomino.scala,
+        interno: condomino.interno,
+        email: result.email,
+        telefono: result.telefono,
+        saldoIniziale: result.saldoIniziale,
+        millesimi: condomino.millesimi,
+        residente: condomino.residente,
+        ruolo: CondominoRuolo.standard,
+        hasAppAccess: false,
+      ),
+      dataSubentro: result.dataSubentro,
+      carryOverSaldo: result.carryOverSaldo,
+    );
+    ref.read(homeUiProvider.notifier).selectCondomino(created.id);
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Subentro registrato.')),
+      );
+    }
+    return created;
   }
 
   Future<void> _openCondominoEditScreen({
@@ -231,14 +369,12 @@ class RegistryTabPage extends ConsumerWidget {
         builder: (_) => RegistryCondominoEditPage(condomino: condomino),
       ),
     );
+    if (!context.mounted) {
+      return;
+    }
     if (updated != null) {
       try {
-        await ref.read(condominiProvider.notifier).updateCondomino(updated);
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Modifica salvata.')),
-          );
-        }
+        await _saveCondominoUpdate(context: context, ref: ref, updated: updated);
       } catch (e) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(

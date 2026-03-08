@@ -62,7 +62,9 @@ public class RipartoRealtimeService {
         }
 
         final List<Movimenti.RipartizioneTabella> quoteTabella = buildRipartizioneTabella(configurazione, movimento);
-        final List<Condomino> condomini = condominoRepository.findByIdCondominio(movimento.getIdCondominio());
+        final List<Condomino> condomini = filterPositionsEffectiveAt(
+                condominoRepository.findByIdCondominio(movimento.getIdCondominio()),
+                movimento.getDate());
         final List<Movimenti.RipartizioneCondomino> quoteCondomino =
                 buildRipartizioneCondomini(condomini, quoteTabella);
 
@@ -262,6 +264,9 @@ public class RipartoRealtimeService {
     private List<Movimenti.RipartizioneCondomino> buildRipartizioneCondomini(
             List<Condomino> condomini,
             List<Movimenti.RipartizioneTabella> quoteTabella) throws ValidationFailedException {
+        if (condomini.isEmpty()) {
+            throw new ValidationFailedException("validation.required.riparto.condominiAttivi");
+        }
         final Map<String, Double> quoteByCondomino = new HashMap<>();
         final Map<String, String> nominativi = new HashMap<>();
 
@@ -389,6 +394,38 @@ public class RipartoRealtimeService {
 
     private double round2(double value) {
         return Math.round(value * 100d) / 100d;
+    }
+
+    /**
+     * Il riparto di un movimento deve considerare solo le posizioni valide alla
+     * data del movimento, altrimenti un subentro nello stesso esercizio
+     * riscriverebbe il passato durante il rebuild storico.
+     */
+    private List<Condomino> filterPositionsEffectiveAt(List<Condomino> source, Instant effectiveAt) {
+        if (source == null || source.isEmpty()) {
+            return List.of();
+        }
+        final Instant reference = effectiveAt == null ? Instant.now() : effectiveAt;
+        final List<Condomino> result = new ArrayList<>();
+        for (Condomino position : source) {
+            if (position == null || !isPositionEffectiveAt(position, reference)) {
+                continue;
+            }
+            result.add(position);
+        }
+        return result;
+    }
+
+    private boolean isPositionEffectiveAt(Condomino position, Instant effectiveAt) {
+        if (position.getDataIngresso() != null && effectiveAt.isBefore(position.getDataIngresso())) {
+            return false;
+        }
+        if (position.getDataUscita() != null && effectiveAt.isAfter(position.getDataUscita())) {
+            return false;
+        }
+        return position.getStatoPosizione() == null
+                || position.getStatoPosizione() == Condomino.PosizioneStato.ATTIVO
+                || position.getDataUscita() != null;
     }
 
     private Map<String, Double> ripartoByCondomino(Movimenti movimento) {

@@ -94,9 +94,16 @@ final condominiBySelectedCondominioProvider =
       final dataset = ref.watch(documentsRepositoryProvider);
       final selectedCondominio = ref.watch(selectedCondominioProvider);
       if (selectedCondominio == null) return const [];
-      return dataset.condominiAnagrafica
+      final result = dataset.condominiAnagrafica
           .where((c) => c.idCondominio == selectedCondominio.id)
           .toList(growable: false);
+      result.sort((left, right) {
+        if (left.isActivePosition != right.isActivePosition) {
+          return left.isActivePosition ? -1 : 1;
+        }
+        return left.nominativo.compareTo(right.nominativo);
+      });
+      return result;
     });
 
 /// Tabelle appartenenti al condominio selezionato.

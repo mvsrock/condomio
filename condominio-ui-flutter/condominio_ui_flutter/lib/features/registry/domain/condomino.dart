@@ -19,6 +19,12 @@ class Condomino {
     this.condominoRootId,
     this.keycloakUsername,
     this.keycloakUserId,
+    this.posizioneStato = CondominoPosizioneStato.attivo,
+    this.dataIngresso,
+    this.dataUscita,
+    this.motivoUscita,
+    this.precedenteCondominoId,
+    this.successivoCondominoId,
   });
 
   final String id;
@@ -36,6 +42,12 @@ class Condomino {
   final String? condominoRootId;
   final String? keycloakUsername;
   final String? keycloakUserId;
+  final CondominoPosizioneStato posizioneStato;
+  final DateTime? dataIngresso;
+  final DateTime? dataUscita;
+  final String? motivoUscita;
+  final String? precedenteCondominoId;
+  final String? successivoCondominoId;
 
   factory Condomino.fromCoreJson(Map<String, dynamic> json) {
     // I campi "app*" e "keycloak*" arrivano dal backend core quando
@@ -66,6 +78,22 @@ class Condomino {
           : (json['condominoRootId'] as String),
       keycloakUsername: keycloakUsername.isEmpty ? null : keycloakUsername,
       keycloakUserId: keycloakUserId.isEmpty ? null : keycloakUserId,
+      posizioneStato: _positionStateFromString(
+        (json['statoPosizione'] ?? '').toString(),
+      ),
+      dataIngresso: _parseDateTime(json['dataIngresso']),
+      dataUscita: _parseDateTime(json['dataUscita']),
+      motivoUscita: (json['motivoUscita'] as String?)?.trim().isEmpty ?? true
+          ? null
+          : (json['motivoUscita'] as String),
+      precedenteCondominoId:
+          (json['precedenteCondominoId'] as String?)?.trim().isEmpty ?? true
+              ? null
+              : (json['precedenteCondominoId'] as String),
+      successivoCondominoId:
+          (json['successivoCondominoId'] as String?)?.trim().isEmpty ?? true
+              ? null
+              : (json['successivoCondominoId'] as String),
     );
   }
 
@@ -88,6 +116,12 @@ class Condomino {
       'appEnabled': hasAppAccess,
       'keycloakUsername': keycloakUsername,
       'keycloakUserId': keycloakUserId,
+      'statoPosizione': posizioneStato.coreName,
+      'dataIngresso': dataIngresso?.toUtc().toIso8601String(),
+      'dataUscita': dataUscita?.toUtc().toIso8601String(),
+      'motivoUscita': motivoUscita,
+      'precedenteCondominoId': precedenteCondominoId,
+      'successivoCondominoId': successivoCondominoId,
     };
     if (condominoRootId != null && condominoRootId!.trim().isNotEmpty) {
       payload['condominoRootId'] = condominoRootId;
@@ -114,6 +148,14 @@ class Condomino {
       (keycloakUserId?.trim().isNotEmpty ?? false) ||
       (keycloakUsername?.trim().isNotEmpty ?? false);
 
+  bool get isActivePosition => posizioneStato == CondominoPosizioneStato.attivo;
+  bool get isCeasedPosition => !isActivePosition;
+
+  String get posizioneStatoLabel => switch (posizioneStato) {
+    CondominoPosizioneStato.attivo => 'attivo',
+    CondominoPosizioneStato.cessato => 'cessato',
+  };
+
   Condomino copyWith({
     String? id,
     String? nome,
@@ -130,9 +172,19 @@ class Condomino {
     String? condominoRootId,
     String? keycloakUsername,
     String? keycloakUserId,
+    CondominoPosizioneStato? posizioneStato,
+    DateTime? dataIngresso,
+    DateTime? dataUscita,
+    String? motivoUscita,
+    String? precedenteCondominoId,
+    String? successivoCondominoId,
     bool clearCondominoRootId = false,
     bool clearKeycloakUsername = false,
     bool clearKeycloakUserId = false,
+    bool clearDataUscita = false,
+    bool clearMotivoUscita = false,
+    bool clearPrecedenteCondominoId = false,
+    bool clearSuccessivoCondominoId = false,
   }) {
     return Condomino(
       id: id ?? this.id,
@@ -156,6 +208,17 @@ class Condomino {
       keycloakUserId: clearKeycloakUserId
           ? null
           : (keycloakUserId ?? this.keycloakUserId),
+      posizioneStato: posizioneStato ?? this.posizioneStato,
+      dataIngresso: dataIngresso ?? this.dataIngresso,
+      dataUscita: clearDataUscita ? null : (dataUscita ?? this.dataUscita),
+      motivoUscita:
+          clearMotivoUscita ? null : (motivoUscita ?? this.motivoUscita),
+      precedenteCondominoId: clearPrecedenteCondominoId
+          ? null
+          : (precedenteCondominoId ?? this.precedenteCondominoId),
+      successivoCondominoId: clearSuccessivoCondominoId
+          ? null
+          : (successivoCondominoId ?? this.successivoCondominoId),
     );
   }
 }
@@ -175,6 +238,8 @@ CondominoRuolo _roleFromString(String roleRaw) {
 
 enum CondominoRuolo { consigliere, standard }
 
+enum CondominoPosizioneStato { attivo, cessato }
+
 extension CondominoRuoloLabel on CondominoRuolo {
   String get keycloakRoleName {
     return switch (this) {
@@ -189,4 +254,29 @@ extension CondominoRuoloLabel on CondominoRuolo {
       CondominoRuolo.standard => 'standard',
     };
   }
+}
+
+extension CondominoPosizioneStatoLabel on CondominoPosizioneStato {
+  String get coreName {
+    return switch (this) {
+      CondominoPosizioneStato.attivo => 'ATTIVO',
+      CondominoPosizioneStato.cessato => 'CESSATO',
+    };
+  }
+}
+
+CondominoPosizioneStato _positionStateFromString(String raw) {
+  switch (raw.trim().toUpperCase()) {
+    case 'CESSATO':
+      return CondominoPosizioneStato.cessato;
+    default:
+      return CondominoPosizioneStato.attivo;
+  }
+}
+
+DateTime? _parseDateTime(Object? raw) {
+  if (raw is! String || raw.trim().isEmpty) {
+    return null;
+  }
+  return DateTime.tryParse(raw)?.toUtc();
 }

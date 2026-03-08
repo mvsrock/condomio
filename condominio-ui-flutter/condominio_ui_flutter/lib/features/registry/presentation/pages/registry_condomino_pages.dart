@@ -17,11 +17,17 @@ class RegistryCondominoDetailPage extends StatefulWidget {
     required this.condomino,
     required this.canEdit,
     required this.onUpdated,
+    required this.onDelete,
+    required this.onCease,
+    required this.onSubentro,
   });
 
   final Condomino condomino;
   final bool canEdit;
-  final ValueChanged<Condomino> onUpdated;
+  final Future<Condomino> Function(Condomino updated) onUpdated;
+  final Future<void> Function(Condomino condomino) onDelete;
+  final Future<Condomino> Function(Condomino condomino) onCease;
+  final Future<Condomino> Function(Condomino condomino) onSubentro;
 
   @override
   State<RegistryCondominoDetailPage> createState() =>
@@ -45,12 +51,34 @@ class _RegistryCondominoDetailPageState
       appBar: AppBar(
         title: const Text('Dettaglio condomino'),
         actions: [
-          if (widget.canEdit)
+          if (widget.canEdit) ...[
             FilledButton.tonalIcon(
               onPressed: _openEdit,
               icon: const Icon(Icons.edit_outlined),
               label: const Text('Modifica'),
             ),
+            const SizedBox(width: 8),
+            PopupMenuButton<_RegistryDetailAction>(
+              tooltip: 'Azioni posizione',
+              onSelected: _handleAction,
+              itemBuilder: (context) => [
+                if (_current.isActivePosition)
+                  const PopupMenuItem(
+                    value: _RegistryDetailAction.cease,
+                    child: Text('Cessa posizione'),
+                  ),
+                if (_current.isActivePosition)
+                  const PopupMenuItem(
+                    value: _RegistryDetailAction.subentro,
+                    child: Text('Registra subentro'),
+                  ),
+                const PopupMenuItem(
+                  value: _RegistryDetailAction.delete,
+                  child: Text('Elimina se e errore'),
+                ),
+              ],
+            ),
+          ],
           const SizedBox(width: 12),
         ],
       ),
@@ -87,11 +115,33 @@ class _RegistryCondominoDetailPageState
       ),
     );
     if (updated == null) return;
-    widget.onUpdated(updated);
+    final saved = await widget.onUpdated(updated);
     if (!mounted) return;
-    setState(() => _current = updated);
+    setState(() => _current = saved);
+  }
+
+  Future<void> _handleAction(_RegistryDetailAction action) async {
+    switch (action) {
+      case _RegistryDetailAction.cease:
+        final updated = await widget.onCease(_current);
+        if (!mounted) return;
+        setState(() => _current = updated);
+        break;
+      case _RegistryDetailAction.subentro:
+        await widget.onSubentro(_current);
+        if (!mounted) return;
+        Navigator.of(context).pop();
+        break;
+      case _RegistryDetailAction.delete:
+        await widget.onDelete(_current);
+        if (!mounted) return;
+        Navigator.of(context).pop();
+        break;
+    }
   }
 }
+
+enum _RegistryDetailAction { cease, subentro, delete }
 
 /// Schermata modifica anagrafica/accesso di un condomino.
 ///

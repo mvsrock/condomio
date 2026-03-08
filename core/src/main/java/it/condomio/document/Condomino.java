@@ -26,6 +26,11 @@ import lombok.Data;
      */
     @CompoundIndex(name = "exercise_name_idx", def = "{'idCondominio' : 1, 'cognome': 1, 'nome': 1}"),
     /**
+     * Variante del path di lettura per filtrare rapidamente le posizioni attive
+     * dell'esercizio senza perdere l'ordinamento per nominativo.
+     */
+    @CompoundIndex(name = "exercise_status_name_idx", def = "{'idCondominio' : 1, 'statoPosizione': 1, 'cognome': 1, 'nome': 1}"),
+    /**
      * Supporta accesso tenant diretto da utente applicativo alle posizioni visibili.
      */
     @CompoundIndex(name = "keycloak_exercise_idx", def = "{'keycloakUserId' : 1, 'idCondominio': 1}"),
@@ -72,6 +77,23 @@ public class Condomino {
     private Boolean appEnabled;
     /** Ultimo timestamp di sincronizzazione dello snapshot stabile sulla posizione. */
     private Instant snapshotUpdatedAt;
+    /**
+     * Stato della posizione nel singolo esercizio.
+     *
+     * Non descrive l'anagrafica stabile del soggetto, ma solo la sua presenza
+     * contabile in questo esercizio.
+     */
+    private PosizioneStato statoPosizione;
+    /** Inizio validita' della posizione nell'esercizio. */
+    private Instant dataIngresso;
+    /** Fine validita' della posizione; null => posizione ancora attiva. */
+    private Instant dataUscita;
+    /** Motivo funzionale della chiusura posizione (es. subentro, cessazione). */
+    private String motivoUscita;
+    /** Collegamento al predecessore in caso di subentro sullo stesso esercizio. */
+    private String precedenteCondominoId;
+    /** Collegamento al successore in caso di subentro sullo stesso esercizio. */
+    private String successivoCondominoId;
     private String scala;
     private Long interno;
     private Long anno;
@@ -133,5 +155,10 @@ public class Condomino {
             private String descrizione;
             private Double importo;
         }
+    }
+
+    public enum PosizioneStato {
+        ATTIVO,
+        CESSATO
     }
 }

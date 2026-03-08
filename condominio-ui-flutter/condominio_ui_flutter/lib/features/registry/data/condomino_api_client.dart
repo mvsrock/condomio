@@ -83,4 +83,64 @@ class CondominoApiClient {
         const <String, dynamic>{};
     return Condomino.fromCoreJson(json);
   }
+
+  Future<void> deleteCondomino({
+    required String accessToken,
+    required String condominoId,
+  }) async {
+    final response = await http.delete(
+      _uri('/condomino/$condominoId'),
+      headers: _jsonHeaders(accessToken),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      _throwHttpError('deleteCondomino', response);
+    }
+  }
+
+  Future<Condomino> cessaCondomino({
+    required String accessToken,
+    required String condominoId,
+    required DateTime dataCessazione,
+    String? motivo,
+  }) async {
+    final response = await http.post(
+      _uri('/condomino/$condominoId/cessazione'),
+      headers: _jsonHeaders(accessToken),
+      body: jsonEncode({
+        'dataCessazione': dataCessazione.toUtc().toIso8601String(),
+        'motivo': motivo,
+      }),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      _throwHttpError('cessaCondomino', response);
+    }
+    final json = (jsonDecode(response.body) as Map?)?.cast<String, dynamic>() ??
+        const <String, dynamic>{};
+    return Condomino.fromCoreJson(json);
+  }
+
+  Future<Condomino> subentraCondomino({
+    required String accessToken,
+    required String condominoId,
+    required Condomino nuovoCondomino,
+    required String condominioId,
+    required DateTime dataSubentro,
+    required bool carryOverSaldo,
+  }) async {
+    final response = await http.post(
+      _uri('/condomino/$condominoId/subentro'),
+      headers: _jsonHeaders(accessToken),
+      body: jsonEncode({
+        'dataSubentro': dataSubentro.toUtc().toIso8601String(),
+        'carryOverSaldo': carryOverSaldo,
+        'nuovoCondomino': nuovoCondomino.toCoreJson(condominioId: condominioId),
+      }),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      _throwHttpError('subentraCondomino', response);
+    }
+    final json = (jsonDecode(response.body) as Map?)?.cast<String, dynamic>() ??
+        const <String, dynamic>{};
+    return Condomino.fromCoreJson(json);
+  }
 }

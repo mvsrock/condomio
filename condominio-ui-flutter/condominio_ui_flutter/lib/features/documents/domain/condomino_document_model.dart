@@ -15,6 +15,9 @@ class CondominoDocumentModel {
     required this.config,
     required this.versamenti,
     required this.residuo,
+    required this.statoPosizione,
+    required this.dataIngresso,
+    required this.dataUscita,
   });
 
   final String id;
@@ -31,9 +34,13 @@ class CondominoDocumentModel {
   final CondominoConfigModel config;
   final List<VersamentoModel> versamenti;
   final double residuo;
+  final CondominoDocumentPositionState statoPosizione;
+  final DateTime? dataIngresso;
+  final DateTime? dataUscita;
 
   String get nominativo => '$cognome $nome';
   bool get hasStableProfile => condominoRootId.trim().isNotEmpty;
+  bool get isActivePosition => statoPosizione == CondominoDocumentPositionState.attivo;
 
   factory CondominoDocumentModel.fromJson(Map<String, dynamic> json) {
     return CondominoDocumentModel(
@@ -55,8 +62,27 @@ class CondominoDocumentModel {
           .map((e) => VersamentoModel.fromJson(e as Map<String, dynamic>))
           .toList(growable: false),
       residuo: (json['residuo'] as num?)?.toDouble() ?? 0,
+      statoPosizione: _positionStateFromJson(json['statoPosizione']),
+      dataIngresso: _parseDateTime(json['dataIngresso']),
+      dataUscita: _parseDateTime(json['dataUscita']),
     );
   }
+}
+
+enum CondominoDocumentPositionState { attivo, cessato }
+
+CondominoDocumentPositionState _positionStateFromJson(Object? raw) {
+  final normalized = (raw ?? '').toString().trim().toUpperCase();
+  return normalized == 'CESSATO'
+      ? CondominoDocumentPositionState.cessato
+      : CondominoDocumentPositionState.attivo;
+}
+
+DateTime? _parseDateTime(Object? raw) {
+  if (raw is! String || raw.trim().isEmpty) {
+    return null;
+  }
+  return DateTime.tryParse(raw)?.toUtc();
 }
 
 class CondominoConfigModel {

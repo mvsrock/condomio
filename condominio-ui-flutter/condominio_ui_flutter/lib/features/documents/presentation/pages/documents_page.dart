@@ -23,7 +23,8 @@ class DocumentsPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final dataState = ref.watch(documentsDataProvider);
+    final isLoading = ref.watch(documentsIsLoadingProvider);
+    final errorMessage = ref.watch(documentsErrorMessageProvider);
     final dataset = ref.watch(documentsRepositoryProvider);
     final dataNotifier = ref.read(documentsDataProvider.notifier);
 
@@ -31,14 +32,14 @@ class DocumentsPage extends ConsumerWidget {
       builder: (context, constraints) {
         final isWide = AppBreakpoints.isDocumentsWide(constraints.maxWidth);
 
-        if (dataState.isLoading && dataset.condomini.isEmpty) {
+        if (isLoading && dataset.condomini.isEmpty) {
           return const Center(child: CircularProgressIndicator());
         }
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (dataState.errorMessage != null) ...[
+            if (errorMessage != null) ...[
               Material(
                 color: Colors.red.shade50,
                 borderRadius: BorderRadius.circular(12),
@@ -50,7 +51,7 @@ class DocumentsPage extends ConsumerWidget {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          dataState.errorMessage!,
+                          errorMessage,
                           style: TextStyle(color: Colors.red.shade900),
                         ),
                       ),

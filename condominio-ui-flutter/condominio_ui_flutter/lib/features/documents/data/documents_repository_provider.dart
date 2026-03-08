@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../utils/api_error.dart';
 import '../../auth/application/keycloak_provider.dart';
 import '../../condominio_selection/application/managed_condominio_notifier.dart';
+import '../../shared/application/exercise_refresh_provider.dart';
 import '../domain/condominio_document_model.dart';
 import '../domain/condomino_document_model.dart';
 import '../domain/movimento_model.dart';
@@ -106,141 +107,117 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
     }
   }
 
-  Future<void> _refreshAllForSelectedCondominio() async {
+  Future<void> _refreshSelectedCondominioData({
+    bool includeCondominio = false,
+    bool includeCondomini = false,
+    bool includeMovimenti = false,
+    bool includeTabelle = false,
+  }) async {
     final token = _requireAccessToken();
     final condominioId = _requireSelectedCondominioId();
 
-    final condominio = await _api.fetchCondominioById(
-      accessToken: token,
-      condominioId: condominioId,
-    );
-    final condomini = await _api.fetchCondomini(
-      accessToken: token,
-      condominioId: condominioId,
-    );
-    final tabelle = await _api.fetchTabelle(
-      accessToken: token,
-      condominioId: condominioId,
-    );
-    final movimenti = await _api.fetchMovimenti(
-      accessToken: token,
-      condominioId: condominioId,
-    );
+    final condominioFuture = includeCondominio
+        ? _api.fetchCondominioById(
+            accessToken: token,
+            condominioId: condominioId,
+          )
+        : Future<CondominioDocumentModel?>.value(null);
+    final condominiFuture = includeCondomini
+        ? _api.fetchCondomini(
+            accessToken: token,
+            condominioId: condominioId,
+          )
+        : Future<List<CondominoDocumentModel>?>.value(null);
+    final movimentiFuture = includeMovimenti
+        ? _api.fetchMovimenti(
+            accessToken: token,
+            condominioId: condominioId,
+          )
+        : Future<List<MovimentoModel>?>.value(null);
+    final tabelleFuture = includeTabelle
+        ? _api.fetchTabelle(
+            accessToken: token,
+            condominioId: condominioId,
+          )
+        : Future<List<TabellaModel>?>.value(null);
+
+    final results = await Future.wait<Object?>([
+      condominioFuture,
+      condominiFuture,
+      movimentiFuture,
+      tabelleFuture,
+    ]);
+    final condominio = results[0] as CondominioDocumentModel?;
+    final condomini = results[1] as List<CondominoDocumentModel>?;
+    final movimenti = results[2] as List<MovimentoModel>?;
+    final tabelle = results[3] as List<TabellaModel>?;
 
     state = state.copyWith(
       dataset: DocumentsDataset(
-        condomini: [condominio],
-        condominiAnagrafica: condomini,
-        movimenti: movimenti,
-        tabelle: tabelle,
+        condomini: condominio == null
+            ? state.dataset.condomini
+            : [condominio],
+        condominiAnagrafica:
+            condomini ?? state.dataset.condominiAnagrafica,
+        movimenti: movimenti ?? state.dataset.movimenti,
+        tabelle: tabelle ?? state.dataset.tabelle,
       ),
     );
   }
 
   Future<void> _refreshCondominioAndMovimenti() async {
-    final token = _requireAccessToken();
-    final condominioId = _requireSelectedCondominioId();
-
-    final condominio = await _api.fetchCondominioById(
-      accessToken: token,
-      condominioId: condominioId,
-    );
-    final movimenti = await _api.fetchMovimenti(
-      accessToken: token,
-      condominioId: condominioId,
-    );
-
-    state = state.copyWith(
-      dataset: DocumentsDataset(
-        condomini: [condominio],
-        condominiAnagrafica: state.dataset.condominiAnagrafica,
-        movimenti: movimenti,
-        tabelle: state.dataset.tabelle,
-      ),
+    await _refreshSelectedCondominioData(
+      includeCondominio: true,
+      includeMovimenti: true,
     );
   }
 
   Future<void> _refreshCondominioCondominiMovimenti() async {
-    final token = _requireAccessToken();
-    final condominioId = _requireSelectedCondominioId();
-
-    final condominio = await _api.fetchCondominioById(
-      accessToken: token,
-      condominioId: condominioId,
-    );
-    final condomini = await _api.fetchCondomini(
-      accessToken: token,
-      condominioId: condominioId,
-    );
-    final movimenti = await _api.fetchMovimenti(
-      accessToken: token,
-      condominioId: condominioId,
-    );
-
-    state = state.copyWith(
-      dataset: DocumentsDataset(
-        condomini: [condominio],
-        condominiAnagrafica: condomini,
-        movimenti: movimenti,
-        tabelle: state.dataset.tabelle,
-      ),
+    await _refreshSelectedCondominioData(
+      includeCondominio: true,
+      includeCondomini: true,
+      includeMovimenti: true,
     );
   }
 
   Future<void> _refreshCondominioTabelleCondomini() async {
-    final token = _requireAccessToken();
-    final condominioId = _requireSelectedCondominioId();
-
-    final condominio = await _api.fetchCondominioById(
-      accessToken: token,
-      condominioId: condominioId,
-    );
-    final tabelle = await _api.fetchTabelle(
-      accessToken: token,
-      condominioId: condominioId,
-    );
-    final condomini = await _api.fetchCondomini(
-      accessToken: token,
-      condominioId: condominioId,
-    );
-
-    state = state.copyWith(
-      dataset: DocumentsDataset(
-        condomini: [condominio],
-        condominiAnagrafica: condomini,
-        movimenti: state.dataset.movimenti,
-        tabelle: tabelle,
-      ),
+    await _refreshSelectedCondominioData(
+      includeCondominio: true,
+      includeCondomini: true,
+      includeTabelle: true,
     );
   }
 
   Future<void> _refreshCondominiAndMovimenti() async {
-    final token = _requireAccessToken();
-    final condominioId = _requireSelectedCondominioId();
-
-    final condomini = await _api.fetchCondomini(
-      accessToken: token,
-      condominioId: condominioId,
-    );
-    final movimenti = await _api.fetchMovimenti(
-      accessToken: token,
-      condominioId: condominioId,
-    );
-
-    state = state.copyWith(
-      dataset: DocumentsDataset(
-        condomini: state.dataset.condomini,
-        condominiAnagrafica: condomini,
-        movimenti: movimenti,
-        tabelle: state.dataset.tabelle,
-      ),
+    await _refreshSelectedCondominioData(
+      includeCondomini: true,
+      includeMovimenti: true,
     );
   }
 
-  Future<void> loadForSelectedCondominio() async {
-    state = state.copyWith(isLoading: true, clearErrorMessage: true);
+  Future<void> _refreshForEvent(ExerciseRefreshEvent event) async {
+    if (!event.appliesToExercise(_ref.read(selectedManagedCondominioProvider)?.id)) {
+      return;
+    }
+    await _refreshSelectedCondominioData(
+      includeCondominio: event.hasScope(ExerciseRefreshScope.documentsExercise),
+      includeCondomini: event.hasScope(ExerciseRefreshScope.documentsCondomini),
+      includeMovimenti: event.hasScope(ExerciseRefreshScope.documentsMovimenti),
+      includeTabelle: event.hasScope(ExerciseRefreshScope.documentsTabelle),
+    );
+  }
+
+  Future<void> loadForSelectedCondominio({bool showLoading = true}) async {
+    if (showLoading) {
+      state = state.copyWith(isLoading: true, clearErrorMessage: true);
+    }
     try {
-      await _refreshAllForSelectedCondominio();
+      await _refreshSelectedCondominioData(
+        includeCondominio: true,
+        includeCondomini: true,
+        includeMovimenti: true,
+        includeTabelle: true,
+      );
       state = state.copyWith(isLoading: false);
     } catch (e, st) {
       if (e is ApiError) {
@@ -301,6 +278,10 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
       );
       state = state.copyWith(isSaving: false);
       await _refreshCondominioCondominiMovimenti();
+      _ref.read(exerciseRefreshProvider.notifier).publish(
+        exerciseId: condominioId,
+        scopes: const {ExerciseRefreshScope.registryItems},
+      );
     } catch (e, st) {
       if (e is ApiError) {
         debugPrint('[DOCUMENTS][createMovimento] ${e.technicalMessage}');
@@ -323,6 +304,7 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
     try {
       _ensureSelectedExerciseWritable();
       final token = _requireAccessToken();
+      final condominioId = _requireSelectedCondominioId();
       await _api.updateMovimento(
         accessToken: token,
         movimentoId: movimentoId,
@@ -332,6 +314,10 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
       );
       state = state.copyWith(isSaving: false);
       await _refreshCondominioCondominiMovimenti();
+      _ref.read(exerciseRefreshProvider.notifier).publish(
+        exerciseId: condominioId,
+        scopes: const {ExerciseRefreshScope.registryItems},
+      );
     } catch (e, st) {
       if (e is ApiError) {
         debugPrint('[DOCUMENTS][updateMovimento] ${e.technicalMessage}');
@@ -351,12 +337,17 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
     try {
       _ensureSelectedExerciseWritable();
       final token = _requireAccessToken();
+      final condominioId = _requireSelectedCondominioId();
       await _api.deleteMovimento(
         accessToken: token,
         movimentoId: movimentoId,
       );
       state = state.copyWith(isSaving: false);
       await _refreshCondominioCondominiMovimenti();
+      _ref.read(exerciseRefreshProvider.notifier).publish(
+        exerciseId: condominioId,
+        scopes: const {ExerciseRefreshScope.registryItems},
+      );
     } catch (e, st) {
       if (e is ApiError) {
         debugPrint('[DOCUMENTS][deleteMovimento] ${e.technicalMessage}');
@@ -483,6 +474,7 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
     try {
       _ensureSelectedExerciseWritable();
       final token = _requireAccessToken();
+      final condominioId = _requireSelectedCondominioId();
       await _api.patchCondominoQuoteTabelle(
         accessToken: token,
         condominoId: condominoId,
@@ -490,6 +482,10 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
       );
       state = state.copyWith(isSaving: false);
       await _refreshCondominiAndMovimenti();
+      _ref.read(exerciseRefreshProvider.notifier).publish(
+        exerciseId: condominioId,
+        scopes: const {ExerciseRefreshScope.registryItems},
+      );
     } catch (e, st) {
       if (e is ApiError) {
         debugPrint('[DOCUMENTS][updateCondominoQuoteTabelle] ${e.technicalMessage}');
@@ -510,6 +506,7 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
     try {
       _ensureSelectedExerciseWritable();
       final token = _requireAccessToken();
+      final condominioId = _requireSelectedCondominioId();
       await _api.addCondominoVersamento(
         accessToken: token,
         condominoId: condominoId,
@@ -517,6 +514,10 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
       );
       state = state.copyWith(isSaving: false);
       await _refreshCondominioCondominiMovimenti();
+      _ref.read(exerciseRefreshProvider.notifier).publish(
+        exerciseId: condominioId,
+        scopes: const {ExerciseRefreshScope.registryItems},
+      );
     } catch (e, st) {
       if (e is ApiError) {
         debugPrint('[DOCUMENTS][addCondominoVersamento] ${e.technicalMessage}');
@@ -538,6 +539,7 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
     try {
       _ensureSelectedExerciseWritable();
       final token = _requireAccessToken();
+      final condominioId = _requireSelectedCondominioId();
       await _api.updateCondominoVersamento(
         accessToken: token,
         condominoId: condominoId,
@@ -546,6 +548,10 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
       );
       state = state.copyWith(isSaving: false);
       await _refreshCondominioCondominiMovimenti();
+      _ref.read(exerciseRefreshProvider.notifier).publish(
+        exerciseId: condominioId,
+        scopes: const {ExerciseRefreshScope.registryItems},
+      );
     } catch (e, st) {
       if (e is ApiError) {
         debugPrint('[DOCUMENTS][updateCondominoVersamento] ${e.technicalMessage}');
@@ -566,6 +572,7 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
     try {
       _ensureSelectedExerciseWritable();
       final token = _requireAccessToken();
+      final condominioId = _requireSelectedCondominioId();
       await _api.deleteCondominoVersamento(
         accessToken: token,
         condominoId: condominoId,
@@ -573,6 +580,10 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
       );
       state = state.copyWith(isSaving: false);
       await _refreshCondominioCondominiMovimenti();
+      _ref.read(exerciseRefreshProvider.notifier).publish(
+        exerciseId: condominioId,
+        scopes: const {ExerciseRefreshScope.registryItems},
+      );
     } catch (e, st) {
       if (e is ApiError) {
         debugPrint('[DOCUMENTS][deleteCondominoVersamento] ${e.technicalMessage}');
@@ -598,6 +609,10 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
       );
       state = state.copyWith(isSaving: false);
       await _refreshCondominioCondominiMovimenti();
+      _ref.read(exerciseRefreshProvider.notifier).publish(
+        exerciseId: condominioId,
+        scopes: const {ExerciseRefreshScope.registryItems},
+      );
     } catch (e, st) {
       if (e is ApiError) {
         debugPrint('[DOCUMENTS][rebuildStoricoCondominio] ${e.technicalMessage}');
@@ -642,11 +657,39 @@ final documentsDataProvider =
           }
         },
       );
+      ref.listen<ExerciseRefreshEvent>(
+        exerciseRefreshProvider,
+        (previous, next) {
+          final selectedExerciseId = ref.read(selectedManagedCondominioProvider)?.id;
+          if (previous?.revision == next.revision ||
+              !next.appliesToExercise(selectedExerciseId) ||
+              (!next.hasScope(ExerciseRefreshScope.documentsExercise) &&
+                  !next.hasScope(ExerciseRefreshScope.documentsCondomini) &&
+                  !next.hasScope(ExerciseRefreshScope.documentsMovimenti) &&
+                  !next.hasScope(ExerciseRefreshScope.documentsTabelle))) {
+            return;
+          }
+          notifier._refreshForEvent(next);
+        },
+      );
       return notifier;
     });
 
 final documentsRepositoryProvider = Provider<DocumentsDataset>((ref) {
   return ref.watch(documentsDataProvider.select((state) => state.dataset));
+});
+
+/// Provider derivati per osservare solo il flag necessario e limitare i rebuild.
+final documentsIsLoadingProvider = Provider<bool>((ref) {
+  return ref.watch(documentsDataProvider.select((state) => state.isLoading));
+});
+
+final documentsIsSavingProvider = Provider<bool>((ref) {
+  return ref.watch(documentsDataProvider.select((state) => state.isSaving));
+});
+
+final documentsErrorMessageProvider = Provider<String?>((ref) {
+  return ref.watch(documentsDataProvider.select((state) => state.errorMessage));
 });
 
 class CondominioConfigurazioneDraft {

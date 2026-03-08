@@ -20,6 +20,7 @@ class RegistryTableState {
     required this.sortAscending,
     required this.rowsPerPage,
     required this.pageIndex,
+    required this.showCeased,
   });
 
   factory RegistryTableState.initial() {
@@ -29,6 +30,7 @@ class RegistryTableState {
       sortAscending: true,
       rowsPerPage: 8,
       pageIndex: 0,
+      showCeased: false,
     );
   }
 
@@ -37,6 +39,7 @@ class RegistryTableState {
   final bool sortAscending;
   final int rowsPerPage;
   final int pageIndex;
+  final bool showCeased;
 
   RegistryTableState copyWith({
     String? searchQuery,
@@ -45,6 +48,7 @@ class RegistryTableState {
     bool? sortAscending,
     int? rowsPerPage,
     int? pageIndex,
+    bool? showCeased,
   }) {
     return RegistryTableState(
       searchQuery: searchQuery ?? this.searchQuery,
@@ -52,6 +56,7 @@ class RegistryTableState {
       sortAscending: sortAscending ?? this.sortAscending,
       rowsPerPage: rowsPerPage ?? this.rowsPerPage,
       pageIndex: pageIndex ?? this.pageIndex,
+      showCeased: showCeased ?? this.showCeased,
     );
   }
 }
@@ -101,6 +106,11 @@ class RegistryTableNotifier extends StateNotifier<RegistryTableState> {
     state = state.copyWith(rowsPerPage: value, pageIndex: 0);
   }
 
+  /// Mostra o nasconde le posizioni cessate mantenendo la ricerca corrente.
+  void setShowCeased(bool value) {
+    state = state.copyWith(showCeased: value, pageIndex: 0);
+  }
+
   /// Pagina precedente (se possibile).
   void prevPage() {
     if (state.pageIndex <= 0) return;
@@ -144,6 +154,9 @@ final registryFilteredSortedProvider = Provider.autoDispose<List<Condomino>>((
   final query = tableState.searchQuery.trim().toLowerCase();
 
   final result = source.where((c) {
+    if (!tableState.showCeased && c.isCeasedPosition) {
+      return false;
+    }
     if (query.isEmpty) return true;
     return c.nominativo.toLowerCase().contains(query) ||
         c.unita.toLowerCase().contains(query) ||

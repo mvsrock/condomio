@@ -74,7 +74,9 @@ class DocumentsCondominiPanel extends ConsumerWidget {
                     dense: true,
                     selected: selectedCondominoId == item.id,
                     title: Text(item.nominativo),
-                    subtitle: Text('Scala ${item.scala} - Int ${item.interno}'),
+                    subtitle: Text(
+                      'Scala ${item.scala} - Int ${item.interno} - ${item.isActivePosition ? 'attivo' : 'cessato'}',
+                    ),
                     trailing: Text(item.residuo.toStringAsFixed(2)),
                     onTap: () => onSelect(item.id),
                   );
@@ -91,7 +93,9 @@ class DocumentsCondominiPanel extends ConsumerWidget {
                       dense: true,
                       selected: selectedCondominoId == item.id,
                       title: Text(item.nominativo),
-                      subtitle: Text('Scala ${item.scala} - Int ${item.interno}'),
+                      subtitle: Text(
+                        'Scala ${item.scala} - Int ${item.interno} - ${item.isActivePosition ? 'attivo' : 'cessato'}',
+                      ),
                       trailing: Text(item.residuo.toStringAsFixed(2)),
                       onTap: () => onSelect(item.id),
                     );

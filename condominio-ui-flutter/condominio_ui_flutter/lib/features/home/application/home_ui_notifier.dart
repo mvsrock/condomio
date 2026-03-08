@@ -46,6 +46,10 @@ class HomeUiNotifier extends StateNotifier<HomeUiState> {
     state = state.copyWith(selectedCondominoId: id);
   }
 
+  void clearSelectedCondomino() {
+    state = state.copyWith(clearSelectedCondominoId: true);
+  }
+
   /// Flag UI per overlay durante logout in corso.
   void setLoggingOut(bool value) {
     state = state.copyWith(isLoggingOut: value);

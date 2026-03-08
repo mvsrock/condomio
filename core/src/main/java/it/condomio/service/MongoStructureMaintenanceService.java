@@ -223,6 +223,12 @@ public class MongoStructureMaintenanceService implements ApplicationRunner {
                 .on("cognome", Sort.Direction.ASC)
                 .on("nome", Sort.Direction.ASC)
                 .named("exercise_name_idx"));
+        createIndexIfMissing(ops, "exercise_status_name_idx", new Index()
+                .on("idCondominio", Sort.Direction.ASC)
+                .on("statoPosizione", Sort.Direction.ASC)
+                .on("cognome", Sort.Direction.ASC)
+                .on("nome", Sort.Direction.ASC)
+                .named("exercise_status_name_idx"));
         createIndexIfMissing(ops, "keycloak_exercise_idx", new Index()
                 .on("keycloakUserId", Sort.Direction.ASC)
                 .on("idCondominio", Sort.Direction.ASC)
@@ -455,6 +461,7 @@ public class MongoStructureMaintenanceService implements ApplicationRunner {
                 update.set("anno", exercise.getAnno());
                 positionChanged = true;
             }
+            positionChanged |= syncPositionLifecycleFields(rawPosition, update, exercise);
             positionChanged |= syncPositionSnapshots(rawPosition, update, stableRoot);
 
             if (positionChanged) {
@@ -517,7 +524,11 @@ public class MongoStructureMaintenanceService implements ApplicationRunner {
                 Criteria.where("appEnabled").exists(false),
                 Criteria.where("appEnabled").is(null),
                 Criteria.where("snapshotUpdatedAt").exists(false),
-                Criteria.where("snapshotUpdatedAt").is(null)));
+                Criteria.where("snapshotUpdatedAt").is(null),
+                Criteria.where("statoPosizione").exists(false),
+                Criteria.where("statoPosizione").is(null),
+                Criteria.where("dataIngresso").exists(false),
+                Criteria.where("dataIngresso").is(null)));
     }
 
     private Set<String> findMissingReferencedCondominoRootIds() {
@@ -833,6 +844,22 @@ public class MongoStructureMaintenanceService implements ApplicationRunner {
             return true;
         }
         return false;
+    }
+
+    private boolean syncPositionLifecycleFields(Document rawPosition, Update update, Condominio exercise) {
+        boolean changed = false;
+        String rawState = normalizeBlank(readString(rawPosition, "statoPosizione"));
+        if (rawState == null) {
+            update.set("statoPosizione", Condomino.PosizioneStato.ATTIVO.name());
+            changed = true;
+        }
+        Instant expectedIngresso = exercise.getDataInizio() != null
+                ? exercise.getDataInizio()
+                : (exercise.getAnno() == null
+                        ? Instant.now()
+                        : LocalDate.of(exercise.getAnno().intValue(), 1, 1).atStartOfDay().toInstant(ZoneOffset.UTC));
+        changed |= syncPositionInstantField(rawPosition, update, "dataIngresso", expectedIngresso);
+        return changed;
     }
 
     private void cacheStableRoot(Map<String, CondominoRoot> cache, CondominoRoot root) {

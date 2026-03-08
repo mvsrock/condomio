@@ -182,6 +182,15 @@ class _RegistryRowChips extends StatelessWidget {
       runSpacing: 6,
       children: [
         _RegistryRowChip(
+          label: condomino.isActivePosition ? 'Posizione attiva' : 'Posizione cessata',
+          color: condomino.isActivePosition
+              ? const Color(0xFFDCFCE7)
+              : const Color(0xFFFEE2E2),
+          foreground: condomino.isActivePosition
+              ? const Color(0xFF166534)
+              : const Color(0xFF991B1B),
+        ),
+        _RegistryRowChip(
           label: condomino.hasStableProfile
               ? 'Profilo condiviso'
               : 'Solo esercizio',

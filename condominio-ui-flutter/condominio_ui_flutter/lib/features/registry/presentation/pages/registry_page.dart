@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/app_breakpoints.dart';
 import '../../application/registry_table_notifier.dart';
+import '../../application/condomini_notifier.dart';
 import '../../domain/condomino.dart';
 import '../widgets/registry_filters_bar.dart';
 import '../widgets/registry_info_chip.dart';
@@ -40,9 +41,12 @@ class RegistryPage extends ConsumerWidget {
     final tableState = ref.watch(registryTableProvider);
     final tableNotifier = ref.read(registryTableProvider.notifier);
     final filteredSorted = ref.watch(registryFilteredSortedProvider);
+    final allItems = ref.watch(condominiItemsProvider);
     final totalItems = filteredSorted.length;
     final totalPages =
         totalItems == 0 ? 1 : (totalItems / tableState.rowsPerPage).ceil();
+    final activeCount = allItems.where((item) => item.isActivePosition).length;
+    final ceasedCount = allItems.length - activeCount;
 
     // Evitiamo mutazioni di stato in build: usiamo un indice pagina "safe" locale.
     final safePageIndex = tableState.pageIndex
@@ -72,6 +76,14 @@ class RegistryPage extends ConsumerWidget {
                   icon: Icons.people_alt_outlined,
                 ),
                 RegistryInfoChip(
+                  label: 'Attivi: $activeCount',
+                  icon: Icons.how_to_reg_outlined,
+                ),
+                RegistryInfoChip(
+                  label: 'Cessati: $ceasedCount',
+                  icon: Icons.history_toggle_off_outlined,
+                ),
+                RegistryInfoChip(
                   label: 'Pagina ${safePageIndex + 1} di $totalPages',
                   icon: Icons.format_list_numbered_outlined,
                 ),
@@ -80,8 +92,10 @@ class RegistryPage extends ConsumerWidget {
             const SizedBox(height: 12),
             RegistryFiltersBar(
               searchQuery: tableState.searchQuery,
+              showCeased: tableState.showCeased,
               onSearchChanged: tableNotifier.setSearchQuery,
               onClearSearch: tableNotifier.clearSearch,
+              onShowCeasedChanged: tableNotifier.setShowCeased,
             ),
             const SizedBox(height: 12),
             Expanded(

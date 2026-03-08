@@ -1,5 +1,6 @@
 package it.condomio.controller.model;
 
+import java.time.Instant;
 import java.util.List;
 
 import it.condomio.document.Condomino;
@@ -30,6 +31,12 @@ public class CondominoResource {
     private String scala;
     private Long interno;
     private Long anno;
+    private Condomino.PosizioneStato statoPosizione;
+    private Instant dataIngresso;
+    private Instant dataUscita;
+    private String motivoUscita;
+    private String precedenteCondominoId;
+    private String successivoCondominoId;
 
     private String keycloakUserId;
     private String keycloakUsername;

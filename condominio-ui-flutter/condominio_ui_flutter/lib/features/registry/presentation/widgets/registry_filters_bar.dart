@@ -8,13 +8,17 @@ class RegistryFiltersBar extends StatefulWidget {
   const RegistryFiltersBar({
     super.key,
     required this.searchQuery,
+    required this.showCeased,
     required this.onSearchChanged,
     required this.onClearSearch,
+    required this.onShowCeasedChanged,
   });
 
   final String searchQuery;
+  final bool showCeased;
   final ValueChanged<String> onSearchChanged;
   final VoidCallback onClearSearch;
+  final ValueChanged<bool> onShowCeasedChanged;
 
   @override
   State<RegistryFiltersBar> createState() => _RegistryFiltersBarState();
@@ -76,6 +80,11 @@ class _RegistryFiltersBarState extends State<RegistryFiltersBar> {
                     ),
             ),
           ),
+        ),
+        FilterChip(
+          label: const Text('Mostra cessati'),
+          selected: widget.showCeased,
+          onSelected: widget.onShowCeasedChanged,
         ),
       ],
     );

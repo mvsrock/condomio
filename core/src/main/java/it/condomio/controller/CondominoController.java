@@ -19,7 +19,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import it.condomio.controller.model.CondominoCessazioneRequest;
 import it.condomio.controller.model.CondominoResource;
+import it.condomio.controller.model.CondominoSubentroRequest;
 import it.condomio.document.Condomino;
 import it.condomio.exception.ApiException;
 import it.condomio.exception.NotFoundException;
@@ -88,6 +90,26 @@ public class CondominoController {
             @AuthenticationPrincipal Jwt jwt) throws ApiException {
         condominoService.deleteCondomino(id, jwt.getSubject());
         return ResponseEntity.noContent().build();
+    }
+
+    /** Cessazione controllata della posizione esercizio, senza perdere storico. */
+    @PostMapping("/{id}/cessazione")
+    public ResponseEntity<CondominoResource> cessaCondomino(
+            @PathVariable String id,
+            @RequestBody(required = false) CondominoCessazioneRequest request,
+            @AuthenticationPrincipal Jwt jwt) throws ApiException {
+        return ResponseEntity.ok(condominoService.ceaseCondomino(id, request, jwt.getSubject()));
+    }
+
+    /** Subentro nello stesso esercizio sulla posizione selezionata. */
+    @PostMapping("/{id}/subentro")
+    public ResponseEntity<CondominoResource> subentraCondomino(
+            @PathVariable String id,
+            @RequestBody CondominoSubentroRequest request,
+            @AuthenticationPrincipal Jwt jwt) throws ApiException {
+        return new ResponseEntity<>(
+                condominoService.subentraCondomino(id, request, jwt.getSubject()),
+                HttpStatus.CREATED);
     }
 
     /** Update parziale via JSON Merge Patch. */

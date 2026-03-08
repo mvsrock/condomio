@@ -71,6 +71,10 @@ class RegistryCondominoOverviewCard extends StatelessWidget {
                       ? 'Condiviso tra esercizi'
                       : 'Solo esercizio corrente',
                 ),
+                _RegistryValuePill(
+                  label: 'Stato posizione',
+                  value: condomino.posizioneStatoLabel,
+                ),
                 _RegistryValuePill(label: 'Unita', value: condomino.unita),
                 _RegistryValuePill(
                   label: 'Accesso app',
@@ -105,6 +109,19 @@ class RegistryCondominoOverviewCard extends StatelessWidget {
             const SizedBox(height: 12),
             _RegistryDetailRow(label: 'Unita', value: condomino.unita),
             _RegistryDetailRow(
+              label: 'Ingresso',
+              value: _formatDate(condomino.dataIngresso),
+            ),
+            _RegistryDetailRow(
+              label: 'Uscita',
+              value: _formatDate(condomino.dataUscita),
+            ),
+            if ((condomino.motivoUscita ?? '').trim().isNotEmpty)
+              _RegistryDetailRow(
+                label: 'Motivo uscita',
+                value: condomino.motivoUscita!,
+              ),
+            _RegistryDetailRow(
               label: 'Saldo iniziale',
               value: condomino.saldoIniziale.toStringAsFixed(2),
             ),
@@ -113,6 +130,16 @@ class RegistryCondominoOverviewCard extends StatelessWidget {
       ),
     );
   }
+}
+
+String _formatDate(DateTime? value) {
+  if (value == null) {
+    return '-';
+  }
+  final local = value.toLocal();
+  final day = local.day.toString().padLeft(2, '0');
+  final month = local.month.toString().padLeft(2, '0');
+  return '$day/$month/${local.year}';
 }
 
 /// Banner che spiega in modo funzionale cosa e' condiviso tra esercizi.

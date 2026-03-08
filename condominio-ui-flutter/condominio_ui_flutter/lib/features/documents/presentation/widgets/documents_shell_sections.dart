@@ -97,7 +97,7 @@ class DocumentsSummaryHeader extends ConsumerWidget {
         ),
         DocumentsStatChip(
           icon: Icons.people_outline,
-          label: 'Condomini: ${condomini.length}',
+          label: 'Posizioni: ${condomini.length}',
         ),
         DocumentsStatChip(
           icon: Icons.table_chart_outlined,
@@ -134,7 +134,8 @@ class DocumentsActionsBar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final dataState = ref.watch(documentsDataProvider);
+    final isSaving = ref.watch(documentsIsSavingProvider);
+    final isLoading = ref.watch(documentsIsLoadingProvider);
     final selectedCondominio = ref.watch(selectedCondominioProvider);
     final tabelle = ref.watch(tabelleBySelectedCondominioProvider);
     final isReadOnly = ref.watch(selectedManagedCondominioIsClosedProvider);
@@ -144,26 +145,26 @@ class DocumentsActionsBar extends ConsumerWidget {
       runSpacing: 8,
       children: [
         FilledButton.icon(
-          onPressed: (dataState.isSaving || selectedCondominio == null || isReadOnly)
+          onPressed: (isSaving || selectedCondominio == null || isReadOnly)
               ? null
               : () => onConfigureRiparto(selectedCondominio, tabelle),
           icon: const Icon(Icons.settings_suggest_outlined),
           label: const Text('Configura riparto'),
         ),
         FilledButton.icon(
-          onPressed: (dataState.isSaving || isReadOnly) ? null : onCreateTabella,
+          onPressed: (isSaving || isReadOnly) ? null : onCreateTabella,
           icon: const Icon(Icons.table_chart_outlined),
           label: const Text('Nuova tabella'),
         ),
         FilledButton.icon(
-          onPressed: (dataState.isSaving || isReadOnly)
+          onPressed: (isSaving || isReadOnly)
               ? null
               : () => onCreateMovimento(selectedCondominio),
           icon: const Icon(Icons.receipt_long_outlined),
           label: const Text('Nuova spesa'),
         ),
         OutlinedButton.icon(
-          onPressed: dataState.isLoading ? null : onRefresh,
+          onPressed: isLoading ? null : onRefresh,
           icon: const Icon(Icons.refresh),
           label: const Text('Aggiorna'),
         ),

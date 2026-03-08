@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../auth/application/keycloak_provider.dart';
 import '../../condominio_selection/application/managed_condominio_notifier.dart';
+import '../../shared/application/exercise_refresh_provider.dart';
 import '../../../utils/api_error.dart';
 import '../data/condomino_api_client.dart';
 import '../domain/condomino.dart';
@@ -84,8 +85,10 @@ class CondominiNotifier extends StateNotifier<CondominiState> {
   }
 
   /// Ricarica l'anagrafica dal backend per il condominio attivo.
-  Future<void> loadForSelectedCondominio() async {
-    state = state.copyWith(isLoading: true, clearErrorMessage: true);
+  Future<void> loadForSelectedCondominio({bool showLoading = true}) async {
+    if (showLoading) {
+      state = state.copyWith(isLoading: true, clearErrorMessage: true);
+    }
     try {
       final token = _requireAccessToken();
       final condominioId = _requireSelectedCondominioId();
@@ -120,6 +123,13 @@ class CondominiNotifier extends StateNotifier<CondominiState> {
       final nextItems = [...state.items, created];
       nextItems.sort((a, b) => a.nominativo.compareTo(b.nominativo));
       state = state.copyWith(items: nextItems, isLoading: false);
+      _ref.read(exerciseRefreshProvider.notifier).publish(
+        exerciseId: condominioId,
+        scopes: const {
+          ExerciseRefreshScope.documentsExercise,
+          ExerciseRefreshScope.documentsCondomini,
+        },
+      );
     } catch (e, st) {
       if (e is ApiError) {
         debugPrint('[REGISTRY][createCondomino] ${e.technicalMessage}');
@@ -148,11 +158,125 @@ class CondominiNotifier extends StateNotifier<CondominiState> {
           .map((item) => item.id == saved.id ? saved : item)
           .toList(growable: false);
       state = state.copyWith(items: nextItems, isLoading: false);
+      _ref.read(exerciseRefreshProvider.notifier).publish(
+        exerciseId: condominioId,
+        scopes: const {
+          ExerciseRefreshScope.documentsExercise,
+          ExerciseRefreshScope.documentsCondomini,
+        },
+      );
     } catch (e, st) {
       if (e is ApiError) {
         debugPrint('[REGISTRY][updateCondomino] ${e.technicalMessage}');
       } else {
         debugPrint('[REGISTRY][updateCondomino] $e');
+      }
+      debugPrint('$st');
+      state = state.copyWith(isLoading: false, errorMessage: '$e');
+      rethrow;
+    }
+  }
+
+  /// Elimina in modo definitivo solo una posizione esercizio priva di storico.
+  Future<void> deleteCondomino(String condominoId) async {
+    state = state.copyWith(isLoading: true, clearErrorMessage: true);
+    try {
+      _ensureSelectedExerciseWritable();
+      final token = _requireAccessToken();
+      final condominioId = _requireSelectedCondominioId();
+      await _api.deleteCondomino(
+        accessToken: token,
+        condominoId: condominoId,
+      );
+      final nextItems = state.items
+          .where((item) => item.id != condominoId)
+          .toList(growable: false);
+      state = state.copyWith(items: nextItems, isLoading: false);
+      _ref.read(exerciseRefreshProvider.notifier).publish(
+        exerciseId: condominioId,
+        scopes: const {ExerciseRefreshScope.documentsCondomini},
+      );
+    } catch (e, st) {
+      if (e is ApiError) {
+        debugPrint('[REGISTRY][deleteCondomino] ${e.technicalMessage}');
+      } else {
+        debugPrint('[REGISTRY][deleteCondomino] $e');
+      }
+      debugPrint('$st');
+      state = state.copyWith(isLoading: false, errorMessage: '$e');
+      rethrow;
+    }
+  }
+
+  /// Cessa la posizione nel solo esercizio corrente, mantenendo lo storico.
+  Future<Condomino> cessaCondomino({
+    required String condominoId,
+    required DateTime dataCessazione,
+    String? motivo,
+  }) async {
+    state = state.copyWith(isLoading: true, clearErrorMessage: true);
+    try {
+      _ensureSelectedExerciseWritable();
+      final token = _requireAccessToken();
+      final condominioId = _requireSelectedCondominioId();
+      final saved = await _api.cessaCondomino(
+        accessToken: token,
+        condominoId: condominoId,
+        dataCessazione: dataCessazione,
+        motivo: motivo,
+      );
+      final nextItems = state.items
+          .map((item) => item.id == saved.id ? saved : item)
+          .toList(growable: false);
+      state = state.copyWith(items: nextItems, isLoading: false);
+      _ref.read(exerciseRefreshProvider.notifier).publish(
+        exerciseId: condominioId,
+        scopes: const {ExerciseRefreshScope.documentsCondomini},
+      );
+      return saved;
+    } catch (e, st) {
+      if (e is ApiError) {
+        debugPrint('[REGISTRY][cessaCondomino] ${e.technicalMessage}');
+      } else {
+        debugPrint('[REGISTRY][cessaCondomino] $e');
+      }
+      debugPrint('$st');
+      state = state.copyWith(isLoading: false, errorMessage: '$e');
+      rethrow;
+    }
+  }
+
+  /// Registra un subentro nello stesso esercizio e riallinea la lista locale.
+  Future<Condomino> subentraCondomino({
+    required String precedenteCondominoId,
+    required Condomino nuovoCondomino,
+    required DateTime dataSubentro,
+    required bool carryOverSaldo,
+  }) async {
+    state = state.copyWith(isLoading: true, clearErrorMessage: true);
+    try {
+      _ensureSelectedExerciseWritable();
+      final token = _requireAccessToken();
+      final condominioId = _requireSelectedCondominioId();
+      final created = await _api.subentraCondomino(
+        accessToken: token,
+        condominoId: precedenteCondominoId,
+        nuovoCondomino: nuovoCondomino,
+        condominioId: condominioId,
+        dataSubentro: dataSubentro,
+        carryOverSaldo: carryOverSaldo,
+      );
+      await loadForSelectedCondominio(showLoading: false);
+      _ref.read(exerciseRefreshProvider.notifier).publish(
+        exerciseId: condominioId,
+        scopes: const {ExerciseRefreshScope.documentsCondomini},
+      );
+      return created;
+    } catch (e, st) {
+      if (e is ApiError) {
+        debugPrint('[REGISTRY][subentraCondomino] ${e.technicalMessage}');
+      } else {
+        debugPrint('[REGISTRY][subentraCondomino] $e');
       }
       debugPrint('$st');
       state = state.copyWith(isLoading: false, errorMessage: '$e');
@@ -190,9 +314,33 @@ final condominiProvider =
           }
         },
       );
+      ref.listen<ExerciseRefreshEvent>(
+        exerciseRefreshProvider,
+        (previous, next) {
+          final selectedExerciseId = ref.read(
+            selectedManagedCondominioProvider.select((value) => value?.id),
+          );
+          if (previous?.revision == next.revision ||
+              !next.appliesToExercise(selectedExerciseId) ||
+              !next.hasScope(ExerciseRefreshScope.registryItems)) {
+            return;
+          }
+          notifier.loadForSelectedCondominio(showLoading: false);
+        },
+      );
       return notifier;
     });
 
 final condominiItemsProvider = Provider<List<Condomino>>((ref) {
   return ref.watch(condominiProvider.select((state) => state.items));
+});
+
+/// Provider derivati per evitare che le schermate leggano l'intero stato
+/// dell'anagrafica quando serve solo un flag puntuale.
+final condominiIsLoadingProvider = Provider<bool>((ref) {
+  return ref.watch(condominiProvider.select((state) => state.isLoading));
+});
+
+final condominiErrorMessageProvider = Provider<String?>((ref) {
+  return ref.watch(condominiProvider.select((state) => state.errorMessage));
 });

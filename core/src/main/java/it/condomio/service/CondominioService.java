@@ -429,8 +429,12 @@ public class CondominioService {
             return;
         }
         List<Condomino> clones = previousCondomini.stream()
+                .filter(condomino -> isPositionEffectiveAt(condomino, previousExercise.getDataFine()))
                 .map(condomino -> cloneCondomino(condomino, newExercise, carryOverBalances))
                 .toList();
+        if (clones.isEmpty()) {
+            return;
+        }
         condominoRepository.saveAll(clones);
     }
 
@@ -464,6 +468,12 @@ public class CondominioService {
         clone.setAppRole(source.getAppRole());
         clone.setAppEnabled(source.getAppEnabled());
         clone.setSnapshotUpdatedAt(source.getSnapshotUpdatedAt());
+        clone.setStatoPosizione(Condomino.PosizioneStato.ATTIVO);
+        clone.setDataIngresso(newExercise.getDataInizio());
+        clone.setDataUscita(null);
+        clone.setMotivoUscita(null);
+        clone.setPrecedenteCondominoId(null);
+        clone.setSuccessivoCondominoId(null);
         clone.setScala(source.getScala());
         clone.setInterno(source.getInterno());
         clone.setAnno(newExercise.getAnno());
@@ -473,6 +483,20 @@ public class CondominioService {
         clone.setSaldoIniziale(startingBalance);
         clone.setResiduo(startingBalance);
         return clone;
+    }
+
+    private boolean isPositionEffectiveAt(Condomino position, Instant instant) {
+        final Instant effectiveAt = instant == null ? Instant.now() : instant;
+        final Instant ingresso = position.getDataIngresso();
+        final Instant uscita = position.getDataUscita();
+        if (ingresso != null && effectiveAt.isBefore(ingresso)) {
+            return false;
+        }
+        if (uscita != null && effectiveAt.isAfter(uscita)) {
+            return false;
+        }
+        return position.getStatoPosizione() == null || position.getStatoPosizione() == Condomino.PosizioneStato.ATTIVO
+                || (uscita != null && !effectiveAt.isAfter(uscita));
     }
 
     private Condomino.Config cloneCondominoConfig(Condomino.Config source) {
