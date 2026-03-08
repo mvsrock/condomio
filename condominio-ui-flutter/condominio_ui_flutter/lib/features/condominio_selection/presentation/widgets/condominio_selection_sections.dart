@@ -26,6 +26,103 @@ class CondominioSelectionErrorCard extends StatelessWidget {
   }
 }
 
+/// Riepilogo rapido del contesto disponibile all'utente.
+///
+/// Rende immediato capire se mancano root, esercizi o una selezione attiva.
+class CondominioSelectionOverviewStrip extends StatelessWidget {
+  const CondominioSelectionOverviewStrip({
+    super.key,
+    required this.rootsCount,
+    required this.openExercisesCount,
+    required this.closedExercisesCount,
+    required this.selectedExerciseLabel,
+  });
+
+  final int rootsCount;
+  final int openExercisesCount;
+  final int closedExercisesCount;
+  final String? selectedExerciseLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            _OverviewPill(
+              icon: Icons.apartment_outlined,
+              label: 'Condomini',
+              value: '$rootsCount',
+            ),
+            _OverviewPill(
+              icon: Icons.lock_open_outlined,
+              label: 'Aperti',
+              value: '$openExercisesCount',
+            ),
+            _OverviewPill(
+              icon: Icons.history_toggle_off,
+              label: 'Chiusi',
+              value: '$closedExercisesCount',
+            ),
+            if (selectedExerciseLabel != null)
+              _OverviewPill(
+                icon: Icons.pin_drop_outlined,
+                label: 'Selezionato',
+                value: selectedExerciseLabel!,
+                emphasized: true,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _OverviewPill extends StatelessWidget {
+  const _OverviewPill({
+    required this.icon,
+    required this.label,
+    required this.value,
+    this.emphasized = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final bool emphasized;
+
+  @override
+  Widget build(BuildContext context) {
+    final baseColor = emphasized ? const Color(0xFF155E75) : const Color(0xFF334155);
+    final background = emphasized ? const Color(0xFFE3F0F4) : const Color(0xFFF1F5F9);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: baseColor),
+          const SizedBox(width: 6),
+          Text(
+            '$label: $value',
+            style: TextStyle(
+              color: baseColor,
+              fontWeight: emphasized ? FontWeight.w700 : FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// Card con elenco esercizi assegnati.
 ///
 /// Gli esercizi aperti sono sempre mostrati in evidenza. Lo storico chiuso resta
@@ -35,6 +132,7 @@ class ManagedCondominiiCard extends StatelessWidget {
     super.key,
     required this.isLoading,
     required this.canCreate,
+    required this.rootsCount,
     required this.items,
     required this.selectedId,
     required this.selectedIsClosed,
@@ -46,6 +144,7 @@ class ManagedCondominiiCard extends StatelessWidget {
 
   final bool isLoading;
   final bool canCreate;
+  final int rootsCount;
   final List<ManagedCondominio> items;
   final String? selectedId;
   final bool selectedIsClosed;
@@ -89,7 +188,9 @@ class ManagedCondominiiCard extends StatelessWidget {
                   if (!hasItems)
                     Text(
                       canCreate
-                          ? 'Non hai ancora condomini. Crea il primo per continuare.'
+                          ? (rootsCount > 0
+                                ? 'Non hai ancora esercizi. Crea il primo esercizio su un condominio esistente.'
+                                : 'Non hai ancora condomini. Crea il primo per continuare.')
                           : 'Non hai condomini assegnati. Contatta un amministratore.',
                     ),
                   if (openItems.isNotEmpty) ...[

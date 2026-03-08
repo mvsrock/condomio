@@ -63,6 +63,8 @@ class _CondominioSelectionPageState
     final notifier = ref.read(managedCondominioProvider.notifier);
     final canCreate = ref.watch(canCreateCondominioProvider);
     final selected = ref.watch(selectedManagedCondominioProvider);
+    final openExercisesCount = state.items.where((item) => !item.isClosed).length;
+    final closedExercisesCount = state.items.where((item) => item.isClosed).length;
 
     _ensureExerciseRootSelection(state);
 
@@ -123,15 +125,14 @@ class _CondominioSelectionPageState
       ),
       body: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 760),
-          child: ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              if (state.errorMessage != null)
-                CondominioSelectionErrorCard(message: state.errorMessage!),
-              ManagedCondominiiCard(
+          constraints: const BoxConstraints(maxWidth: 1120),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final isWide = constraints.maxWidth >= 980;
+              final selectionCard = ManagedCondominiiCard(
                 isLoading: state.isLoading,
                 canCreate: canCreate,
+                rootsCount: state.roots.length,
                 items: state.items,
                 selectedId: state.selectedId,
                 selectedIsClosed: selected?.isClosed ?? false,
@@ -166,77 +167,110 @@ class _CondominioSelectionPageState
                     await notifier.closeSelectedExercise();
                   }
                 },
-              ),
-              const SizedBox(height: 12),
-              if (canCreate)
-                CreateCondominioCard(
-                  formKey: _createRootFormKey,
-                  labelController: _labelCtrl,
-                  annoController: _annoCtrl,
-                  saldoInizialeController: _saldoInizialeCtrl,
-                  isCreating: state.isCreating,
-                  onSubmit: () async {
-                    if (!_createRootFormKey.currentState!.validate()) {
-                      return;
-                    }
-                    await notifier.createCondominio(
-                      label: _labelCtrl.text,
-                      anno: int.parse(_annoCtrl.text),
-                      saldoIniziale: double.parse(
-                        _saldoInizialeCtrl.text.trim().replaceAll(',', '.'),
-                      ),
-                    );
-                    _labelCtrl.clear();
-                    _saldoInizialeCtrl.text = '0';
-                  },
-                ),
-              if (canCreate && state.roots.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                CreateEsercizioCard(
-                  formKey: _createExerciseFormKey,
-                  roots: state.roots,
-                  selectedRootId: effectiveRootId,
-                  gestioneController: _exerciseGestioneCtrl,
-                  annoController: _exerciseAnnoCtrl,
-                  saldoInizialeController: _exerciseSaldoInizialeCtrl,
-                  isCreatingExercise: state.isCreatingExercise,
-                  carryOverBalances: _carryOverBalances,
-                  latestExercise: latestExercise,
-                  hasOpenExercise: hasOpenExercise,
-                  onRootChanged: (value) => _onRootChanged(value, state.items),
-                  onGestioneChanged: (_) => _applyExerciseDefaultsForCurrentContext(
-                    items: state.items,
+              );
+
+              final actionCards = <Widget>[
+                if (canCreate && state.roots.isNotEmpty)
+                  CreateEsercizioCard(
+                    formKey: _createExerciseFormKey,
+                    roots: state.roots,
+                    selectedRootId: effectiveRootId,
+                    gestioneController: _exerciseGestioneCtrl,
+                    annoController: _exerciseAnnoCtrl,
+                    saldoInizialeController: _exerciseSaldoInizialeCtrl,
+                    isCreatingExercise: state.isCreatingExercise,
+                    carryOverBalances: _carryOverBalances,
+                    latestExercise: latestExercise,
+                    hasOpenExercise: hasOpenExercise,
+                    onRootChanged: (value) => _onRootChanged(value, state.items),
+                    onGestioneChanged: (_) => _applyExerciseDefaultsForCurrentContext(
+                      items: state.items,
+                    ),
+                    onCarryOverChanged: (value) =>
+                        _onCarryOverChanged(value, latestExercise),
+                    onSubmit: () async {
+                      if (!_createExerciseFormKey.currentState!.validate()) {
+                        return;
+                      }
+                      final rootId = effectiveRootId;
+                      if (rootId == null) {
+                        return;
+                      }
+                      final root = _findRootById(state.roots, rootId);
+                      if (root == null) {
+                        return;
+                      }
+                      await notifier.createExercise(
+                        rootId: root.id,
+                        label: root.label,
+                        gestioneLabel: _exerciseGestioneCtrl.text,
+                        anno: int.parse(_exerciseAnnoCtrl.text),
+                        saldoIniziale: double.parse(
+                          _exerciseSaldoInizialeCtrl.text
+                              .trim()
+                              .replaceAll(',', '.'),
+                        ),
+                        carryOverBalances: _carryOverBalances,
+                      );
+                    },
                   ),
-                  onCarryOverChanged: (value) =>
-                      _onCarryOverChanged(value, latestExercise),
-                  onSubmit: () async {
-                    if (!_createExerciseFormKey.currentState!.validate()) {
-                      return;
-                    }
-                    final rootId = effectiveRootId;
-                    if (rootId == null) {
-                      return;
-                    }
-                    final root = _findRootById(state.roots, rootId);
-                    if (root == null) {
-                      return;
-                    }
-                    await notifier.createExercise(
-                      rootId: root.id,
-                      label: root.label,
-                      gestioneLabel: _exerciseGestioneCtrl.text,
-                      anno: int.parse(_exerciseAnnoCtrl.text),
-                      saldoIniziale: double.parse(
-                        _exerciseSaldoInizialeCtrl.text
-                            .trim()
-                            .replaceAll(',', '.'),
-                      ),
-                      carryOverBalances: _carryOverBalances,
-                    );
-                  },
-                ),
-              ],
-            ],
+                if (canCreate)
+                  CreateCondominioCard(
+                    formKey: _createRootFormKey,
+                    labelController: _labelCtrl,
+                    annoController: _annoCtrl,
+                    saldoInizialeController: _saldoInizialeCtrl,
+                    isCreating: state.isCreating,
+                    onSubmit: () async {
+                      if (!_createRootFormKey.currentState!.validate()) {
+                        return;
+                      }
+                      await notifier.createCondominio(
+                        label: _labelCtrl.text,
+                        anno: int.parse(_annoCtrl.text),
+                        saldoIniziale: double.parse(
+                          _saldoInizialeCtrl.text.trim().replaceAll(',', '.'),
+                        ),
+                      );
+                      _labelCtrl.clear();
+                      _saldoInizialeCtrl.text = '0';
+                    },
+                  ),
+              ];
+
+              return ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  if (state.errorMessage != null)
+                    CondominioSelectionErrorCard(message: state.errorMessage!),
+                  CondominioSelectionOverviewStrip(
+                    rootsCount: state.roots.length,
+                    openExercisesCount: openExercisesCount,
+                    closedExercisesCount: closedExercisesCount,
+                    selectedExerciseLabel: selected?.displayLabel,
+                  ),
+                  const SizedBox(height: 12),
+                  if (!isWide) ...[
+                    selectionCard,
+                    if (actionCards.isNotEmpty) const SizedBox(height: 12),
+                    ..._withSpacing(actionCards, spacing: 12),
+                  ] else
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(flex: 8, child: selectionCard),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          flex: 7,
+                          child: Column(
+                            children: _withSpacing(actionCards, spacing: 12),
+                          ),
+                        ),
+                      ],
+                    ),
+                ],
+              );
+            },
           ),
         ),
       ),
@@ -422,5 +456,19 @@ class _CondominioSelectionPageState
       return 'ordinaria';
     }
     return normalized.toLowerCase();
+  }
+
+  List<Widget> _withSpacing(List<Widget> widgets, {required double spacing}) {
+    if (widgets.isEmpty) {
+      return const <Widget>[];
+    }
+    final result = <Widget>[];
+    for (var index = 0; index < widgets.length; index++) {
+      result.add(widgets[index]);
+      if (index != widgets.length - 1) {
+        result.add(SizedBox(height: spacing));
+      }
+    }
+    return result;
   }
 }
