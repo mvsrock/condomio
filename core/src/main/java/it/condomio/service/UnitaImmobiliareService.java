@@ -123,6 +123,9 @@ public class UnitaImmobiliareService {
         if (payload.getInterno() == null || payload.getInterno().isBlank()) {
             throw new ValidationFailedException("validation.required.unitaImmobiliare.interno");
         }
+        if (payload.getCodice() == null || payload.getCodice().isBlank()) {
+            throw new ValidationFailedException("validation.required.unitaImmobiliare.codice");
+        }
     }
 
     private void applyPayload(UnitaImmobiliare target, UnitaImmobiliareResource payload) {

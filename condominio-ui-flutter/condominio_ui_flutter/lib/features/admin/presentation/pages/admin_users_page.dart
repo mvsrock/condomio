@@ -332,7 +332,7 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
                 child: OutlinedButton.icon(
                   onPressed: isReadOnly ? null : () => _openManageUnitaDialog(),
                   icon: const Icon(Icons.apartment_outlined),
-                  label: const Text('Gestisci unità'),
+                  label: const Text('Gestisci unita'),
                 ),
               ),
               const SizedBox(height: 8),
@@ -405,7 +405,7 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
             OutlinedButton.icon(
               onPressed: isReadOnly ? null : () => _openManageUnitaDialog(),
               icon: const Icon(Icons.apartment_outlined),
-              label: const Text('Gestisci unità'),
+              label: const Text('Gestisci unita'),
             ),
             const SizedBox(height: 8),
             AdminUsersCreateCondominoCard(
@@ -541,7 +541,7 @@ class _AdminManageUnitaDialogState
   Widget build(BuildContext context) {
     final state = ref.watch(unitaImmobiliariProvider);
     return AlertDialog(
-      title: const Text('Gestione unità immobiliari'),
+      title: const Text('Gestione unita immobiliari'),
       content: SizedBox(
         width: 720,
         child: Column(
@@ -599,7 +599,7 @@ class _AdminManageUnitaDialogState
               height: 280,
               child: state.items.isEmpty
                   ? const Center(
-                      child: Text('Nessuna unità disponibile.'),
+                      child: Text('Nessuna unita disponibile.'),
                     )
                   : ListView.separated(
                       itemCount: state.items.length,
@@ -617,12 +617,17 @@ class _AdminManageUnitaDialogState
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               IconButton(
+                                tooltip: 'Modifica unita',
+                                onPressed: () => _editUnita(item),
+                                icon: const Icon(Icons.edit_outlined),
+                              ),
+                              IconButton(
                                 tooltip: 'Storico titolarità',
                                 onPressed: () => _showTitolaritaStorico(item),
                                 icon: const Icon(Icons.history_outlined),
                               ),
                               IconButton(
-                                tooltip: 'Elimina unità',
+                                tooltip: 'Elimina unita',
                                 onPressed: () => _deleteUnita(item),
                                 icon: const Icon(Icons.delete_outline),
                               ),
@@ -647,9 +652,10 @@ class _AdminManageUnitaDialogState
   Future<void> _createUnita() async {
     final scala = _scalaCtrl.text.trim();
     final interno = _internoCtrl.text.trim();
-    if (scala.isEmpty || interno.isEmpty) {
+    final codice = _codiceCtrl.text.trim();
+    if (scala.isEmpty || interno.isEmpty || codice.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Compila scala e interno.')),
+        const SnackBar(content: Text('Compila codice, scala e interno.')),
       );
       return;
     }
@@ -658,7 +664,7 @@ class _AdminManageUnitaDialogState
       await ref.read(unitaImmobiliariProvider.notifier).create(
             UnitaImmobiliare(
               id: '',
-              codice: _codiceCtrl.text.trim(),
+              codice: codice,
               scala: scala,
               interno: interno,
               subalterno: '',
@@ -681,11 +687,128 @@ class _AdminManageUnitaDialogState
     }
   }
 
+  Future<void> _editUnita(UnitaImmobiliare item) async {
+    final codiceCtrl = TextEditingController(text: item.codice);
+    final scalaCtrl = TextEditingController(text: item.scala);
+    final internoCtrl = TextEditingController(text: item.interno);
+    final subalternoCtrl = TextEditingController(text: item.subalterno);
+    final destinazioneCtrl = TextEditingController(text: item.destinazioneUso);
+    final mqCtrl = TextEditingController(
+      text: item.metriQuadri == null ? '' : item.metriQuadri!.toString(),
+    );
+    try {
+      final updated = await showDialog<UnitaImmobiliare>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Modifica unita'),
+          content: SizedBox(
+            width: 640,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: codiceCtrl,
+                    decoration: const InputDecoration(labelText: 'Codice'),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: scalaCtrl,
+                          decoration: const InputDecoration(labelText: 'Scala'),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: TextField(
+                          controller: internoCtrl,
+                          decoration: const InputDecoration(labelText: 'Interno'),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: subalternoCtrl,
+                    decoration: const InputDecoration(labelText: 'Subalterno'),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: destinazioneCtrl,
+                    decoration:
+                        const InputDecoration(labelText: 'Destinazione uso'),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: mqCtrl,
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    decoration: const InputDecoration(labelText: 'Metri quadri'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Annulla'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final codice = codiceCtrl.text.trim();
+                final scala = scalaCtrl.text.trim();
+                final interno = internoCtrl.text.trim();
+                if (codice.isEmpty || scala.isEmpty || interno.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Codice, scala e interno sono obbligatori.'),
+                    ),
+                  );
+                  return;
+                }
+                Navigator.of(dialogContext).pop(
+                  item.copyWith(
+                    codice: codice,
+                    scala: scala,
+                    interno: interno,
+                    subalterno: subalternoCtrl.text.trim(),
+                    destinazioneUso: destinazioneCtrl.text.trim(),
+                    metriQuadri: double.tryParse(
+                      mqCtrl.text.trim().replaceAll(',', '.'),
+                    ),
+                  ),
+                );
+              },
+              child: const Text('Salva'),
+            ),
+          ],
+        ),
+      );
+      if (updated == null) return;
+      await ref.read(unitaImmobiliariProvider.notifier).update(updated);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Errore modifica unita: $e')),
+      );
+    } finally {
+      codiceCtrl.dispose();
+      scalaCtrl.dispose();
+      internoCtrl.dispose();
+      subalternoCtrl.dispose();
+      destinazioneCtrl.dispose();
+      mqCtrl.dispose();
+    }
+  }
+
   Future<void> _deleteUnita(UnitaImmobiliare item) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Elimina unità'),
+        title: const Text('Elimina unita'),
         content: Text('Confermi eliminazione di ${item.label}?'),
         actions: [
           TextButton(
@@ -707,7 +830,7 @@ class _AdminManageUnitaDialogState
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Errore eliminazione unità: $e')),
+        SnackBar(content: Text('Errore eliminazione unita: $e')),
       );
     }
   }
@@ -721,13 +844,13 @@ class _AdminManageUnitaDialogState
       await showDialog<void>(
         context: context,
         builder: (dialogContext) => AlertDialog(
-          title: Text('Storico titolarità - ${item.label}'),
+          title: Text('Storico titolarita - ${item.label}'),
           content: SizedBox(
             width: 740,
             height: 360,
             child: history.isEmpty
                 ? const Center(
-                    child: Text('Nessuna titolarità registrata.'),
+                    child: Text('Nessuna titolarita registrata.'),
                   )
                 : ListView.separated(
                     itemCount: history.length,
@@ -757,7 +880,7 @@ class _AdminManageUnitaDialogState
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Errore caricamento storico titolarità: $e')),
+        SnackBar(content: Text('Errore caricamento storico titolarita: $e')),
       );
     }
   }

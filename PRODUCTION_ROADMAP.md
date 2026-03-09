@@ -134,37 +134,46 @@ Mancano ancora:
 
 Questi gap non richiedono un cambio radicale del modello appena costruito. La direzione giusta ora non e' rifare il dominio, ma completare i verticali funzionali sopra una base che e' finalmente coerente.
 
-## Stato attuale chiuso
+## Modello di stato fase
 
-### Fondazione dominio
-- autenticazione e autorizzazione applicativa
-- selezione `condominio / gestione / esercizio`
-- esercizi aperti/chiusi con storico in sola lettura
-- anagrafica stabile separata dalla posizione d'esercizio
-- snapshot read-model su `condomino`
-- subentro e cessazione con validita' temporale
-- apertura nuovo esercizio che clona solo le posizioni ancora attive
+Ogni fase viene classificata con uno di questi stati:
+- `In sviluppo`: funzionalita' parziale o non chiusa end-to-end.
+- `Feature complete`: flusso funzionale disponibile, ma con gap UX/operativi/robustezza.
+- `Production ready`: utilizzabile in vendita senza workaround critici sul perimetro della fase.
 
-### Fondazione contabile
-- tabelle millesimali
-- configurazioni spesa
-- movimenti con riparto realtime
-- rebuild storico
-- versamenti atomici
-- residui coerenti su posizione ed esercizio
+Una fase non e' `Production ready` finche' non supera tutte le verifiche:
+- flusso utente completo senza operazioni tecniche manuali
+- errori leggibili e orientati all'azione
+- comportamento coerente web/mobile
+- permessi corretti per ruolo e pertinenza
+- migrazione/compatibilita' dati verificata
+- test minimi automatici sul perimetro fase
 
-### Fase 2 chiusa (Unita' e titolarita')
-- `unita_immobiliare` stabile per `condominioRootId`
-- relazione esplicita posizione `<->` unita' (`unitaImmobiliareId`)
-- titolarita' posizione (`proprietario / inquilino / delegato`)
-- subentro guidato vincolato alla stessa unita' del precedente
-- storico titolarita' per unita' disponibile via API e UI operativa admin
+## Audit stato reale (2026-03-09)
 
-### Fondazione UI
-- Riverpod come stato applicativo condiviso
-- sync cross-tab `Anagrafica <-> Documenti`
-- refactor `presentation / application / domain / data`
-- rebuild piu' mirati tramite provider derivati
+### Quadro sintetico
+- `Fase 0 - Hardening`: **Production ready**
+- `Fase 1 - Ciclo rate/incassi`: **Production ready**
+- `Fase 2 - Unita' e titolarita'`: **Production ready**
+- `Fase 3`: **In sviluppo**
+- `Fase 4`: **In sviluppo**
+- `Fase 5`: **In sviluppo**
+- `Fase 6`: **In sviluppo**
+- `Fase 7`: **In sviluppo**
+- `Fase 8`: **In sviluppo**
+
+### Evidenze consolidate oggi
+- Dominio base multi-esercizio presente (`condominio root + esercizio + condomino root + posizione`)
+- Riparto realtime e residui coerenti presenti
+- Versamenti e rate presenti con aggiornamento incrementale
+- Subentro/cessazione posizione presenti
+- Unita' immobiliari e titolarita' presenti con storico titolarita'
+- UI con Riverpod strutturata per feature e separazione livelli
+
+### Gap per diventare realmente vendibile
+- Hardening error UX ancora incompleto in piu' punti operativi
+- Alcuni flussi admin sono completi funzionalmente ma non ancora rifiniti come UX business-grade
+- Mancano verticali fondamentali per studio amministrativo: preventivo/consuntivo, morosita', documentale, report
 
 ## Principi di rilascio
 
@@ -175,6 +184,9 @@ Questi gap non richiedono un cambio radicale del modello appena costruito. La di
 - indici e query server-side vengono definiti insieme al dominio
 
 ## Fase 0 - Hardening produzione
+
+### Stato
+Production ready
 
 ### Obiettivo
 Chiudere la piattaforma per deploy ripetibili e dati affidabili.
@@ -197,6 +209,9 @@ Chiudere la piattaforma per deploy ripetibili e dati affidabili.
 
 ## Fase 1 - Ciclo incasso e rate
 
+### Stato
+Production ready
+
 ### Obiettivo
 Permettere all'amministratore di emettere, monitorare e incassare rate.
 
@@ -212,10 +227,15 @@ Permettere all'amministratore di emettere, monitorare e incassare rate.
 - usa gia' il modello posizione temporale
 - prepara il terreno a morosita' e report
 
+### Chiusura fase
+- error mapping business consolidato lato client su codici critici rate/incassi
+- percorsi CRUD rate/versamenti disponibili su backend e frontend
+- test automatici minimi su mapping errori e regressione parsing
+
 ## Fase 2 - Unita immobiliari e titolarita'
 
 ### Stato
-Chiusa il 2026-03-09.
+Production ready
 
 ### Obiettivo
 Separare definitivamente la persona dalla relazione con l'unita' immobiliare.
@@ -231,7 +251,15 @@ Separare definitivamente la persona dalla relazione con l'unita' immobiliare.
 Questa e' la fase che completa in modo rigoroso il subentro appena introdotto.
 Oggi il subentro e' corretto sul piano contabile-temporale; qui diventa anche corretto sul piano immobiliare.
 
+### Chiusura fase
+- gestione unita' completa in UI admin (create/edit/delete + storico titolarita')
+- validazione business su unita' (`codice`, `scala`, `interno` obbligatori)
+- subentro guidato vincolato alla stessa unita'
+
 ## Fase 3 - Preventivo, consuntivo e chiusura anno
+
+### Stato
+In sviluppo
 
 ### Obiettivo
 Gestire l'intero esercizio dall'apertura alla chiusura.
@@ -246,6 +274,9 @@ Gestire l'intero esercizio dall'apertura alla chiusura.
 
 ## Fase 4 - Morosita', solleciti e recupero crediti
 
+### Stato
+In sviluppo
+
 ### Obiettivo
 Trasformare il prodotto in strumento operativo quotidiano.
 
@@ -258,6 +289,9 @@ Trasformare il prodotto in strumento operativo quotidiano.
 
 ## Fase 5 - Documentale e allegati
 
+### Stato
+In sviluppo
+
 ### Obiettivo
 Collegare contabilita' e documenti reali.
 
@@ -269,6 +303,9 @@ Collegare contabilita' e documenti reali.
 - versionamento minimo
 
 ## Fase 6 - Report professionali
+
+### Stato
+In sviluppo
 
 ### Obiettivo
 Produrre output consegnabili senza Excel esterni.
@@ -283,6 +320,9 @@ Produrre output consegnabili senza Excel esterni.
 
 ## Fase 7 - Portale condomino
 
+### Stato
+In sviluppo
+
 ### Obiettivo
 Aprire il prodotto agli utenti finali senza esporre la complessita' amministrativa.
 
@@ -294,6 +334,9 @@ Aprire il prodotto agli utenti finali senza esporre la complessita' amministrati
 - notifiche e comunicazioni
 
 ## Fase 8 - Dashboard e automazioni
+
+### Stato
+In sviluppo
 
 ### Obiettivo
 Ridurre il lavoro manuale e rendere il prodotto un cockpit operativo.
