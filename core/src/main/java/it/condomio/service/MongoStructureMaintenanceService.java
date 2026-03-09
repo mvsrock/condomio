@@ -191,7 +191,7 @@ public class MongoStructureMaintenanceService implements ApplicationRunner {
                 } else {
                     Document created = new Document();
                     created.put("condominioRootId", exercise.getCondominioRootId());
-                    created.put("codice", scala + "-" + interno);
+                    created.put("codice", (scala + interno).replaceAll("[^a-zA-Z0-9]", "").toUpperCase());
                     created.put("scala", scala);
                     created.put("interno", interno);
                     created.put("createdAt", Instant.now());
@@ -321,10 +321,11 @@ public class MongoStructureMaintenanceService implements ApplicationRunner {
                 .on("interno", Sort.Direction.ASC)
                 .unique()
                 .named("root_scala_interno_uidx"));
-        createIndexIfMissing(ops, "root_codice_idx", new Index()
+        createIndexIfMissing(ops, "root_codice_uidx", new Index()
                 .on("condominioRootId", Sort.Direction.ASC)
                 .on("codice", Sort.Direction.ASC)
-                .named("root_codice_idx"));
+                .unique()
+                .named("root_codice_uidx"));
     }
 
     private void ensureMovimentiIndexes() {

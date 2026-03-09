@@ -21,6 +21,10 @@ import lombok.Data;
     @CompoundIndex(
             name = "root_scala_interno_uidx",
             def = "{'condominioRootId': 1, 'scala': 1, 'interno': 1}",
+            unique = true),
+    @CompoundIndex(
+            name = "root_codice_uidx",
+            def = "{'condominioRootId': 1, 'codice': 1}",
             unique = true)
 })
 public class UnitaImmobiliare {

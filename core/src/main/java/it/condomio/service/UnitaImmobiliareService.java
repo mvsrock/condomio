@@ -123,15 +123,14 @@ public class UnitaImmobiliareService {
         if (payload.getInterno() == null || payload.getInterno().isBlank()) {
             throw new ValidationFailedException("validation.required.unitaImmobiliare.interno");
         }
-        if (payload.getCodice() == null || payload.getCodice().isBlank()) {
-            throw new ValidationFailedException("validation.required.unitaImmobiliare.codice");
-        }
     }
 
     private void applyPayload(UnitaImmobiliare target, UnitaImmobiliareResource payload) {
-        target.setCodice(normalize(payload.getCodice()));
-        target.setScala(normalize(payload.getScala()));
-        target.setInterno(normalize(payload.getInterno()));
+        final String scala = normalize(payload.getScala());
+        final String interno = normalize(payload.getInterno());
+        target.setScala(scala);
+        target.setInterno(interno);
+        target.setCodice(buildCodice(scala, interno));
         target.setSubalterno(normalize(payload.getSubalterno()));
         target.setDestinazioneUso(normalize(payload.getDestinazioneUso()));
         target.setMetriQuadri(payload.getMetriQuadri());
@@ -190,5 +189,24 @@ public class UnitaImmobiliareService {
         }
         final String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    /**
+     * Codice unita' derivato automaticamente da scala + interno.
+     * Esempio: scala=B, interno=16A -> B16A
+     */
+    private String buildCodice(String scala, String interno) {
+        final String normalizedScala = normalizeCodeToken(scala);
+        final String normalizedInterno = normalizeCodeToken(interno);
+        return normalizedScala + normalizedInterno;
+    }
+
+    private String normalizeCodeToken(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value
+                .replaceAll("[^a-zA-Z0-9]", "")
+                .toUpperCase();
     }
 }

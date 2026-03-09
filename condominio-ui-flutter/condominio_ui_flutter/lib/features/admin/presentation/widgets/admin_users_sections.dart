@@ -5,6 +5,8 @@ import '../../../registry/domain/condomino.dart';
 import '../../../registry/domain/unita_immobiliare.dart';
 import '../../application/admin_users_view_providers.dart';
 
+const _createUnitaInlineValue = '__create_unita_inline__';
+
 /// Banner errore del modulo gestione accessi.
 class AdminUsersErrorCard extends ConsumerWidget {
   const AdminUsersErrorCard({super.key});
@@ -45,6 +47,7 @@ class AdminUsersCreateCondominoCard extends ConsumerWidget {
     required this.availableUnita,
     required this.selectedUnitaImmobiliareId,
     required this.onSelectedUnitaChanged,
+    required this.onCreateUnitaInline,
     required this.scalaCtrl,
     required this.internoCtrl,
     required this.saldoInizialeCtrl,
@@ -73,6 +76,7 @@ class AdminUsersCreateCondominoCard extends ConsumerWidget {
   final List<UnitaImmobiliare> availableUnita;
   final String? selectedUnitaImmobiliareId;
   final ValueChanged<String?> onSelectedUnitaChanged;
+  final Future<void> Function() onCreateUnitaInline;
   final TextEditingController scalaCtrl;
   final TextEditingController internoCtrl;
   final TextEditingController saldoInizialeCtrl;
@@ -155,6 +159,7 @@ class AdminUsersCreateCondominoCard extends ConsumerWidget {
                               availableUnita: availableUnita,
                               selectedUnitaImmobiliareId: selectedUnitaImmobiliareId,
                               onSelectedUnitaChanged: onSelectedUnitaChanged,
+                              onCreateUnitaInline: onCreateUnitaInline,
                               scalaCtrl: scalaCtrl,
                               internoCtrl: internoCtrl,
                               saldoInizialeCtrl: saldoInizialeCtrl,
@@ -177,6 +182,7 @@ class AdminUsersCreateCondominoCard extends ConsumerWidget {
                               availableUnita: availableUnita,
                               selectedUnitaImmobiliareId: selectedUnitaImmobiliareId,
                               onSelectedUnitaChanged: onSelectedUnitaChanged,
+                              onCreateUnitaInline: onCreateUnitaInline,
                               scalaCtrl: scalaCtrl,
                               internoCtrl: internoCtrl,
                               saldoInizialeCtrl: saldoInizialeCtrl,
@@ -487,6 +493,7 @@ class _AdminUsersUnitFields extends StatelessWidget {
     required this.availableUnita,
     required this.selectedUnitaImmobiliareId,
     required this.onSelectedUnitaChanged,
+    required this.onCreateUnitaInline,
     required this.scalaCtrl,
     required this.internoCtrl,
     required this.saldoInizialeCtrl,
@@ -496,6 +503,7 @@ class _AdminUsersUnitFields extends StatelessWidget {
   final List<UnitaImmobiliare> availableUnita;
   final String? selectedUnitaImmobiliareId;
   final ValueChanged<String?> onSelectedUnitaChanged;
+  final Future<void> Function() onCreateUnitaInline;
   final TextEditingController scalaCtrl;
   final TextEditingController internoCtrl;
   final TextEditingController saldoInizialeCtrl;
@@ -521,8 +529,18 @@ class _AdminUsersUnitFields extends StatelessWidget {
             child: Text(unit.label),
           ),
         ),
+        const DropdownMenuItem<String?>(
+          value: _createUnitaInlineValue,
+          child: Text('+ Crea nuova unita'),
+        ),
       ],
-      onChanged: onSelectedUnitaChanged,
+      onChanged: (value) {
+        if (value == _createUnitaInlineValue) {
+          onCreateUnitaInline();
+          return;
+        }
+        onSelectedUnitaChanged(value);
+      },
     );
     final scalaField = TextFormField(
       controller: scalaCtrl,

@@ -352,6 +352,7 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
                     _internoCtrl.text = selected.interno;
                   }
                 }),
+                onCreateUnitaInline: _createUnitaInlineFromCondominoForm,
                 scalaCtrl: _scalaCtrl,
                 internoCtrl: _internoCtrl,
                 saldoInizialeCtrl: _saldoInizialeCtrl,
@@ -424,6 +425,7 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
                   _internoCtrl.text = selected.interno;
                 }
               }),
+              onCreateUnitaInline: _createUnitaInlineFromCondominoForm,
               scalaCtrl: _scalaCtrl,
               internoCtrl: _internoCtrl,
               saldoInizialeCtrl: _saldoInizialeCtrl,
@@ -496,6 +498,97 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
     return CondominoRuolo.standard;
   }
 
+  Future<void> _createUnitaInlineFromCondominoForm() async {
+    final scalaCtrl = TextEditingController(text: _scalaCtrl.text.trim());
+    final internoCtrl = TextEditingController(text: _internoCtrl.text.trim());
+    try {
+      final created = await showDialog<UnitaImmobiliare>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Nuova unita immobiliare'),
+          content: SizedBox(
+            width: 520,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+                children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: scalaCtrl,
+                        decoration: const InputDecoration(labelText: 'Scala'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextField(
+                        controller: internoCtrl,
+                        decoration: const InputDecoration(labelText: 'Interno'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Annulla'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final scala = scalaCtrl.text.trim();
+                final interno = internoCtrl.text.trim();
+                if (scala.isEmpty || interno.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Scala e interno sono obbligatori.'),
+                    ),
+                  );
+                  return;
+                }
+                Navigator.of(dialogContext).pop(
+                  UnitaImmobiliare(
+                    id: '',
+                    codice: '',
+                    scala: scala,
+                    interno: interno,
+                    subalterno: '',
+                    destinazioneUso: '',
+                    metriQuadri: null,
+                  ),
+                );
+              },
+              child: const Text('Crea'),
+            ),
+          ],
+        ),
+      );
+      if (created == null) return;
+      await ref.read(unitaImmobiliariProvider.notifier).create(created);
+      final availableUnita = ref.read(unitaImmobiliariItemsProvider);
+      final matched = availableUnita
+          .where((item) => item.scala == created.scala && item.interno == created.interno)
+          .toList(growable: false);
+      if (matched.isEmpty) return;
+      final selected = matched.last;
+      setState(() {
+        _selectedUnitaImmobiliareId = selected.id;
+        _scalaCtrl.text = selected.scala;
+        _internoCtrl.text = selected.interno;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Errore creazione unita inline: $e')),
+      );
+    } finally {
+      scalaCtrl.dispose();
+      internoCtrl.dispose();
+    }
+  }
+
   Future<void> _openManageUnitaDialog() async {
     await showDialog<void>(
       context: context,
@@ -526,20 +619,20 @@ class _AdminManageUnitaDialogState
     extends ConsumerState<_AdminManageUnitaDialog> {
   final _scalaCtrl = TextEditingController();
   final _internoCtrl = TextEditingController();
-  final _codiceCtrl = TextEditingController();
+  String? _selectedCondominoId;
   bool _isSaving = false;
 
   @override
   void dispose() {
     _scalaCtrl.dispose();
     _internoCtrl.dispose();
-    _codiceCtrl.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(unitaImmobiliariProvider);
+    final condomini = ref.watch(condominiItemsProvider);
     return AlertDialog(
       title: const Text('Gestione unita immobiliari'),
       content: SizedBox(
@@ -560,13 +653,6 @@ class _AdminManageUnitaDialogState
                   child: TextField(
                     controller: _internoCtrl,
                     decoration: const InputDecoration(labelText: 'Interno'),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: TextField(
-                    controller: _codiceCtrl,
-                    decoration: const InputDecoration(labelText: 'Codice'),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -593,6 +679,29 @@ class _AdminManageUnitaDialogState
                   label: const Text('Aggiorna'),
                 ),
               ],
+            ),
+            DropdownButtonFormField<String?>(
+              initialValue: condomini.any((c) => c.id == _selectedCondominoId)
+                  ? _selectedCondominoId
+                  : null,
+              decoration: const InputDecoration(
+                labelText: 'Associa subito a condomino (opzionale)',
+              ),
+              items: [
+                const DropdownMenuItem<String?>(
+                  value: null,
+                  child: Text('Nessuna associazione'),
+                ),
+                ...condomini.map(
+                  (condomino) => DropdownMenuItem<String?>(
+                    value: condomino.id,
+                    child: Text(
+                      '${condomino.nominativo} (${condomino.unita})',
+                    ),
+                  ),
+                ),
+              ],
+              onChanged: (value) => setState(() => _selectedCondominoId = value),
             ),
             const SizedBox(height: 8),
             SizedBox(
@@ -652,10 +761,9 @@ class _AdminManageUnitaDialogState
   Future<void> _createUnita() async {
     final scala = _scalaCtrl.text.trim();
     final interno = _internoCtrl.text.trim();
-    final codice = _codiceCtrl.text.trim();
-    if (scala.isEmpty || interno.isEmpty || codice.isEmpty) {
+    if (scala.isEmpty || interno.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Compila codice, scala e interno.')),
+        const SnackBar(content: Text('Compila scala e interno.')),
       );
       return;
     }
@@ -664,7 +772,7 @@ class _AdminManageUnitaDialogState
       await ref.read(unitaImmobiliariProvider.notifier).create(
             UnitaImmobiliare(
               id: '',
-              codice: codice,
+              codice: '',
               scala: scala,
               interno: interno,
               subalterno: '',
@@ -672,9 +780,37 @@ class _AdminManageUnitaDialogState
               metriQuadri: null,
             ),
           );
+      if (_selectedCondominoId != null && _selectedCondominoId!.isNotEmpty) {
+        await ref.read(condominiProvider.notifier).loadForSelectedCondominio(
+              showLoading: false,
+            );
+        final updatedList = ref.read(condominiItemsProvider);
+        Condomino? target;
+        for (final item in updatedList) {
+          if (item.id == _selectedCondominoId) {
+            target = item;
+            break;
+          }
+        }
+        UnitaImmobiliare? linkedUnit;
+        for (final item in ref.read(unitaImmobiliariItemsProvider)) {
+          if (item.scala == scala && item.interno == interno) {
+            linkedUnit = item;
+          }
+        }
+        if (target != null && linkedUnit != null) {
+          await ref.read(condominiProvider.notifier).updateCondomino(
+                target.copyWith(
+                  unitaImmobiliareId: linkedUnit.id,
+                  scala: linkedUnit.scala,
+                  interno: linkedUnit.interno,
+                ),
+              );
+        }
+      }
       _scalaCtrl.clear();
       _internoCtrl.clear();
-      _codiceCtrl.clear();
+      setState(() => _selectedCondominoId = null);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -688,7 +824,6 @@ class _AdminManageUnitaDialogState
   }
 
   Future<void> _editUnita(UnitaImmobiliare item) async {
-    final codiceCtrl = TextEditingController(text: item.codice);
     final scalaCtrl = TextEditingController(text: item.scala);
     final internoCtrl = TextEditingController(text: item.interno);
     final subalternoCtrl = TextEditingController(text: item.subalterno);
@@ -707,11 +842,6 @@ class _AdminManageUnitaDialogState
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  TextField(
-                    controller: codiceCtrl,
-                    decoration: const InputDecoration(labelText: 'Codice'),
-                  ),
-                  const SizedBox(height: 8),
                   Row(
                     children: [
                       Expanded(
@@ -758,20 +888,18 @@ class _AdminManageUnitaDialogState
             ),
             FilledButton(
               onPressed: () {
-                final codice = codiceCtrl.text.trim();
                 final scala = scalaCtrl.text.trim();
                 final interno = internoCtrl.text.trim();
-                if (codice.isEmpty || scala.isEmpty || interno.isEmpty) {
+                if (scala.isEmpty || interno.isEmpty) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text('Codice, scala e interno sono obbligatori.'),
+                      content: Text('Scala e interno sono obbligatori.'),
                     ),
                   );
                   return;
                 }
                 Navigator.of(dialogContext).pop(
                   item.copyWith(
-                    codice: codice,
                     scala: scala,
                     interno: interno,
                     subalterno: subalternoCtrl.text.trim(),
@@ -795,7 +923,6 @@ class _AdminManageUnitaDialogState
         SnackBar(content: Text('Errore modifica unita: $e')),
       );
     } finally {
-      codiceCtrl.dispose();
       scalaCtrl.dispose();
       internoCtrl.dispose();
       subalternoCtrl.dispose();

@@ -182,6 +182,7 @@ Una fase non e' `Production ready` finche' non supera tutte le verifiche:
 - backend e Flutter avanzano insieme
 - i read model caldi restano denormalizzati dove serve
 - indici e query server-side vengono definiti insieme al dominio
+- dove possibile, creazione e relazione tra entita' devono avvenire inline nello stesso flusso UI
 
 ## Fase 0 - Hardening produzione
 
@@ -253,7 +254,7 @@ Oggi il subentro e' corretto sul piano contabile-temporale; qui diventa anche co
 
 ### Chiusura fase
 - gestione unita' completa in UI admin (create/edit/delete + storico titolarita')
-- validazione business su unita' (`codice`, `scala`, `interno` obbligatori)
+- validazione business su unita' (`scala` + `interno` obbligatori, `codice` derivato automaticamente come concatenazione univoca nel condominio)
 - subentro guidato vincolato alla stessa unita'
 
 ## Fase 3 - Preventivo, consuntivo e chiusura anno
