@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../condominio_selection/application/managed_condominio_notifier.dart';
 import '../../../registry/application/condomini_notifier.dart';
+import '../../../registry/application/unita_immobiliari_notifier.dart';
 import '../../../registry/domain/condomino.dart';
+import '../../../registry/domain/unita_immobiliare.dart';
 import '../../application/admin_users_notifier.dart';
 import '../../domain/admin_user.dart';
 import '../dialogs/admin_enable_access_dialog.dart';
@@ -34,11 +36,11 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
   final _scalaCtrl = TextEditingController();
   final _internoCtrl = TextEditingController();
   final _saldoInizialeCtrl = TextEditingController(text: '0');
-  final _millesimiCtrl = TextEditingController(text: '0');
   final _usernameCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
 
   bool _residente = true;
+  String? _selectedUnitaImmobiliareId;
   bool _linkExistingAccess = false;
   bool _createAccessNow = false;
   String? _selectedExistingUserId;
@@ -49,7 +51,10 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
   void initState() {
     super.initState();
     // Carichiamo subito gli utenti Keycloak disponibili per l'admin corrente.
-    Future.microtask(() => ref.read(adminUsersProvider.notifier).loadUsers());
+    Future.microtask(() {
+      ref.read(adminUsersProvider.notifier).loadUsers();
+      ref.read(unitaImmobiliariProvider.notifier).load();
+    });
   }
 
   @override
@@ -61,7 +66,6 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
     _scalaCtrl.dispose();
     _internoCtrl.dispose();
     _saldoInizialeCtrl.dispose();
-    _millesimiCtrl.dispose();
     _usernameCtrl.dispose();
     _passwordCtrl.dispose();
     super.dispose();
@@ -98,6 +102,10 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
       // - `condominiProvider`  -> API Core (/condomino) per persistenza anagrafica
       final registryNotifier = ref.read(condominiProvider.notifier);
       final authNotifier = ref.read(adminUsersProvider.notifier);
+      final selectedUnita = _findUnitaById(
+        ref.read(unitaImmobiliariItemsProvider),
+        _selectedUnitaImmobiliareId,
+      );
 
       final username = _usernameCtrl.text.trim().isEmpty
           ? _defaultUsername()
@@ -167,17 +175,18 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
           id: '',
           nome: _nomeCtrl.text.trim(),
           cognome: _cognomeCtrl.text.trim(),
-          scala: _scalaCtrl.text.trim(),
-          interno: _internoCtrl.text.trim(),
+          scala: selectedUnita?.scala ?? _scalaCtrl.text.trim(),
+          interno: selectedUnita?.interno ?? _internoCtrl.text.trim(),
           email: _emailCtrl.text.trim(),
           telefono: _telefonoCtrl.text.trim(),
           saldoIniziale: double.parse(_saldoInizialeCtrl.text.trim().replaceAll(',', '.')),
-          millesimi: double.parse(_millesimiCtrl.text.trim().replaceAll(',', '.')),
+          millesimi: 0,
           residente: _residente,
           ruolo: effectiveRole,
           hasAppAccess: accessEnabled,
           keycloakUserId: accessUserId,
           keycloakUsername: accessUsername,
+          unitaImmobiliareId: selectedUnita?.id,
         ),
       );
 
@@ -204,11 +213,11 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
       _scalaCtrl.clear();
       _internoCtrl.clear();
       _saldoInizialeCtrl.text = '0';
-      _millesimiCtrl.text = '0';
       _usernameCtrl.clear();
       _passwordCtrl.clear();
       setState(() {
         _residente = true;
+        _selectedUnitaImmobiliareId = null;
         _linkExistingAccess = false;
         _createAccessNow = false;
         _selectedExistingUserId = null;
@@ -307,6 +316,7 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
   @override
   Widget build(BuildContext context) {
     final isReadOnly = ref.watch(selectedManagedCondominioIsClosedProvider);
+    final availableUnita = ref.watch(unitaImmobiliariItemsProvider);
     return LayoutBuilder(
       builder: (context, constraints) {
         final isShortViewport = constraints.maxHeight < 760;
@@ -317,16 +327,34 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
             padding: EdgeInsets.zero,
             children: [
               const AdminUsersErrorCard(),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: OutlinedButton.icon(
+                  onPressed: isReadOnly ? null : () => _openManageUnitaDialog(),
+                  icon: const Icon(Icons.apartment_outlined),
+                  label: const Text('Gestisci unità'),
+                ),
+              ),
+              const SizedBox(height: 8),
               AdminUsersCreateCondominoCard(
                 formKey: _formKey,
                 nomeCtrl: _nomeCtrl,
                 cognomeCtrl: _cognomeCtrl,
                 emailCtrl: _emailCtrl,
                 telefonoCtrl: _telefonoCtrl,
+                availableUnita: availableUnita,
+                selectedUnitaImmobiliareId: _selectedUnitaImmobiliareId,
+                onSelectedUnitaChanged: (value) => setState(() {
+                  _selectedUnitaImmobiliareId = value;
+                  final selected = _findUnitaById(availableUnita, value);
+                  if (selected != null) {
+                    _scalaCtrl.text = selected.scala;
+                    _internoCtrl.text = selected.interno;
+                  }
+                }),
                 scalaCtrl: _scalaCtrl,
                 internoCtrl: _internoCtrl,
                 saldoInizialeCtrl: _saldoInizialeCtrl,
-                millesimiCtrl: _millesimiCtrl,
                 usernameCtrl: _usernameCtrl,
                 passwordCtrl: _passwordCtrl,
                 residente: _residente,
@@ -374,16 +402,31 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const AdminUsersErrorCard(),
+            OutlinedButton.icon(
+              onPressed: isReadOnly ? null : () => _openManageUnitaDialog(),
+              icon: const Icon(Icons.apartment_outlined),
+              label: const Text('Gestisci unità'),
+            ),
+            const SizedBox(height: 8),
             AdminUsersCreateCondominoCard(
               formKey: _formKey,
               nomeCtrl: _nomeCtrl,
               cognomeCtrl: _cognomeCtrl,
               emailCtrl: _emailCtrl,
               telefonoCtrl: _telefonoCtrl,
+              availableUnita: availableUnita,
+              selectedUnitaImmobiliareId: _selectedUnitaImmobiliareId,
+              onSelectedUnitaChanged: (value) => setState(() {
+                _selectedUnitaImmobiliareId = value;
+                final selected = _findUnitaById(availableUnita, value);
+                if (selected != null) {
+                  _scalaCtrl.text = selected.scala;
+                  _internoCtrl.text = selected.interno;
+                }
+              }),
               scalaCtrl: _scalaCtrl,
               internoCtrl: _internoCtrl,
               saldoInizialeCtrl: _saldoInizialeCtrl,
-              millesimiCtrl: _millesimiCtrl,
               usernameCtrl: _usernameCtrl,
               passwordCtrl: _passwordCtrl,
               residente: _residente,
@@ -451,5 +494,278 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
       return CondominoRuolo.consigliere;
     }
     return CondominoRuolo.standard;
+  }
+
+  Future<void> _openManageUnitaDialog() async {
+    await showDialog<void>(
+      context: context,
+      builder: (_) => const _AdminManageUnitaDialog(),
+    );
+  }
+
+  UnitaImmobiliare? _findUnitaById(List<UnitaImmobiliare> items, String? id) {
+    if (id == null || id.isEmpty) {
+      return null;
+    }
+    for (final unit in items) {
+      if (unit.id == id) return unit;
+    }
+    return null;
+  }
+}
+
+class _AdminManageUnitaDialog extends ConsumerStatefulWidget {
+  const _AdminManageUnitaDialog();
+
+  @override
+  ConsumerState<_AdminManageUnitaDialog> createState() =>
+      _AdminManageUnitaDialogState();
+}
+
+class _AdminManageUnitaDialogState
+    extends ConsumerState<_AdminManageUnitaDialog> {
+  final _scalaCtrl = TextEditingController();
+  final _internoCtrl = TextEditingController();
+  final _codiceCtrl = TextEditingController();
+  bool _isSaving = false;
+
+  @override
+  void dispose() {
+    _scalaCtrl.dispose();
+    _internoCtrl.dispose();
+    _codiceCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final state = ref.watch(unitaImmobiliariProvider);
+    return AlertDialog(
+      title: const Text('Gestione unità immobiliari'),
+      content: SizedBox(
+        width: 720,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _scalaCtrl,
+                    decoration: const InputDecoration(labelText: 'Scala'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextField(
+                    controller: _internoCtrl,
+                    decoration: const InputDecoration(labelText: 'Interno'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextField(
+                    controller: _codiceCtrl,
+                    decoration: const InputDecoration(labelText: 'Codice'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                FilledButton.icon(
+                  onPressed: _isSaving ? null : _createUnita,
+                  icon: _isSaving
+                      ? const SizedBox.square(
+                          dimension: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.add),
+                  label: const Text('Aggiungi'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                TextButton.icon(
+                  onPressed: state.isLoading
+                      ? null
+                      : () => ref.read(unitaImmobiliariProvider.notifier).load(),
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Aggiorna'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 280,
+              child: state.items.isEmpty
+                  ? const Center(
+                      child: Text('Nessuna unità disponibile.'),
+                    )
+                  : ListView.separated(
+                      itemCount: state.items.length,
+                      separatorBuilder: (_, _) => const Divider(height: 1),
+                      itemBuilder: (context, index) {
+                        final item = state.items[index];
+                        return ListTile(
+                          title: Text(item.label),
+                          subtitle: Text(
+                            item.codice.trim().isEmpty
+                                ? 'Codice non impostato'
+                                : 'Codice: ${item.codice}',
+                          ),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                tooltip: 'Storico titolarità',
+                                onPressed: () => _showTitolaritaStorico(item),
+                                icon: const Icon(Icons.history_outlined),
+                              ),
+                              IconButton(
+                                tooltip: 'Elimina unità',
+                                onPressed: () => _deleteUnita(item),
+                                icon: const Icon(Icons.delete_outline),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Chiudi'),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _createUnita() async {
+    final scala = _scalaCtrl.text.trim();
+    final interno = _internoCtrl.text.trim();
+    if (scala.isEmpty || interno.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Compila scala e interno.')),
+      );
+      return;
+    }
+    setState(() => _isSaving = true);
+    try {
+      await ref.read(unitaImmobiliariProvider.notifier).create(
+            UnitaImmobiliare(
+              id: '',
+              codice: _codiceCtrl.text.trim(),
+              scala: scala,
+              interno: interno,
+              subalterno: '',
+              destinazioneUso: '',
+              metriQuadri: null,
+            ),
+          );
+      _scalaCtrl.clear();
+      _internoCtrl.clear();
+      _codiceCtrl.clear();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Errore creazione unità: $e')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
+    }
+  }
+
+  Future<void> _deleteUnita(UnitaImmobiliare item) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Elimina unità'),
+        content: Text('Confermi eliminazione di ${item.label}?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Annulla'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Elimina'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) {
+      return;
+    }
+    try {
+      await ref.read(unitaImmobiliariProvider.notifier).delete(item.id);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Errore eliminazione unità: $e')),
+      );
+    }
+  }
+
+  Future<void> _showTitolaritaStorico(UnitaImmobiliare item) async {
+    try {
+      final history = await ref
+          .read(unitaImmobiliariProvider.notifier)
+          .loadTitolaritaStorico(item.id);
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: Text('Storico titolarità - ${item.label}'),
+          content: SizedBox(
+            width: 740,
+            height: 360,
+            child: history.isEmpty
+                ? const Center(
+                    child: Text('Nessuna titolarità registrata.'),
+                  )
+                : ListView.separated(
+                    itemCount: history.length,
+                    separatorBuilder: (_, _) => const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final entry = history[index];
+                      return ListTile(
+                        title: Text(entry.nominativo),
+                        subtitle: Text(
+                          '${entry.titolaritaTipo} - ${entry.statoPosizione}'
+                          '\nEsercizio: ${entry.esercizioLabel}'
+                          '\nIngresso: ${_formatDate(entry.dataIngresso)} - Uscita: ${_formatDate(entry.dataUscita)}',
+                        ),
+                        isThreeLine: true,
+                      );
+                    },
+                  ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Chiudi'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Errore caricamento storico titolarità: $e')),
+      );
+    }
+  }
+
+  String _formatDate(DateTime? value) {
+    if (value == null) return '-';
+    final day = value.day.toString().padLeft(2, '0');
+    final month = value.month.toString().padLeft(2, '0');
+    return '$day/$month/${value.year}';
   }
 }

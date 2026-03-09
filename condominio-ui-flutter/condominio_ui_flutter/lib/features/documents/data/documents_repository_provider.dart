@@ -261,8 +261,10 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
 
   Future<void> createMovimento({
     required String codiceSpesa,
+    required MovimentoRipartoTipo tipoRiparto,
     required String descrizione,
     required double importo,
+    required List<MovimentoRipartoCondominoDraft> ripartizioneCondomini,
   }) async {
     state = state.copyWith(isSaving: true, clearErrorMessage: true);
     try {
@@ -273,8 +275,12 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
         accessToken: token,
         condominioId: condominioId,
         codiceSpesa: codiceSpesa,
+        tipoRiparto: tipoRiparto.backendValue,
         descrizione: descrizione,
         importo: importo,
+        ripartizioneCondomini: ripartizioneCondomini
+            .map((q) => q.toJson())
+            .toList(growable: false),
       );
       state = state.copyWith(isSaving: false);
       await _refreshCondominioCondominiMovimenti();
@@ -297,8 +303,10 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
   Future<void> updateMovimento({
     required String movimentoId,
     required String codiceSpesa,
+    required MovimentoRipartoTipo tipoRiparto,
     required String descrizione,
     required double importo,
+    required List<MovimentoRipartoCondominoDraft> ripartizioneCondomini,
   }) async {
     state = state.copyWith(isSaving: true, clearErrorMessage: true);
     try {
@@ -309,8 +317,12 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
         accessToken: token,
         movimentoId: movimentoId,
         codiceSpesa: codiceSpesa,
+        tipoRiparto: tipoRiparto.backendValue,
         descrizione: descrizione,
         importo: importo,
+        ripartizioneCondomini: ripartizioneCondomini
+            .map((q) => q.toJson())
+            .toList(growable: false),
       );
       state = state.copyWith(isSaving: false);
       await _refreshCondominioCondominiMovimenti();
@@ -625,6 +637,77 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
     }
   }
 
+  Future<void> addCondominoRata({
+    required String condominoId,
+    required CondominoRataDraft rata,
+  }) async {
+    state = state.copyWith(isSaving: true, clearErrorMessage: true);
+    try {
+      _ensureSelectedExerciseWritable();
+      final token = _requireAccessToken();
+      await _api.addCondominoRata(
+        accessToken: token,
+        condominoId: condominoId,
+        rata: rata.toJson(),
+      );
+      state = state.copyWith(isSaving: false);
+      await _refreshCondominiAndMovimenti();
+    } catch (e, st) {
+      debugPrint('[DOCUMENTS][addCondominoRata] $e');
+      debugPrint('$st');
+      state = state.copyWith(isSaving: false, errorMessage: '$e');
+      rethrow;
+    }
+  }
+
+  Future<void> updateCondominoRata({
+    required String condominoId,
+    required String rataId,
+    required CondominoRataDraft rata,
+  }) async {
+    state = state.copyWith(isSaving: true, clearErrorMessage: true);
+    try {
+      _ensureSelectedExerciseWritable();
+      final token = _requireAccessToken();
+      await _api.updateCondominoRata(
+        accessToken: token,
+        condominoId: condominoId,
+        rataId: rataId,
+        rata: rata.toJson(),
+      );
+      state = state.copyWith(isSaving: false);
+      await _refreshCondominiAndMovimenti();
+    } catch (e, st) {
+      debugPrint('[DOCUMENTS][updateCondominoRata] $e');
+      debugPrint('$st');
+      state = state.copyWith(isSaving: false, errorMessage: '$e');
+      rethrow;
+    }
+  }
+
+  Future<void> deleteCondominoRata({
+    required String condominoId,
+    required String rataId,
+  }) async {
+    state = state.copyWith(isSaving: true, clearErrorMessage: true);
+    try {
+      _ensureSelectedExerciseWritable();
+      final token = _requireAccessToken();
+      await _api.deleteCondominoRata(
+        accessToken: token,
+        condominoId: condominoId,
+        rataId: rataId,
+      );
+      state = state.copyWith(isSaving: false);
+      await _refreshCondominiAndMovimenti();
+    } catch (e, st) {
+      debugPrint('[DOCUMENTS][deleteCondominoRata] $e');
+      debugPrint('$st');
+      state = state.copyWith(isSaving: false, errorMessage: '$e');
+      rethrow;
+    }
+  }
+
   void clear() {
     state = DocumentsDataState.initial();
   }
@@ -759,6 +842,7 @@ class CondominoVersamentoDraft {
     this.id,
     required this.descrizione,
     required this.importo,
+    this.rataId,
     required this.date,
     required this.insertedAt,
   });
@@ -766,6 +850,7 @@ class CondominoVersamentoDraft {
   final String? id;
   final String descrizione;
   final double importo;
+  final String? rataId;
   final DateTime date;
   final DateTime insertedAt;
 
@@ -774,9 +859,60 @@ class CondominoVersamentoDraft {
       if (id != null && id!.isNotEmpty) 'id': id,
       'descrizione': descrizione,
       'importo': importo,
+      if (rataId != null && rataId!.isNotEmpty) 'rataId': rataId,
       'date': date.toUtc().toIso8601String(),
       'insertedAt': insertedAt.toUtc().toIso8601String(),
       'ripartizioneTabelle': const <Map<String, dynamic>>[],
+    };
+  }
+}
+
+class CondominoRataDraft {
+  const CondominoRataDraft({
+    this.id,
+    required this.codice,
+    required this.descrizione,
+    required this.tipo,
+    required this.scadenza,
+    required this.importo,
+  });
+
+  final String? id;
+  final String codice;
+  final String descrizione;
+  final String tipo;
+  final DateTime scadenza;
+  final double importo;
+
+  Map<String, dynamic> toJson() {
+    return {
+      if (id != null && id!.isNotEmpty) 'id': id,
+      'codice': codice,
+      'descrizione': descrizione,
+      'tipo': tipo,
+      'scadenza': scadenza.toUtc().toIso8601String(),
+      'importo': importo,
+    };
+  }
+}
+
+/// Draft quota individuale usata nel payload movimento lato data layer.
+class MovimentoRipartoCondominoDraft {
+  const MovimentoRipartoCondominoDraft({
+    required this.idCondomino,
+    required this.nominativo,
+    required this.importo,
+  });
+
+  final String idCondomino;
+  final String nominativo;
+  final double importo;
+
+  Map<String, dynamic> toJson() {
+    return {
+      'idCondomino': idCondomino,
+      'nominativo': nominativo,
+      'importo': importo,
     };
   }
 }

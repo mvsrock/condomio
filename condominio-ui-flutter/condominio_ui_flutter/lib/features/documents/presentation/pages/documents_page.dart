@@ -242,6 +242,10 @@ class DocumentsPage extends ConsumerWidget {
     required WidgetRef ref,
     required CondominioDocumentModel? selectedCondominio,
   }) async {
+    final condomini = ref
+        .read(condominiBySelectedCondominioProvider)
+        .where((c) => c.isActivePosition)
+        .toList(growable: false);
     final spesaCodes = (selectedCondominio?.configurazioniSpesa ?? const [])
         .map<String>((c) => c.codice)
         .where((c) => c.trim().isNotEmpty)
@@ -251,6 +255,7 @@ class DocumentsPage extends ConsumerWidget {
       title: 'Nuova spesa',
       confirmLabel: 'Registra',
       spesaCodes: spesaCodes,
+      condomini: condomini,
       initialCodiceSpesa: spesaCodes.isNotEmpty ? spesaCodes.first : '',
       lockToAvailableCodes: true,
     );
@@ -258,8 +263,18 @@ class DocumentsPage extends ConsumerWidget {
     try {
       await ref.read(documentsDataProvider.notifier).createMovimento(
             codiceSpesa: result.codiceSpesa,
+            tipoRiparto: result.tipoRiparto,
             descrizione: result.descrizione,
             importo: result.importo,
+            ripartizioneCondomini: result.ripartizioneCondomini
+                .map(
+                  (q) => MovimentoRipartoCondominoDraft(
+                    idCondomino: q.idCondomino,
+                    nominativo: q.nominativo,
+                    importo: q.importo,
+                  ),
+                )
+                .toList(growable: false),
           );
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -282,22 +297,44 @@ class DocumentsPage extends ConsumerWidget {
     required WidgetRef ref,
     required MovimentoModel movimento,
   }) async {
+    final condomini = ref.read(condominiBySelectedCondominioProvider);
     final result = await showDocumentsMovimentoFormDialog(
       context: context,
       title: 'Modifica spesa',
       confirmLabel: 'Salva',
       spesaCodes: const [],
+      condomini: condomini,
       initialCodiceSpesa: movimento.codiceSpesa,
+      initialTipoRiparto: movimento.tipoRiparto,
       initialDescrizione: movimento.descrizione,
       initialImporto: movimento.importo,
+      initialRipartizioneCondomini: movimento.ripartizioneCondomini
+          .map(
+            (q) => DocumentsMovimentoRipartoCondominoForm(
+              idCondomino: q.idCondomino,
+              nominativo: q.nominativo,
+              importo: q.importo,
+            ),
+          )
+          .toList(growable: false),
     );
     if (result == null) return;
     try {
       await ref.read(documentsDataProvider.notifier).updateMovimento(
             movimentoId: movimento.id,
             codiceSpesa: result.codiceSpesa,
+            tipoRiparto: result.tipoRiparto,
             descrizione: result.descrizione,
             importo: result.importo,
+            ripartizioneCondomini: result.ripartizioneCondomini
+                .map(
+                  (q) => MovimentoRipartoCondominoDraft(
+                    idCondomino: q.idCondomino,
+                    nominativo: q.nominativo,
+                    importo: q.importo,
+                  ),
+                )
+                .toList(growable: false),
           );
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -553,6 +590,23 @@ class DocumentsPage extends ConsumerWidget {
                   selectedCondomino: selectedCondomino,
                   versamento: versamento,
                 ),
+            onAddRata: (selectedCondomino) => _openAddRataDialog(
+              context: context,
+              ref: ref,
+              selectedCondomino: selectedCondomino,
+            ),
+            onEditRata: (selectedCondomino, rata) => _openEditRataDialog(
+              context: context,
+              ref: ref,
+              selectedCondomino: selectedCondomino,
+              rata: rata,
+            ),
+            onDeleteRata: (selectedCondomino, rata) => _confirmDeleteRata(
+              context: context,
+              ref: ref,
+              selectedCondomino: selectedCondomino,
+              rata: rata,
+            ),
             onEditTabella: (selectedCondominio, tabelle, tabella) =>
                 _openEditTabellaDialog(
                   context: context,
@@ -615,6 +669,23 @@ class DocumentsPage extends ConsumerWidget {
                         selectedCondomino: selectedCondomino,
                         versamento: versamento,
                       ),
+                  onAddRata: (selectedCondomino) => _openAddRataDialog(
+                    context: context,
+                    ref: ref,
+                    selectedCondomino: selectedCondomino,
+                  ),
+                  onEditRata: (selectedCondomino, rata) => _openEditRataDialog(
+                    context: context,
+                    ref: ref,
+                    selectedCondomino: selectedCondomino,
+                    rata: rata,
+                  ),
+                  onDeleteRata: (selectedCondomino, rata) => _confirmDeleteRata(
+                    context: context,
+                    ref: ref,
+                    selectedCondomino: selectedCondomino,
+                    rata: rata,
+                  ),
                 ),
               ],
             ),
@@ -684,6 +755,15 @@ class DocumentsPage extends ConsumerWidget {
       context: context,
       title: 'Nuovo versamento - ${selectedCondomino.nominativo}',
       confirmLabel: 'Salva',
+      rataItems: [
+        const DropdownMenuItem<String?>(value: null, child: Text('Nessuna rata')),
+        ...selectedCondomino.config.rate.map(
+          (rata) => DropdownMenuItem<String?>(
+            value: rata.id,
+            child: Text('${rata.codice} - ${rata.descrizione}'),
+          ),
+        ),
+      ],
       initialDescrizione: 'Versamento',
     );
     if (result == null) return;
@@ -696,6 +776,7 @@ class DocumentsPage extends ConsumerWidget {
             versamento: CondominoVersamentoDraft(
               descrizione: result.descrizione,
               importo: result.importo,
+              rataId: result.rataId,
               date: now,
               insertedAt: now,
             ),
@@ -724,6 +805,16 @@ class DocumentsPage extends ConsumerWidget {
       context: context,
       title: 'Modifica versamento',
       confirmLabel: 'Salva',
+      rataItems: [
+        const DropdownMenuItem<String?>(value: null, child: Text('Nessuna rata')),
+        ...selectedCondomino.config.rate.map(
+          (rata) => DropdownMenuItem<String?>(
+            value: rata.id,
+            child: Text('${rata.codice} - ${rata.descrizione}'),
+          ),
+        ),
+      ],
+      initialRataId: versamento.rataId,
       initialDescrizione: versamento.descrizione,
       initialImporto: versamento.importo,
     );
@@ -738,6 +829,7 @@ class DocumentsPage extends ConsumerWidget {
               id: versamento.id,
               descrizione: result.descrizione,
               importo: result.importo,
+              rataId: result.rataId,
               date: versamento.date,
               insertedAt: versamento.insertedAt,
             ),
@@ -808,6 +900,19 @@ class DocumentsPage extends ConsumerWidget {
                   style: const TextStyle(fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 6),
+                Chip(
+                  label: Text('Riparto: ${movimento.tipoRiparto.label}'),
+                  visualDensity: VisualDensity.compact,
+                ),
+                if (movimento.tipoRiparto == MovimentoRipartoTipo.individuale &&
+                    movimento.ripartizioneCondomini.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text(
+                      'Assegnata a: ${movimento.ripartizioneCondomini.first.nominativo}',
+                    ),
+                  ),
+                const SizedBox(height: 6),
                 Text('Importo: ${movimento.importo.toStringAsFixed(2)}'),
                 const SizedBox(height: 12),
                 const Text(
@@ -856,6 +961,116 @@ class DocumentsPage extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _openAddRataDialog({
+    required BuildContext context,
+    required WidgetRef ref,
+    required CondominoDocumentModel selectedCondomino,
+  }) async {
+    final result = await showDocumentsRataFormDialog(
+      context: context,
+      title: 'Nuova rata - ${selectedCondomino.nominativo}',
+      confirmLabel: 'Salva',
+    );
+    if (result == null) return;
+    try {
+      await ref.read(documentsDataProvider.notifier).addCondominoRata(
+            condominoId: selectedCondomino.id,
+            rata: CondominoRataDraft(
+              codice: result.codice,
+              descrizione: result.descrizione,
+              tipo: result.tipo,
+              scadenza: result.scadenza,
+              importo: result.importo,
+            ),
+          );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Rata aggiunta')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Errore rata: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _openEditRataDialog({
+    required BuildContext context,
+    required WidgetRef ref,
+    required CondominoDocumentModel selectedCondomino,
+    required RataModel rata,
+  }) async {
+    final result = await showDocumentsRataFormDialog(
+      context: context,
+      title: 'Modifica rata',
+      confirmLabel: 'Salva',
+      initialCodice: rata.codice,
+      initialDescrizione: rata.descrizione,
+      initialTipo: rata.tipo.isEmpty ? 'ORDINARIA' : rata.tipo,
+      initialScadenza: rata.scadenza?.toLocal(),
+      initialImporto: rata.importo,
+    );
+    if (result == null) return;
+    try {
+      await ref.read(documentsDataProvider.notifier).updateCondominoRata(
+            condominoId: selectedCondomino.id,
+            rataId: rata.id,
+            rata: CondominoRataDraft(
+              id: rata.id,
+              codice: result.codice,
+              descrizione: result.descrizione,
+              tipo: result.tipo,
+              scadenza: result.scadenza,
+              importo: result.importo,
+            ),
+          );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Rata aggiornata')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Errore modifica rata: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _confirmDeleteRata({
+    required BuildContext context,
+    required WidgetRef ref,
+    required CondominoDocumentModel selectedCondomino,
+    required RataModel rata,
+  }) async {
+    final ok = await showDocumentsDeleteRataDialog(
+      context: context,
+      codice: rata.codice,
+    );
+    if (ok != true) return;
+    try {
+      await ref.read(documentsDataProvider.notifier).deleteCondominoRata(
+            condominoId: selectedCondomino.id,
+            rataId: rata.id,
+          );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Rata eliminata')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Errore elimina rata: $e')),
+        );
+      }
+    }
   }
 
 }

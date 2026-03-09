@@ -4,9 +4,11 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -52,8 +54,6 @@ public class RipartoRealtimeService {
     public Movimenti enrichMovimentoWithRiparto(Movimenti movimento) throws ValidationFailedException, NotFoundException {
         Condominio condominio = condominioRepository.findById(movimento.getIdCondominio())
                 .orElseThrow(() -> new NotFoundException("condominio"));
-        Condominio.ConfigurazioneSpesa configurazione = resolveConfigurazioneSpesa(condominio, movimento.getCodiceSpesa());
-
         if (movimento.getDate() == null) {
             movimento.setDate(Instant.now());
         }
@@ -61,16 +61,92 @@ public class RipartoRealtimeService {
             movimento.setInsertedAt(Instant.now());
         }
 
+        final Movimenti.RipartoTipo ripartoTipo = normalizeRipartoTipo(movimento);
+        if (ripartoTipo == Movimenti.RipartoTipo.INDIVIDUALE) {
+            final List<Condomino> condominiEffettivi = filterPositionsEffectiveAt(
+                    condominoRepository.findByIdCondominio(movimento.getIdCondominio()),
+                    movimento.getDate());
+            final List<Movimenti.RipartizioneCondomino> quoteCondomino = validateAndNormalizeRipartoIndividuale(
+                    movimento, condominiEffettivi);
+            movimento.setRipartizioneTabelle(List.of());
+            movimento.setRipartizioneCondomini(quoteCondomino);
+            return movimento;
+        }
+
+        Condominio.ConfigurazioneSpesa configurazione = resolveConfigurazioneSpesa(condominio, movimento.getCodiceSpesa());
         final List<Movimenti.RipartizioneTabella> quoteTabella = buildRipartizioneTabella(configurazione, movimento);
         final List<Condomino> condomini = filterPositionsEffectiveAt(
                 condominoRepository.findByIdCondominio(movimento.getIdCondominio()),
                 movimento.getDate());
         final List<Movimenti.RipartizioneCondomino> quoteCondomino =
                 buildRipartizioneCondomini(condomini, quoteTabella);
-
         movimento.setRipartizioneTabelle(quoteTabella);
         movimento.setRipartizioneCondomini(quoteCondomino);
         return movimento;
+    }
+
+    private Movimenti.RipartoTipo normalizeRipartoTipo(Movimenti movimento) {
+        if (movimento.getTipoRiparto() == null) {
+            movimento.setTipoRiparto(Movimenti.RipartoTipo.CONDOMINIALE);
+        }
+        return movimento.getTipoRiparto();
+    }
+
+    /**
+     * Riparto individuale:
+     * - il frontend invia direttamente le quote per condomino.
+     * - qui validiamo ownership, attivita' alla data e coerenza totale importo.
+     * - normalizziamo nominativo/importi per garantire snapshot consistente.
+     */
+    private List<Movimenti.RipartizioneCondomino> validateAndNormalizeRipartoIndividuale(
+            Movimenti movimento,
+            List<Condomino> condominiEffettiviAtDate) throws ValidationFailedException {
+        final List<Movimenti.RipartizioneCondomino> input = movimento.getRipartizioneCondomini();
+        if (input == null || input.isEmpty()) {
+            throw new ValidationFailedException("validation.required.movimento.ripartizioneCondomini");
+        }
+        if (input.size() != 1) {
+            throw new ValidationFailedException("validation.invalid.movimento.ripartizioneCondomini.singleRequired");
+        }
+        final Map<String, Condomino> condominoById = new HashMap<>();
+        for (Condomino condomino : condominiEffettiviAtDate) {
+            condominoById.put(condomino.getId(), condomino);
+        }
+
+        final Set<String> seen = new HashSet<>();
+        final List<Movimenti.RipartizioneCondomino> normalized = new ArrayList<>();
+        double total = 0d;
+        for (Movimenti.RipartizioneCondomino quota : input) {
+            if (quota == null || quota.getIdCondomino() == null || quota.getIdCondomino().isBlank()) {
+                throw new ValidationFailedException("validation.required.movimento.ripartizioneCondomini.idCondomino");
+            }
+            final String idCondomino = quota.getIdCondomino().trim();
+            if (!seen.add(idCondomino)) {
+                throw new ValidationFailedException("validation.invalid.movimento.ripartizioneCondomini.duplicated");
+            }
+            final Condomino condomino = condominoById.get(idCondomino);
+            if (condomino == null) {
+                throw new ValidationFailedException("validation.invalid.movimento.ripartizioneCondomini.condominoNotAllowed");
+            }
+            final double importo = quota.getImporto() == null ? 0d : round2(quota.getImporto());
+            if (importo < 0d) {
+                throw new ValidationFailedException("validation.invalid.movimento.ripartizioneCondomini.importo");
+            }
+            total += importo;
+
+            final Movimenti.RipartizioneCondomino normalizedQuota = new Movimenti.RipartizioneCondomino();
+            normalizedQuota.setIdCondomino(idCondomino);
+            normalizedQuota.setNominativo(buildNominativo(condomino));
+            normalizedQuota.setImporto(importo);
+            normalized.add(normalizedQuota);
+        }
+        final double expected = round2(movimento.getImporto() == null ? 0d : movimento.getImporto());
+        if (Math.abs(round2(total) - expected) > 0.01d) {
+            throw new ValidationFailedException(
+                    "validation.invalid.movimento.ripartizioneCondomini.sumMismatch.expected="
+                            + expected + ".actual=" + round2(total));
+        }
+        return normalized;
     }
 
     public void recomputeCondominioResidui(String idCondominio) throws NotFoundException {

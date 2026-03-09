@@ -89,81 +89,86 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       };
     },
     routes: [
-      GoRoute(
-        path: '/login',
-        builder: (context, state) => const LoginScreen(),
-      ),
-      GoRoute(
-        path: '/loading',
-        builder: (context, state) => const Scaffold(
-          body: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                CircularProgressIndicator(),
-                SizedBox(height: 16),
-                Text('Autenticazione con Keycloak in corso...'),
-              ],
+      ShellRoute(
+        builder: (context, state, child) => SelectionArea(child: child),
+        routes: [
+          GoRoute(
+            path: '/login',
+            builder: (context, state) => const LoginScreen(),
+          ),
+          GoRoute(
+            path: '/loading',
+            builder: (context, state) => const Scaffold(
+              body: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    CircularProgressIndicator(),
+                    SizedBox(height: 16),
+                    Text('Autenticazione con Keycloak in corso...'),
+                  ],
+                ),
+              ),
             ),
           ),
-        ),
-      ),
-      GoRoute(
-        path: '/error',
-        builder: (context, state) => const _AuthErrorPage(),
-      ),
-      GoRoute(
-        path: '/condominio-loading',
-        builder: (context, state) => const Scaffold(
-          body: Center(child: CircularProgressIndicator()),
-        ),
-      ),
-      GoRoute(
-        path: '/select-condominio',
-        builder: (context, state) => const CondominioSelectionPage(),
-      ),
-      StatefulShellRoute.indexedStack(
-        builder: (context, state, navigationShell) {
-          return HomeScreen(navigationShell: navigationShell);
-        },
-        branches: [
-          StatefulShellBranch(
-            routes: [
-              GoRoute(
-                path: '/home/dashboard',
-                builder: (context, state) => const DashboardPage(),
-              ),
-            ],
+          GoRoute(
+            path: '/error',
+            builder: (context, state) => const _AuthErrorPage(),
           ),
-          StatefulShellBranch(
-            routes: [
-              GoRoute(
-                path: '/home/map',
-                builder: (context, state) => const MapPage(),
-              ),
-            ],
+          GoRoute(
+            path: '/condominio-loading',
+            builder: (context, state) => const Scaffold(
+              body: Center(child: CircularProgressIndicator()),
+            ),
           ),
-          StatefulShellBranch(
-            routes: [
-              GoRoute(
-                path: '/home/anagrafica',
-                builder: (context, state) => const RegistryTabPage(),
-              ),
-            ],
+          GoRoute(
+            path: '/select-condominio',
+            builder: (context, state) => const CondominioSelectionPage(),
           ),
-          StatefulShellBranch(
-            routes: [
-              GoRoute(
-                path: '/home/session',
-                builder: (context, state) => const SessionPage(),
+          StatefulShellRoute.indexedStack(
+            builder: (context, state, navigationShell) {
+              return HomeScreen(navigationShell: navigationShell);
+            },
+            branches: [
+              StatefulShellBranch(
+                routes: [
+                  GoRoute(
+                    path: '/home/dashboard',
+                    builder: (context, state) => const DashboardPage(),
+                  ),
+                ],
               ),
-            ],
-          ),
-          StatefulShellBranch(
-            routes: [
-              GoRoute(
-                path: '/home/documents',
-                builder: (context, state) => const DocumentsPage(),
+              StatefulShellBranch(
+                routes: [
+                  GoRoute(
+                    path: '/home/map',
+                    builder: (context, state) => const MapPage(),
+                  ),
+                ],
+              ),
+              StatefulShellBranch(
+                routes: [
+                  GoRoute(
+                    path: '/home/anagrafica',
+                    builder: (context, state) => const RegistryTabPage(),
+                  ),
+                ],
+              ),
+              StatefulShellBranch(
+                routes: [
+                  GoRoute(
+                    path: '/home/session',
+                    builder: (context, state) => const SessionPage(),
+                  ),
+                ],
+              ),
+              StatefulShellBranch(
+                routes: [
+                  GoRoute(
+                    path: '/home/documents',
+                    builder: (context, state) => const DocumentsPage(),
+                  ),
+                ],
               ),
             ],
           ),

@@ -22,6 +22,8 @@ import org.springframework.web.bind.annotation.RestController;
 import it.condomio.controller.model.CondominoCessazioneRequest;
 import it.condomio.controller.model.CondominoResource;
 import it.condomio.controller.model.CondominoSubentroRequest;
+import it.condomio.controller.model.EstrattoContoResource;
+import it.condomio.controller.model.RatePlanRequest;
 import it.condomio.document.Condomino;
 import it.condomio.exception.ApiException;
 import it.condomio.exception.NotFoundException;
@@ -150,5 +152,54 @@ public class CondominoController {
             @AuthenticationPrincipal Jwt jwt) throws ApiException {
         condominoService.deleteVersamento(id, versamentoId, jwt.getSubject());
         return ResponseEntity.noContent().build();
+    }
+
+    /** Add rata su posizione esercizio. */
+    @PostMapping("/{id}/rate")
+    public ResponseEntity<Void> addRata(
+            @PathVariable String id,
+            @RequestBody Condomino.Config.Rata rata,
+            @AuthenticationPrincipal Jwt jwt) throws ApiException {
+        condominoService.addRata(id, rata, jwt.getSubject());
+        return ResponseEntity.noContent().build();
+    }
+
+    /** Update rata su posizione esercizio. */
+    @PatchMapping("/{id}/rate/{rataId}")
+    public ResponseEntity<Void> updateRata(
+            @PathVariable String id,
+            @PathVariable String rataId,
+            @RequestBody Condomino.Config.Rata rata,
+            @AuthenticationPrincipal Jwt jwt) throws ApiException {
+        condominoService.updateRata(id, rataId, rata, jwt.getSubject());
+        return ResponseEntity.noContent().build();
+    }
+
+    /** Delete rata su posizione esercizio. */
+    @DeleteMapping("/{id}/rate/{rataId}")
+    public ResponseEntity<Void> deleteRata(
+            @PathVariable String id,
+            @PathVariable String rataId,
+            @AuthenticationPrincipal Jwt jwt) throws ApiException {
+        condominoService.deleteRata(id, rataId, jwt.getSubject());
+        return ResponseEntity.noContent().build();
+    }
+
+    /** Piano rate esercizio applicato a tutte le posizioni attive dell'esercizio. */
+    @PostMapping("/rate-plan/{idCondominio}")
+    public ResponseEntity<Void> applyRatePlan(
+            @PathVariable String idCondominio,
+            @RequestBody RatePlanRequest request,
+            @AuthenticationPrincipal Jwt jwt) throws ApiException {
+        condominoService.applyRatePlanToExercise(idCondominio, request, jwt.getSubject());
+        return ResponseEntity.noContent().build();
+    }
+
+    /** Estratto conto operativo posizione (rate + incassi). */
+    @GetMapping("/{id}/estratto-conto")
+    public ResponseEntity<EstrattoContoResource> getEstrattoConto(
+            @PathVariable String id,
+            @AuthenticationPrincipal Jwt jwt) throws ApiException {
+        return ResponseEntity.ok(condominoService.getEstrattoConto(id, jwt.getSubject()));
     }
 }

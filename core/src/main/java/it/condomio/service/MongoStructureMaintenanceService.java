@@ -38,6 +38,7 @@ import it.condomio.document.Condomino;
 import it.condomio.document.CondominoRoot;
 import it.condomio.document.Movimenti;
 import it.condomio.document.Tabella;
+import it.condomio.document.UnitaImmobiliare;
 import it.condomio.repository.CondominioRepository;
 import it.condomio.repository.CondominioRootRepository;
 import it.condomio.repository.CondominoRootRepository;
@@ -86,6 +87,7 @@ public class MongoStructureMaintenanceService implements ApplicationRunner {
         dropLegacyIndexes();
         backfillCondominoRootsAndPositions();
         normalizeCondominoRootOptionalFields();
+        backfillUnitaImmobiliariFromPositions();
         ensureFinalIndexes();
     }
 
@@ -142,8 +144,74 @@ public class MongoStructureMaintenanceService implements ApplicationRunner {
         ensureExerciseIndexes();
         ensureCondominoRootIndexes();
         ensureCondominoIndexes();
+        ensureUnitaImmobiliareIndexes();
         ensureMovimentiIndexes();
         ensureTabellaIndexes();
+    }
+
+    /**
+     * Backfill unita immobiliari dai record posizione legacy (scala/interno):
+     * - crea l'unita stabile su condominioRoot se mancante
+     * - collega la posizione via `unitaImmobiliareId`
+     */
+    private void backfillUnitaImmobiliariFromPositions() {
+        List<Condomino> positions = mongoTemplate.findAll(Condomino.class);
+        if (positions.isEmpty()) {
+            return;
+        }
+
+        Map<String, String> unitCache = new HashMap<>();
+        int linked = 0;
+        for (Condomino position : positions) {
+            if (position == null || !isBlank(position.getUnitaImmobiliareId())) {
+                continue;
+            }
+            final String exerciseId = position.getIdCondominio();
+            if (isBlank(exerciseId)) {
+                continue;
+            }
+            Condominio exercise = condominioRepository.findById(exerciseId).orElse(null);
+            if (exercise == null || isBlank(exercise.getCondominioRootId())) {
+                continue;
+            }
+            final String scala = normalizeBlank(position.getScala());
+            final String interno = position.getInterno() == null ? null : String.valueOf(position.getInterno());
+            if (scala == null || interno == null || interno.isBlank()) {
+                continue;
+            }
+            final String cacheKey = exercise.getCondominioRootId() + "::" + scala + "::" + interno;
+            String unitId = unitCache.get(cacheKey);
+            if (unitId == null) {
+                Query existingQuery = Query.query(Criteria.where("condominioRootId").is(exercise.getCondominioRootId())
+                        .and("scala").is(scala)
+                        .and("interno").is(interno));
+                Document existing = mongoTemplate.findOne(existingQuery, Document.class, "unita_immobiliare");
+                if (existing != null && existing.get("_id") != null) {
+                    unitId = existing.get("_id").toString();
+                } else {
+                    Document created = new Document();
+                    created.put("condominioRootId", exercise.getCondominioRootId());
+                    created.put("codice", scala + "-" + interno);
+                    created.put("scala", scala);
+                    created.put("interno", interno);
+                    created.put("createdAt", Instant.now());
+                    created.put("updatedAt", Instant.now());
+                    mongoTemplate.getCollection("unita_immobiliare").insertOne(created);
+                    unitId = created.get("_id").toString();
+                }
+                unitCache.put(cacheKey, unitId);
+            }
+            if (unitId == null) {
+                continue;
+            }
+            Query byId = Query.query(Criteria.where("_id").is(position.getId()));
+            Update linkUnit = new Update().set("unitaImmobiliareId", unitId);
+            mongoTemplate.updateFirst(byId, linkUnit, Condomino.class);
+            linked++;
+        }
+        if (linked > 0) {
+            log.info("[MongoStructureMaintenanceService] linked {} condomino positions to unita_immobiliare", linked);
+        }
     }
 
     private void ensureRootIndexes() {
@@ -237,6 +305,26 @@ public class MongoStructureMaintenanceService implements ApplicationRunner {
                 .on("condominoRootId", Sort.Direction.ASC)
                 .on("idCondominio", Sort.Direction.ASC)
                 .named("root_exercise_idx"));
+        createIndexIfMissing(ops, "exercise_unita_period_idx", new Index()
+                .on("idCondominio", Sort.Direction.ASC)
+                .on("unitaImmobiliareId", Sort.Direction.ASC)
+                .on("dataIngresso", Sort.Direction.ASC)
+                .on("dataUscita", Sort.Direction.ASC)
+                .named("exercise_unita_period_idx"));
+    }
+
+    private void ensureUnitaImmobiliareIndexes() {
+        IndexOperations ops = mongoTemplate.indexOps(UnitaImmobiliare.class);
+        createIndexIfMissing(ops, "root_scala_interno_uidx", new Index()
+                .on("condominioRootId", Sort.Direction.ASC)
+                .on("scala", Sort.Direction.ASC)
+                .on("interno", Sort.Direction.ASC)
+                .unique()
+                .named("root_scala_interno_uidx"));
+        createIndexIfMissing(ops, "root_codice_idx", new Index()
+                .on("condominioRootId", Sort.Direction.ASC)
+                .on("codice", Sort.Direction.ASC)
+                .named("root_codice_idx"));
     }
 
     private void ensureMovimentiIndexes() {

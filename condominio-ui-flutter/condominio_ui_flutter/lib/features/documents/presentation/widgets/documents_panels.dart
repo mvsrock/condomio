@@ -27,6 +27,10 @@ typedef DocumentsVersamentoCallback = Future<void> Function(
   CondominoDocumentModel selectedCondomino,
   VersamentoModel versamento,
 );
+typedef DocumentsRataCallback = Future<void> Function(
+  CondominoDocumentModel selectedCondomino,
+  RataModel rata,
+);
 typedef DocumentsTabellaCallback = Future<void> Function(
   CondominioDocumentModel? selectedCondominio,
   List<TabellaModel> tabelle,
@@ -156,12 +160,18 @@ class DocumentsMovimentiPanel extends ConsumerWidget {
                 physics: const NeverScrollableScrollPhysics(),
                 separatorBuilder: (_, _) => const Divider(height: 1),
                 itemBuilder: (context, index) {
-                  final movimento = movimenti[index];
-                  return ListTile(
-                    dense: true,
-                    title: Text(movimento.descrizione),
-                    subtitle: Text('Codice ${movimento.codiceSpesa}'),
-                    onTap: () => onOpenMovimentoDetail(movimento),
+                    final movimento = movimenti[index];
+                    final individualLabel = movimento.tipoRiparto ==
+                            MovimentoRipartoTipo.individuale
+                        ? ' - su ${_individualAssigneeLabel(movimento)}'
+                        : '';
+                    return ListTile(
+                      dense: true,
+                      title: Text(movimento.descrizione),
+                      subtitle: Text(
+                        'Codice ${movimento.codiceSpesa} - ${movimento.tipoRiparto.label}$individualLabel',
+                      ),
+                      onTap: () => onOpenMovimentoDetail(movimento),
                     trailing: DocumentsListTileActionsMenu(
                       amountText: movimento.importo.toStringAsFixed(2),
                       onEdit: isReadOnly
@@ -181,10 +191,16 @@ class DocumentsMovimentiPanel extends ConsumerWidget {
                   separatorBuilder: (_, _) => const Divider(height: 1),
                   itemBuilder: (context, index) {
                     final movimento = movimenti[index];
+                    final individualLabel = movimento.tipoRiparto ==
+                            MovimentoRipartoTipo.individuale
+                        ? ' - su ${_individualAssigneeLabel(movimento)}'
+                        : '';
                     return ListTile(
                       dense: true,
                       title: Text(movimento.descrizione),
-                      subtitle: Text('Codice ${movimento.codiceSpesa}'),
+                      subtitle: Text(
+                        'Codice ${movimento.codiceSpesa} - ${movimento.tipoRiparto.label}$individualLabel',
+                      ),
                       onTap: () => onOpenMovimentoDetail(movimento),
                       trailing: DocumentsListTileActionsMenu(
                         amountText: movimento.importo.toStringAsFixed(2),
@@ -214,6 +230,9 @@ class DocumentsDetailPanel extends ConsumerWidget {
     required this.onAddVersamento,
     required this.onEditVersamento,
     required this.onDeleteVersamento,
+    required this.onAddRata,
+    required this.onEditRata,
+    required this.onDeleteRata,
     required this.onEditTabella,
     required this.onDeleteTabella,
   });
@@ -222,6 +241,9 @@ class DocumentsDetailPanel extends ConsumerWidget {
   final DocumentsCondominoActionCallback onAddVersamento;
   final DocumentsVersamentoCallback onEditVersamento;
   final DocumentsVersamentoCallback onDeleteVersamento;
+  final DocumentsCondominoActionCallback onAddRata;
+  final DocumentsRataCallback onEditRata;
+  final DocumentsRataCallback onDeleteRata;
   final DocumentsTabellaCallback onEditTabella;
   final DocumentsTabellaCallback onDeleteTabella;
 
@@ -234,6 +256,7 @@ class DocumentsDetailPanel extends ConsumerWidget {
     final quoteSpese = ref.watch(selectedCondominoQuoteSpeseProvider);
     final quoteByCodice = ref.watch(selectedCondominoQuoteByCodiceProvider);
     final versamenti = ref.watch(selectedCondominoVersamentiProvider);
+    final rate = selectedCondomino?.config.rate ?? const <RataModel>[];
     final isSaving = ref.watch(
       documentsDataProvider.select((state) => state.isSaving),
     );
@@ -259,8 +282,10 @@ class DocumentsDetailPanel extends ConsumerWidget {
                   quoteSpese: quoteSpese,
                   quoteByCodice: quoteByCodice,
                   versamenti: versamenti,
+                  rate: rate,
                   isSaving: isSaving,
                   isReadOnly: isReadOnly,
+                  isActivePosition: selectedCondomino.isActivePosition,
                   showQuoteButton: true,
                   onOpenQuoteDialog: isReadOnly
                       ? null
@@ -278,6 +303,9 @@ class DocumentsDetailPanel extends ConsumerWidget {
                     selectedCondomino,
                     versamento,
                   ),
+                  onAddRata: () => onAddRata(selectedCondomino),
+                  onEditRata: (rata) => onEditRata(selectedCondomino, rata),
+                  onDeleteRata: (rata) => onDeleteRata(selectedCondomino, rata),
                 ),
               const Text('Tabelle condominio'),
               const SizedBox(height: 6),
@@ -331,6 +359,9 @@ class DocumentsCondominoDetailSheetContent extends ConsumerWidget {
     required this.onAddVersamento,
     required this.onEditVersamento,
     required this.onDeleteVersamento,
+    required this.onAddRata,
+    required this.onEditRata,
+    required this.onDeleteRata,
   });
 
   final CondominoDocumentModel condomino;
@@ -338,6 +369,9 @@ class DocumentsCondominoDetailSheetContent extends ConsumerWidget {
   final DocumentsCondominoActionCallback onAddVersamento;
   final DocumentsVersamentoCallback onEditVersamento;
   final DocumentsVersamentoCallback onDeleteVersamento;
+  final DocumentsCondominoActionCallback onAddRata;
+  final DocumentsRataCallback onEditRata;
+  final DocumentsRataCallback onDeleteRata;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -348,6 +382,7 @@ class DocumentsCondominoDetailSheetContent extends ConsumerWidget {
       documentsCondominoQuoteByCodiceProvider(condomino.id),
     );
     final versamenti = ref.watch(documentsCondominoVersamentiProvider(condomino.id));
+    final rate = condomino.config.rate;
     final isReadOnly = ref.watch(selectedManagedCondominioIsClosedProvider);
 
     return _DocumentsCondominoDetailContent(
@@ -355,8 +390,10 @@ class DocumentsCondominoDetailSheetContent extends ConsumerWidget {
       quoteSpese: quoteSpese,
       quoteByCodice: quoteByCodice,
       versamenti: versamenti,
+      rate: rate,
       isSaving: isSaving,
       isReadOnly: isReadOnly,
+      isActivePosition: condomino.isActivePosition,
       showQuoteButton: false,
       onAddVersamento: () => onAddVersamento(condomino),
       onEditVersamento: (versamento) => onEditVersamento(condomino, versamento),
@@ -364,6 +401,9 @@ class DocumentsCondominoDetailSheetContent extends ConsumerWidget {
         condomino,
         versamento,
       ),
+      onAddRata: () => onAddRata(condomino),
+      onEditRata: (rata) => onEditRata(condomino, rata),
+      onDeleteRata: (rata) => onDeleteRata(condomino, rata),
     );
   }
 }
@@ -374,12 +414,17 @@ class _DocumentsCondominoDetailContent extends StatelessWidget {
     required this.quoteSpese,
     required this.quoteByCodice,
     required this.versamenti,
+    required this.rate,
     required this.isSaving,
     required this.isReadOnly,
+    required this.isActivePosition,
     required this.showQuoteButton,
     required this.onAddVersamento,
     required this.onEditVersamento,
     required this.onDeleteVersamento,
+    required this.onAddRata,
+    required this.onEditRata,
+    required this.onDeleteRata,
     this.onOpenQuoteDialog,
   });
 
@@ -387,13 +432,18 @@ class _DocumentsCondominoDetailContent extends StatelessWidget {
   final List<DocumentsCondominoQuotaSpesaRow> quoteSpese;
   final List<DocumentsCondominoQuotaByCodiceRow> quoteByCodice;
   final List<VersamentoModel> versamenti;
+  final List<RataModel> rate;
   final bool isSaving;
   final bool isReadOnly;
+  final bool isActivePosition;
   final bool showQuoteButton;
   final Future<void> Function()? onOpenQuoteDialog;
   final Future<void> Function() onAddVersamento;
   final Future<void> Function(VersamentoModel versamento) onEditVersamento;
   final Future<void> Function(VersamentoModel versamento) onDeleteVersamento;
+  final Future<void> Function() onAddRata;
+  final Future<void> Function(RataModel rata) onEditRata;
+  final Future<void> Function(RataModel rata) onDeleteRata;
 
   @override
   Widget build(BuildContext context) {
@@ -488,14 +538,79 @@ class _DocumentsCondominoDetailContent extends StatelessWidget {
         if (showQuoteButton) ...[
           const SizedBox(height: 12),
           OutlinedButton.icon(
-            onPressed: onOpenQuoteDialog == null ? null : () => onOpenQuoteDialog!(),
+            onPressed: (onOpenQuoteDialog == null || !isActivePosition)
+                ? null
+                : () => onOpenQuoteDialog!(),
             icon: const Icon(Icons.tune_outlined),
             label: const Text('Modifica quote'),
           ),
         ],
         const SizedBox(height: 8),
         OutlinedButton.icon(
-          onPressed: (isSaving || isReadOnly) ? null : onAddVersamento,
+          onPressed: (isSaving || isReadOnly || !isActivePosition) ? null : onAddRata,
+          icon: const Icon(Icons.event_note_outlined),
+          label: const Text('Aggiungi rata'),
+        ),
+        const SizedBox(height: 10),
+        const Text(
+          'Rate',
+          style: TextStyle(fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 6),
+        if (rate.isEmpty)
+          const Text('Nessuna rata configurata')
+        else
+          SizedBox(
+            height: 180,
+            child: ListView.separated(
+              itemCount: rate.length,
+              shrinkWrap: true,
+              separatorBuilder: (_, _) => const Divider(height: 1),
+              itemBuilder: (context, index) {
+                final rata = rate[index];
+                return ListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  title: Text('${rata.codice} - ${rata.descrizione}'),
+                  subtitle: Text(
+                    '${rata.tipo} | ${_formatDate(rata.scadenza ?? DateTime.now())} | ${rata.stato}',
+                  ),
+                  trailing: isReadOnly || !isActivePosition
+                      ? Text('${rata.incassato.toStringAsFixed(2)} / ${rata.importo.toStringAsFixed(2)}')
+                      : PopupMenuButton<DocumentsRowAction>(
+                          onSelected: (value) {
+                            if (value == DocumentsRowAction.edit) {
+                              onEditRata(rata);
+                            } else {
+                              onDeleteRata(rata);
+                            }
+                          },
+                          itemBuilder: (context) => const [
+                            PopupMenuItem(
+                              value: DocumentsRowAction.edit,
+                              child: Text('Modifica'),
+                            ),
+                            PopupMenuItem(
+                              value: DocumentsRowAction.delete,
+                              child: Text('Elimina'),
+                            ),
+                          ],
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            child: Text(
+                              '${rata.incassato.toStringAsFixed(2)} / ${rata.importo.toStringAsFixed(2)}',
+                            ),
+                          ),
+                        ),
+                );
+              },
+            ),
+          ),
+        const SizedBox(height: 8),
+        OutlinedButton.icon(
+          onPressed: (isSaving || isReadOnly || !isActivePosition)
+              ? null
+              : onAddVersamento,
           icon: const Icon(Icons.payments_outlined),
           label: const Text('Aggiungi versamento'),
         ),
@@ -528,7 +643,7 @@ class _DocumentsCondominoDetailContent extends StatelessWidget {
                     '${_formatDate(versamento.date)} - '
                     '${versamento.importo.toStringAsFixed(2)}',
                   ),
-                  trailing: isReadOnly
+                  trailing: (isReadOnly || !isActivePosition)
                       ? null
                       : PopupMenuButton<DocumentsRowAction>(
                           onSelected: (value) {
@@ -557,6 +672,15 @@ class _DocumentsCondominoDetailContent extends StatelessWidget {
       ],
     );
   }
+}
+
+String _individualAssigneeLabel(MovimentoModel movimento) {
+  if (movimento.ripartizioneCondomini.isEmpty) {
+    return 'n/d';
+  }
+  return movimento.ripartizioneCondomini.first.nominativo.trim().isEmpty
+      ? movimento.ripartizioneCondomini.first.idCondomino
+      : movimento.ripartizioneCondomini.first.nominativo;
 }
 
 String _formatDate(DateTime date) {

@@ -98,8 +98,14 @@ Sul fronte Flutter la base tecnica e' stata gia' consolidata:
 - provider derivati per ridurre i rebuild
 - sincronizzazione cross-tab tra `Anagrafica` e `Documenti`
 - refactor delle pagine monolitiche in shell, widget e dialog separati
+- selezione testo abilitata a livello globale via router (`SelectionArea`)
 
 Questo significa che il frontend non e' piu' appoggiato a refresh manuali o stato sparso in widget troppo grandi. I flussi principali sono gia' orchestrati con stato osservabile e refresh mirati.
+
+Nota performance UI:
+- l'abilitazione globale della selezione testo introduce un overhead leggero di hit-test/selection manager
+- nel breve resta attiva per coerenza UX su web/desktop
+- in hardening UX/performance verra' resa configurabile per piattaforma o per schermata, in base ai profili di carico reali
 
 ### Query, read model e scalabilita'
 
@@ -146,6 +152,13 @@ Questi gap non richiedono un cambio radicale del modello appena costruito. La di
 - rebuild storico
 - versamenti atomici
 - residui coerenti su posizione ed esercizio
+
+### Fase 2 chiusa (Unita' e titolarita')
+- `unita_immobiliare` stabile per `condominioRootId`
+- relazione esplicita posizione `<->` unita' (`unitaImmobiliareId`)
+- titolarita' posizione (`proprietario / inquilino / delegato`)
+- subentro guidato vincolato alla stessa unita' del precedente
+- storico titolarita' per unita' disponibile via API e UI operativa admin
 
 ### Fondazione UI
 - Riverpod come stato applicativo condiviso
@@ -200,6 +213,9 @@ Permettere all'amministratore di emettere, monitorare e incassare rate.
 - prepara il terreno a morosita' e report
 
 ## Fase 2 - Unita immobiliari e titolarita'
+
+### Stato
+Chiusa il 2026-03-09.
 
 ### Obiettivo
 Separare definitivamente la persona dalla relazione con l'unita' immobiliare.
@@ -315,15 +331,15 @@ Queste non vivono in una singola fase: devono avanzare sempre.
 - stato esercizio sempre evidente
 - distinzione chiara tra profilo condiviso e posizione esercizio
 - mobile realmente operativo
+- profiling e tuning della selezione testo globale (`SelectionArea`) su web/desktop per bilanciare usabilita' e costo rendering
 
 ## Ordine di priorita' consigliato
 
 1. Fase 0
 2. Fase 1
-3. Fase 2
-4. Fase 3
-5. Fase 4
-6. Fase 5
-7. Fase 6
-8. Fase 7
-9. Fase 8
+3. Fase 3
+4. Fase 4
+5. Fase 5
+6. Fase 6
+7. Fase 7
+8. Fase 8

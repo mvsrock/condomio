@@ -37,6 +37,8 @@ public class CondominoResource {
     private String motivoUscita;
     private String precedenteCondominoId;
     private String successivoCondominoId;
+    private String unitaImmobiliareId;
+    private Condomino.TitolaritaTipo titolaritaTipo;
 
     private String keycloakUserId;
     private String keycloakUsername;

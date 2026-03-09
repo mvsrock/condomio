@@ -5,6 +5,8 @@ import 'package:http/http.dart' as http;
 import '../../../config/keycloak_config.dart';
 import '../../../utils/api_error.dart';
 import '../domain/condomino.dart';
+import '../domain/unita_immobiliare.dart';
+import '../domain/unita_titolarita_entry.dart';
 
 class CondominoApiClient {
   const CondominoApiClient();
@@ -142,5 +144,95 @@ class CondominoApiClient {
     final json = (jsonDecode(response.body) as Map?)?.cast<String, dynamic>() ??
         const <String, dynamic>{};
     return Condomino.fromCoreJson(json);
+  }
+
+  Future<List<UnitaImmobiliare>> fetchUnitaImmobiliari({
+    required String accessToken,
+    required String condominioId,
+  }) async {
+    final response = await http.get(
+      _uriWithQuery('/unita-immobiliari', {'idCondominio': condominioId}),
+      headers: _jsonHeaders(accessToken),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      _throwHttpError('fetchUnitaImmobiliari', response);
+    }
+    final raw = (jsonDecode(response.body) as List?) ?? const [];
+    return raw
+        .whereType<Map<String, dynamic>>()
+        .map(UnitaImmobiliare.fromJson)
+        .toList(growable: false);
+  }
+
+  Future<UnitaImmobiliare> createUnitaImmobiliare({
+    required String accessToken,
+    required String condominioId,
+    required UnitaImmobiliare unita,
+  }) async {
+    final response = await http.post(
+      _uriWithQuery('/unita-immobiliari', {'idCondominio': condominioId}),
+      headers: _jsonHeaders(accessToken),
+      body: jsonEncode(unita.toJson()),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      _throwHttpError('createUnitaImmobiliare', response);
+    }
+    final json = (jsonDecode(response.body) as Map?)?.cast<String, dynamic>() ??
+        const <String, dynamic>{};
+    return UnitaImmobiliare.fromJson(json);
+  }
+
+  Future<UnitaImmobiliare> updateUnitaImmobiliare({
+    required String accessToken,
+    required String condominioId,
+    required UnitaImmobiliare unita,
+  }) async {
+    final response = await http.put(
+      _uriWithQuery('/unita-immobiliari/${unita.id}', {'idCondominio': condominioId}),
+      headers: _jsonHeaders(accessToken),
+      body: jsonEncode(unita.toJson()),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      _throwHttpError('updateUnitaImmobiliare', response);
+    }
+    final json = (jsonDecode(response.body) as Map?)?.cast<String, dynamic>() ??
+        const <String, dynamic>{};
+    return UnitaImmobiliare.fromJson(json);
+  }
+
+  Future<void> deleteUnitaImmobiliare({
+    required String accessToken,
+    required String condominioId,
+    required String unitaId,
+  }) async {
+    final response = await http.delete(
+      _uriWithQuery('/unita-immobiliari/$unitaId', {'idCondominio': condominioId}),
+      headers: _jsonHeaders(accessToken),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      _throwHttpError('deleteUnitaImmobiliare', response);
+    }
+  }
+
+  Future<List<UnitaTitolaritaEntry>> fetchUnitaTitolaritaStorico({
+    required String accessToken,
+    required String condominioId,
+    required String unitaId,
+  }) async {
+    final response = await http.get(
+      _uriWithQuery(
+        '/unita-immobiliari/$unitaId/titolarita',
+        {'idCondominio': condominioId},
+      ),
+      headers: _jsonHeaders(accessToken),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      _throwHttpError('fetchUnitaTitolaritaStorico', response);
+    }
+    final raw = (jsonDecode(response.body) as List?) ?? const [];
+    return raw
+        .whereType<Map<String, dynamic>>()
+        .map(UnitaTitolaritaEntry.fromJson)
+        .toList(growable: false);
   }
 }

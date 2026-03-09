@@ -94,6 +94,9 @@ public class Condomino {
     private String precedenteCondominoId;
     /** Collegamento al successore in caso di subentro sullo stesso esercizio. */
     private String successivoCondominoId;
+    /** Unita' immobiliare stabile associata alla posizione esercizio. */
+    private String unitaImmobiliareId;
+    private TitolaritaTipo titolaritaTipo;
     private String scala;
     private Long interno;
     private Long anno;
@@ -125,15 +128,33 @@ public class Condomino {
 
         @Data
         public static class Rata {
+            private String id;
             @Indexed(unique = false)
             private String codice;
             private String descrizione;
+            private Tipo tipo;
+            private Instant scadenza;
+            private Double importo;
+            private Double incassato;
+            private Stato stato;
             private List<Importo> importi;
 
             @Data
             public static class Importo {
                 private String codice;
                 private Double importo;
+            }
+
+            public enum Tipo {
+                ORDINARIA,
+                STRAORDINARIA
+            }
+
+            public enum Stato {
+                APERTA,
+                PARZIALE,
+                PAGATA,
+                SCADUTA
             }
         }
     }
@@ -144,6 +165,8 @@ public class Condomino {
         private String id;
         private String descrizione;
         private Double importo;
+        /** Rata agganciata esplicitamente; se assente vale imputazione automatica FIFO su rate aperte. */
+        private String rataId;
         private Instant date;
         private Instant insertedAt;
         private List<Ripartizione> ripartizioneTabelle;
@@ -160,5 +183,11 @@ public class Condomino {
     public enum PosizioneStato {
         ATTIVO,
         CESSATO
+    }
+
+    public enum TitolaritaTipo {
+        PROPRIETARIO,
+        INQUILINO,
+        DELEGATO
     }
 }

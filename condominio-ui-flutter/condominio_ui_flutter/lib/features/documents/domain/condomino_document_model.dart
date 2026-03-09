@@ -129,19 +129,37 @@ class TabellaConfigModel {
 
 class RataModel {
   const RataModel({
+    required this.id,
     required this.codice,
     required this.descrizione,
+    required this.tipo,
+    required this.stato,
+    required this.scadenza,
+    required this.importo,
+    required this.incassato,
     required this.importi,
   });
 
+  final String id;
   final String codice;
   final String descrizione;
+  final String tipo;
+  final String stato;
+  final DateTime? scadenza;
+  final double importo;
+  final double incassato;
   final List<ImportoRataModel> importi;
 
   factory RataModel.fromJson(Map<String, dynamic> json) {
     return RataModel(
+      id: json['id'] as String? ?? '',
       codice: json['codice'] as String? ?? '',
       descrizione: json['descrizione'] as String? ?? '',
+      tipo: json['tipo'] as String? ?? '',
+      stato: json['stato'] as String? ?? '',
+      scadenza: _parseDateTime(json['scadenza']),
+      importo: (json['importo'] as num?)?.toDouble() ?? 0,
+      incassato: (json['incassato'] as num?)?.toDouble() ?? 0,
       importi: (json['importi'] as List<dynamic>? ?? const [])
           .map((e) => ImportoRataModel.fromJson(e as Map<String, dynamic>))
           .toList(growable: false),
@@ -171,6 +189,7 @@ class VersamentoModel {
     required this.id,
     required this.descrizione,
     required this.importo,
+    required this.rataId,
     required this.date,
     required this.insertedAt,
     required this.ripartizioneTabelle,
@@ -179,6 +198,7 @@ class VersamentoModel {
   final String id;
   final String descrizione;
   final double importo;
+  final String? rataId;
   final DateTime date;
   final DateTime insertedAt;
   final List<RipartizioneModel> ripartizioneTabelle;
@@ -196,6 +216,7 @@ class VersamentoModel {
       id: json['id'] as String? ?? '',
       descrizione: json['descrizione'] as String? ?? '',
       importo: (json['importo'] as num?)?.toDouble() ?? 0,
+      rataId: json['rataId'] as String?,
       date: parseDate('date'),
       insertedAt: parseDate('insertedAt'),
       ripartizioneTabelle: (json['ripartizioneTabelle'] as List<dynamic>? ?? const [])

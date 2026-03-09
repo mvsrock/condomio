@@ -50,6 +50,13 @@ class ApiError implements Exception {
     try {
       final decoded = jsonDecode(body);
       if (decoded is Map<String, dynamic>) {
+        final errorCodes = decoded['errorCodes'];
+        if (errorCodes is List && errorCodes.isNotEmpty) {
+          final first = errorCodes.first;
+          if (first is String && first.trim().isNotEmpty) {
+            return first.trim();
+          }
+        }
         final direct = [
           decoded['message'],
           decoded['error'],

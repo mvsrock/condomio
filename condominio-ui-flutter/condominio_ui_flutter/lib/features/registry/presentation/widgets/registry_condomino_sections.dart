@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../admin/domain/admin_user.dart';
 import '../../domain/condomino.dart';
+import '../../domain/unita_immobiliare.dart';
 
 /// Card riepilogo del dettaglio condomino.
 class RegistryCondominoOverviewCard extends StatelessWidget {
@@ -77,6 +78,10 @@ class RegistryCondominoOverviewCard extends StatelessWidget {
                 ),
                 _RegistryValuePill(label: 'Unita', value: condomino.unita),
                 _RegistryValuePill(
+                  label: 'Titolarita',
+                  value: condomino.titolaritaTipo.label,
+                ),
+                _RegistryValuePill(
                   label: 'Accesso app',
                   value: condomino.hasAppAccess ? 'Attivo' : 'Non abilitato',
                 ),
@@ -108,6 +113,10 @@ class RegistryCondominoOverviewCard extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             _RegistryDetailRow(label: 'Unita', value: condomino.unita),
+            _RegistryDetailRow(
+              label: 'Titolarita',
+              value: condomino.titolaritaTipo.label,
+            ),
             _RegistryDetailRow(
               label: 'Ingresso',
               value: _formatDate(condomino.dataIngresso),
@@ -279,15 +288,25 @@ class RegistryCondominoContactsSection extends StatelessWidget {
 class RegistryCondominoExerciseSection extends StatelessWidget {
   const RegistryCondominoExerciseSection({
     super.key,
+    required this.availableUnita,
+    required this.selectedUnitaImmobiliareId,
+    required this.onSelectUnitaImmobiliare,
     required this.scalaController,
     required this.internoController,
     required this.saldoInizialeController,
+    required this.titolaritaTipo,
+    required this.onTitolaritaChanged,
     required this.decimalFieldValidator,
   });
 
+  final List<UnitaImmobiliare> availableUnita;
+  final String? selectedUnitaImmobiliareId;
+  final ValueChanged<String?>? onSelectUnitaImmobiliare;
   final TextEditingController scalaController;
   final TextEditingController internoController;
   final TextEditingController saldoInizialeController;
+  final CondominoTitolaritaTipo titolaritaTipo;
+  final ValueChanged<CondominoTitolaritaTipo>? onTitolaritaChanged;
   final FormFieldValidator<String> decimalFieldValidator;
 
   @override
@@ -305,6 +324,30 @@ class RegistryCondominoExerciseSection extends StatelessWidget {
           style: TextStyle(color: Color(0xFF52606D)),
         ),
         const SizedBox(height: 14),
+        DropdownButtonFormField<String?>(
+          initialValue: availableUnita.any(
+            (unit) => unit.id == selectedUnitaImmobiliareId,
+          )
+              ? selectedUnitaImmobiliareId
+              : null,
+          decoration: const InputDecoration(
+            labelText: 'Unita immobiliare (opzionale)',
+          ),
+          items: [
+            const DropdownMenuItem<String?>(
+              value: null,
+              child: Text('Nessuna unita selezionata'),
+            ),
+            ...availableUnita.map(
+              (unit) => DropdownMenuItem<String?>(
+                value: unit.id,
+                child: Text(unit.label),
+              ),
+            ),
+          ],
+          onChanged: onSelectUnitaImmobiliare,
+        ),
+        const SizedBox(height: 12),
         Row(
           children: [
             Expanded(
@@ -321,6 +364,23 @@ class RegistryCondominoExerciseSection extends StatelessWidget {
               ),
             ),
           ],
+        ),
+        const SizedBox(height: 12),
+        DropdownButtonFormField<CondominoTitolaritaTipo>(
+          initialValue: titolaritaTipo,
+          decoration: const InputDecoration(labelText: 'Titolarita'),
+          items: CondominoTitolaritaTipo.values
+              .map(
+                (tipo) => DropdownMenuItem<CondominoTitolaritaTipo>(
+                  value: tipo,
+                  child: Text(tipo.label),
+                ),
+              )
+              .toList(growable: false),
+          onChanged: (value) {
+            if (value == null) return;
+            onTitolaritaChanged?.call(value);
+          },
         ),
         const SizedBox(height: 12),
         TextFormField(

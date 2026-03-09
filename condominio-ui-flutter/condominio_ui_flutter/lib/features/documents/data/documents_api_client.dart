@@ -178,8 +178,10 @@ class DocumentsApiClient {
     required String accessToken,
     required String condominioId,
     required String codiceSpesa,
+    required String tipoRiparto,
     required String descrizione,
     required double importo,
+    required List<Map<String, dynamic>> ripartizioneCondomini,
   }) async {
     final nowIso = DateTime.now().toUtc().toIso8601String();
     final response = await http.post(
@@ -188,10 +190,12 @@ class DocumentsApiClient {
       body: jsonEncode({
         'idCondominio': condominioId,
         'codiceSpesa': codiceSpesa.trim(),
+        'tipoRiparto': tipoRiparto,
         'descrizione': descrizione.trim(),
         'importo': importo,
         'date': nowIso,
         'insertedAt': nowIso,
+        'ripartizioneCondomini': ripartizioneCondomini,
       }),
     );
     if (response.statusCode < 200 || response.statusCode >= 300) {
@@ -203,16 +207,20 @@ class DocumentsApiClient {
     required String accessToken,
     required String movimentoId,
     required String codiceSpesa,
+    required String tipoRiparto,
     required String descrizione,
     required double importo,
+    required List<Map<String, dynamic>> ripartizioneCondomini,
   }) async {
     final response = await http.patch(
       _uri('/movimenti/$movimentoId'),
       headers: _mergePatchHeaders(accessToken),
       body: jsonEncode({
         'codiceSpesa': codiceSpesa.trim(),
+        'tipoRiparto': tipoRiparto,
         'descrizione': descrizione.trim(),
         'importo': importo,
+        'ripartizioneCondomini': ripartizioneCondomini,
       }),
     );
     if (response.statusCode < 200 || response.statusCode >= 300) {
@@ -328,6 +336,51 @@ class DocumentsApiClient {
     );
     if (response.statusCode < 200 || response.statusCode >= 300) {
       _throwHttpError('rebuildStoricoCondominio', response);
+    }
+  }
+
+  Future<void> addCondominoRata({
+    required String accessToken,
+    required String condominoId,
+    required Map<String, dynamic> rata,
+  }) async {
+    final response = await http.post(
+      _uri('/condomino/$condominoId/rate'),
+      headers: _headers(accessToken),
+      body: jsonEncode(rata),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      _throwHttpError('addCondominoRata', response);
+    }
+  }
+
+  Future<void> updateCondominoRata({
+    required String accessToken,
+    required String condominoId,
+    required String rataId,
+    required Map<String, dynamic> rata,
+  }) async {
+    final response = await http.patch(
+      _uri('/condomino/$condominoId/rate/$rataId'),
+      headers: _headers(accessToken),
+      body: jsonEncode(rata),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      _throwHttpError('updateCondominoRata', response);
+    }
+  }
+
+  Future<void> deleteCondominoRata({
+    required String accessToken,
+    required String condominoId,
+    required String rataId,
+  }) async {
+    final response = await http.delete(
+      _uri('/condomino/$condominoId/rate/$rataId'),
+      headers: _headers(accessToken),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      _throwHttpError('deleteCondominoRata', response);
     }
   }
 }

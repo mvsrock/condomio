@@ -25,6 +25,8 @@ class Condomino {
     this.motivoUscita,
     this.precedenteCondominoId,
     this.successivoCondominoId,
+    this.unitaImmobiliareId,
+    this.titolaritaTipo = CondominoTitolaritaTipo.proprietario,
   });
 
   final String id;
@@ -48,6 +50,8 @@ class Condomino {
   final String? motivoUscita;
   final String? precedenteCondominoId;
   final String? successivoCondominoId;
+  final String? unitaImmobiliareId;
+  final CondominoTitolaritaTipo titolaritaTipo;
 
   factory Condomino.fromCoreJson(Map<String, dynamic> json) {
     // I campi "app*" e "keycloak*" arrivano dal backend core quando
@@ -94,6 +98,13 @@ class Condomino {
           (json['successivoCondominoId'] as String?)?.trim().isEmpty ?? true
               ? null
               : (json['successivoCondominoId'] as String),
+      unitaImmobiliareId:
+          (json['unitaImmobiliareId'] as String?)?.trim().isEmpty ?? true
+              ? null
+              : (json['unitaImmobiliareId'] as String),
+      titolaritaTipo: _titolaritaFromString(
+        (json['titolaritaTipo'] ?? '').toString(),
+      ),
     );
   }
 
@@ -122,6 +133,8 @@ class Condomino {
       'motivoUscita': motivoUscita,
       'precedenteCondominoId': precedenteCondominoId,
       'successivoCondominoId': successivoCondominoId,
+      'unitaImmobiliareId': unitaImmobiliareId,
+      'titolaritaTipo': titolaritaTipo.coreName,
     };
     if (condominoRootId != null && condominoRootId!.trim().isNotEmpty) {
       payload['condominoRootId'] = condominoRootId;
@@ -178,6 +191,8 @@ class Condomino {
     String? motivoUscita,
     String? precedenteCondominoId,
     String? successivoCondominoId,
+    String? unitaImmobiliareId,
+    CondominoTitolaritaTipo? titolaritaTipo,
     bool clearCondominoRootId = false,
     bool clearKeycloakUsername = false,
     bool clearKeycloakUserId = false,
@@ -185,6 +200,7 @@ class Condomino {
     bool clearMotivoUscita = false,
     bool clearPrecedenteCondominoId = false,
     bool clearSuccessivoCondominoId = false,
+    bool clearUnitaImmobiliareId = false,
   }) {
     return Condomino(
       id: id ?? this.id,
@@ -219,6 +235,10 @@ class Condomino {
       successivoCondominoId: clearSuccessivoCondominoId
           ? null
           : (successivoCondominoId ?? this.successivoCondominoId),
+      unitaImmobiliareId: clearUnitaImmobiliareId
+          ? null
+          : (unitaImmobiliareId ?? this.unitaImmobiliareId),
+      titolaritaTipo: titolaritaTipo ?? this.titolaritaTipo,
     );
   }
 }
@@ -239,6 +259,7 @@ CondominoRuolo _roleFromString(String roleRaw) {
 enum CondominoRuolo { consigliere, standard }
 
 enum CondominoPosizioneStato { attivo, cessato }
+enum CondominoTitolaritaTipo { proprietario, inquilino, delegato }
 
 extension CondominoRuoloLabel on CondominoRuolo {
   String get keycloakRoleName {
@@ -265,6 +286,24 @@ extension CondominoPosizioneStatoLabel on CondominoPosizioneStato {
   }
 }
 
+extension CondominoTitolaritaLabel on CondominoTitolaritaTipo {
+  String get coreName {
+    return switch (this) {
+      CondominoTitolaritaTipo.proprietario => 'PROPRIETARIO',
+      CondominoTitolaritaTipo.inquilino => 'INQUILINO',
+      CondominoTitolaritaTipo.delegato => 'DELEGATO',
+    };
+  }
+
+  String get label {
+    return switch (this) {
+      CondominoTitolaritaTipo.proprietario => 'proprietario',
+      CondominoTitolaritaTipo.inquilino => 'inquilino',
+      CondominoTitolaritaTipo.delegato => 'delegato',
+    };
+  }
+}
+
 CondominoPosizioneStato _positionStateFromString(String raw) {
   switch (raw.trim().toUpperCase()) {
     case 'CESSATO':
@@ -279,4 +318,15 @@ DateTime? _parseDateTime(Object? raw) {
     return null;
   }
   return DateTime.tryParse(raw)?.toUtc();
+}
+
+CondominoTitolaritaTipo _titolaritaFromString(String raw) {
+  switch (raw.trim().toUpperCase()) {
+    case 'INQUILINO':
+      return CondominoTitolaritaTipo.inquilino;
+    case 'DELEGATO':
+      return CondominoTitolaritaTipo.delegato;
+    default:
+      return CondominoTitolaritaTipo.proprietario;
+  }
 }

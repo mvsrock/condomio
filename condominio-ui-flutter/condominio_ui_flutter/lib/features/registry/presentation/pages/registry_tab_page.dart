@@ -336,6 +336,8 @@ class RegistryTabPage extends ConsumerWidget {
         residente: condomino.residente,
         ruolo: CondominoRuolo.standard,
         hasAppAccess: false,
+        unitaImmobiliareId: condomino.unitaImmobiliareId,
+        titolaritaTipo: condomino.titolaritaTipo,
       ),
       dataSubentro: result.dataSubentro,
       carryOverSaldo: result.carryOverSaldo,

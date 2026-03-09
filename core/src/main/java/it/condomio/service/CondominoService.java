@@ -2,7 +2,10 @@ package it.condomio.service;
 
 import java.io.IOException;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -21,9 +24,12 @@ import org.springframework.transaction.annotation.Transactional;
 import it.condomio.controller.model.CondominoCessazioneRequest;
 import it.condomio.controller.model.CondominoResource;
 import it.condomio.controller.model.CondominoSubentroRequest;
+import it.condomio.controller.model.EstrattoContoResource;
+import it.condomio.controller.model.RatePlanRequest;
 import it.condomio.document.Condominio;
 import it.condomio.document.Condomino;
 import it.condomio.document.CondominoRoot;
+import it.condomio.document.UnitaImmobiliare;
 import it.condomio.exception.ApiException;
 import it.condomio.exception.ForbiddenException;
 import it.condomio.exception.NotFoundException;
@@ -31,6 +37,7 @@ import it.condomio.exception.ValidationFailedException;
 import it.condomio.repository.CondominioRepository;
 import it.condomio.repository.CondominoRepository;
 import it.condomio.repository.CondominoRootRepository;
+import it.condomio.repository.UnitaImmobiliareRepository;
 import it.condomio.util.JsonMergePatchHelper;
 import tools.jackson.databind.JsonNode;
 
@@ -67,6 +74,9 @@ public class CondominoService {
     @Autowired
     private MongoTemplate mongoTemplate;
 
+    @Autowired
+    private UnitaImmobiliareRepository unitaImmobiliareRepository;
+
     /** Crea una nuova posizione esercizio, riusando o creando l'anagrafica stabile. */
     public CondominoResource createCondomino(CondominoResource resource, String adminKeycloakUserId)
             throws ApiException {
@@ -82,8 +92,10 @@ public class CondominoService {
         StableRootWriteResult rootWrite = resolveOrCreateStableRootForCreate(exercise, resource);
         CondominoRoot stableRoot = rootWrite.root();
         ensureUniquePositionOnExercise(exercise.getId(), stableRoot.getId(), null);
+        UnitaImmobiliare unita = resolveOrCreateUnitaForPosition(exercise, resource);
 
-        Condomino position = buildPositionForCreate(resource, exercise, stableRoot);
+        Condomino position = buildPositionForCreate(resource, exercise, stableRoot, unita);
+        validateUnitaTitolaritaOverlap(position, null);
         normalizeFinancialFieldsForCreate(position);
         Condomino saved = condominoRepository.save(position);
         if (rootWrite.syncOtherPositions()) {
@@ -180,11 +192,13 @@ public class CondominoService {
                 exercise.getCondominioRootId(),
                 updatedResource);
         CondominoRoot updatedRoot = rootWrite.root();
+        UnitaImmobiliare unita = resolveOrCreateUnitaForPosition(exercise, updatedResource);
 
-        Condomino updatedPosition = buildPositionForUpdate(aggregate.position(), updatedResource);
+        Condomino updatedPosition = buildPositionForUpdate(aggregate.position(), updatedResource, unita);
         applySnapshotFields(updatedPosition, updatedRoot);
         reconcileFinancialFieldsOnUpdate(aggregate.position(), updatedPosition);
         ensureUniquePositionOnExercise(updatedPosition.getIdCondominio(), updatedRoot.getId(), updatedPosition.getId());
+        validateUnitaTitolaritaOverlap(updatedPosition, updatedPosition.getId());
 
         Condomino saved = condominoRepository.save(updatedPosition);
         if (rootWrite.syncOtherPositions()) {
@@ -255,18 +269,27 @@ public class CondominoService {
         ensurePositionActive(aggregate.position());
 
         final Instant subentroAt = resolveEntryInstant(request.getDataSubentro(), exercise);
-        validateExitInstant(aggregate.position(), exercise, subentroAt);
+        // Retrocompatibilita':
+        // alcuni record legacy possono avere dataIngresso valorizzata con l'istante
+        // tecnico di creazione API. In quel caso un subentro "nello stesso giorno"
+        // puo' risultare artificialmente precedente all'ingresso.
+        // Clamppiamo alla data ingresso reale della posizione per evitare falsi 400.
+        final Instant normalizedSubentroAt = normalizeSubentroInstant(aggregate.position(), subentroAt);
+        validateExitInstant(aggregate.position(), exercise, normalizedSubentroAt);
 
         CondominoResource incoming = request.getNuovoCondomino();
         sanitizeForCreate(incoming);
         incoming.setIdCondominio(exercise.getId());
-        incoming.setScala(isBlank(incoming.getScala()) ? aggregate.position().getScala() : incoming.getScala());
-        incoming.setInterno(incoming.getInterno() == null ? aggregate.position().getInterno() : incoming.getInterno());
+        // Subentro guidato: il nuovo soggetto eredita sempre la stessa unita' del precedente.
+        // Non consentiamo subentro "traslato" su altra unita' nello stesso comando.
+        incoming.setUnitaImmobiliareId(aggregate.position().getUnitaImmobiliareId());
+        incoming.setScala(aggregate.position().getScala());
+        incoming.setInterno(aggregate.position().getInterno());
         incoming.setConfig(incoming.getConfig() == null
                 ? cloneCondominoConfig(aggregate.position().getConfig())
                 : incoming.getConfig());
         incoming.setVersamenti(new ArrayList<>());
-        incoming.setDataIngresso(subentroAt);
+        incoming.setDataIngresso(normalizedSubentroAt);
         incoming.setDataUscita(null);
         incoming.setMotivoUscita(null);
         incoming.setPrecedenteCondominoId(previousPositionId);
@@ -285,13 +308,15 @@ public class CondominoService {
         StableRootWriteResult rootWrite = resolveOrCreateStableRootForCreate(exercise, incoming);
         CondominoRoot stableRoot = rootWrite.root();
         ensureUniquePositionOnExercise(exercise.getId(), stableRoot.getId(), null);
+        UnitaImmobiliare unita = resolveOrCreateUnitaForPosition(exercise, incoming);
 
         Condomino previousPosition = aggregate.position();
         previousPosition.setStatoPosizione(Condomino.PosizioneStato.CESSATO);
-        previousPosition.setDataUscita(subentroAt.minusMillis(1));
+        previousPosition.setDataUscita(normalizedSubentroAt.minusMillis(1));
         previousPosition.setMotivoUscita("subentro");
 
-        Condomino createdPosition = buildPositionForCreate(incoming, exercise, stableRoot);
+        Condomino createdPosition = buildPositionForCreate(incoming, exercise, stableRoot, unita);
+        validateUnitaTitolaritaOverlap(createdPosition, null);
         normalizeFinancialFieldsForCreate(createdPosition);
         Condomino savedIncoming = condominoRepository.save(createdPosition);
 
@@ -324,6 +349,7 @@ public class CondominoService {
         Condomino existing = loadAdminOwnedPosition(condominoId, adminKeycloakUserId);
         final Condomino.Versamento normalized = normalizeNewVersamento(versamento);
         validateVersamento(normalized);
+        validateVersamentoRata(existing, normalized);
 
         long changed = condominoRepository.addVersamentoByIdAndCondominio(
                 existing.getId(),
@@ -333,6 +359,7 @@ public class CondominoService {
             throw new NotFoundException("condomino");
         }
         applyVersamentoResiduoDelta(existing.getId(), existing.getIdCondominio(), normalized.getImporto());
+        recalcAndPersistRateProgress(existing.getId(), existing.getIdCondominio());
     }
 
     /**
@@ -354,6 +381,7 @@ public class CondominoService {
 
         Condomino.Versamento updated = normalizeUpdatedVersamento(old, payload, versamentoId);
         validateVersamento(updated);
+        validateVersamentoRata(existing, updated);
 
         Query query = new Query(
                 Criteria.where("_id").is(existing.getId())
@@ -368,6 +396,7 @@ public class CondominoService {
         final double oldImporto = old.getImporto() == null ? 0d : old.getImporto();
         final double newImporto = updated.getImporto() == null ? 0d : updated.getImporto();
         applyVersamentoResiduoDelta(existing.getId(), existing.getIdCondominio(), newImporto - oldImporto);
+        recalcAndPersistRateProgress(existing.getId(), existing.getIdCondominio());
     }
 
     /**
@@ -392,6 +421,186 @@ public class CondominoService {
         }
         final double oldImporto = old.getImporto() == null ? 0d : old.getImporto();
         applyVersamentoResiduoDelta(existing.getId(), existing.getIdCondominio(), -oldImporto);
+        recalcAndPersistRateProgress(existing.getId(), existing.getIdCondominio());
+    }
+
+    /** Add rata su posizione esercizio (solo admin owner). */
+    @Transactional
+    public void addRata(String condominoId, Condomino.Config.Rata rata, String adminKeycloakUserId) throws ApiException {
+        Condomino existing = loadAdminOwnedPosition(condominoId, adminKeycloakUserId);
+        Condomino.Config.Rata normalized = normalizeNewRata(rata);
+        validateRata(normalized);
+        ensureConfig(existing);
+        List<Condomino.Config.Rata> current = existing.getConfig().getRate() == null
+                ? new ArrayList<>()
+                : new ArrayList<>(existing.getConfig().getRate());
+        current.add(normalized);
+        existing.getConfig().setRate(current);
+        List<Condomino.Config.Rata> recalculated = recalculateRateProgress(existing);
+        updateRateList(existing.getId(), existing.getIdCondominio(), recalculated);
+    }
+
+    /** Update rata esistente con riallineamento stato/incassato. */
+    @Transactional
+    public void updateRata(
+            String condominoId,
+            String rataId,
+            Condomino.Config.Rata rata,
+            String adminKeycloakUserId) throws ApiException {
+        Condomino existing = loadAdminOwnedPosition(condominoId, adminKeycloakUserId);
+        ensureConfig(existing);
+        List<Condomino.Config.Rata> current = existing.getConfig().getRate();
+        if (current == null || current.isEmpty()) {
+            throw new NotFoundException("rata");
+        }
+        boolean found = false;
+        List<Condomino.Config.Rata> replaced = new ArrayList<>();
+        for (Condomino.Config.Rata item : current) {
+            if (item == null || item.getId() == null || !rataId.equals(item.getId())) {
+                replaced.add(item);
+                continue;
+            }
+            Condomino.Config.Rata normalized = normalizeUpdatedRata(item, rata, rataId);
+            validateRata(normalized);
+            replaced.add(normalized);
+            found = true;
+        }
+        if (!found) {
+            throw new NotFoundException("rata");
+        }
+        existing.getConfig().setRate(replaced);
+        List<Condomino.Config.Rata> recalculated = recalculateRateProgress(existing);
+        updateRateList(existing.getId(), existing.getIdCondominio(), recalculated);
+    }
+
+    /** Delete rata esistente con riallineamento stato/incassato delle rimanenti. */
+    @Transactional
+    public void deleteRata(String condominoId, String rataId, String adminKeycloakUserId) throws ApiException {
+        Condomino existing = loadAdminOwnedPosition(condominoId, adminKeycloakUserId);
+        ensureConfig(existing);
+        List<Condomino.Config.Rata> current = existing.getConfig().getRate();
+        if (current == null || current.isEmpty()) {
+            throw new NotFoundException("rata");
+        }
+        List<Condomino.Config.Rata> filtered = new ArrayList<>();
+        boolean removed = false;
+        for (Condomino.Config.Rata item : current) {
+            if (item != null && item.getId() != null && rataId.equals(item.getId())) {
+                removed = true;
+                continue;
+            }
+            filtered.add(item);
+        }
+        if (!removed) {
+            throw new NotFoundException("rata");
+        }
+        existing.getConfig().setRate(filtered);
+        List<Condomino.Config.Rata> recalculated = recalculateRateProgress(existing);
+        updateRateList(existing.getId(), existing.getIdCondominio(), recalculated);
+    }
+
+    /**
+     * Piano rate esercizio:
+     * genera rate per tutte le posizioni attive dell'esercizio.
+     * Strategia: ripartizione uguale dell'importo totale per template.
+     */
+    @Transactional
+    public void applyRatePlanToExercise(
+            String idCondominio,
+            RatePlanRequest request,
+            String adminKeycloakUserId) throws ApiException {
+        esercizioGuardService.requireOwnedOpenExercise(idCondominio, adminKeycloakUserId);
+        if (request == null || request.getRate() == null || request.getRate().isEmpty()) {
+            throw new ValidationFailedException("validation.required.ratePlan.rate");
+        }
+        List<Condomino> positions = condominoRepository.findByIdCondominio(idCondominio)
+                .stream()
+                .filter(position -> isActiveState(resolvePositionState(position)))
+                .toList();
+        if (positions.isEmpty()) {
+            throw new ValidationFailedException("validation.required.ratePlan.activePositions");
+        }
+
+        final int size = positions.size();
+        for (RatePlanRequest.Template template : request.getRate()) {
+            validateRateTemplate(template);
+            double total = template.getImportoTotale() == null ? 0d : template.getImportoTotale();
+            final double base = round2(total / size);
+            double allocated = 0d;
+            for (int i = 0; i < size; i++) {
+                Condomino position = positions.get(i);
+                ensureConfig(position);
+                List<Condomino.Config.Rata> rate = position.getConfig().getRate() == null
+                        ? new ArrayList<>()
+                        : new ArrayList<>(position.getConfig().getRate());
+                final double amount = i == size - 1 ? round2(total - allocated) : base;
+                allocated += (i == size - 1 ? 0d : amount);
+
+                Condomino.Config.Rata rata = new Condomino.Config.Rata();
+                rata.setId(UUID.randomUUID().toString());
+                rata.setCodice(template.getCodice().trim());
+                rata.setDescrizione(normalizeBlank(template.getDescrizione()));
+                rata.setTipo(template.getTipo() == null
+                        ? Condomino.Config.Rata.Tipo.ORDINARIA
+                        : template.getTipo().toRateTipo());
+                rata.setScadenza(template.getScadenza());
+                rata.setImporto(round2(amount));
+                rata.setIncassato(0d);
+                rata.setStato(resolveRataStato(0d, amount, template.getScadenza()));
+                rata.setImporti(Collections.emptyList());
+                rate.add(rata);
+                position.getConfig().setRate(rate);
+            }
+        }
+
+        for (Condomino position : positions) {
+            List<Condomino.Config.Rata> recalculated = recalculateRateProgress(position);
+            updateRateList(position.getId(), idCondominio, recalculated);
+        }
+    }
+
+    /** Estratto conto posizione con focus sul ciclo rate/incassi. */
+    public EstrattoContoResource getEstrattoConto(String condominoId, String requesterKeycloakUserId) throws ApiException {
+        Optional<CondominoResource> visible = getCondominoById(condominoId, requesterKeycloakUserId);
+        if (visible.isEmpty()) {
+            throw new NotFoundException("condomino");
+        }
+        Condomino position = condominoRepository.findById(condominoId)
+                .orElseThrow(() -> new NotFoundException("condomino"));
+        List<Condomino.Config.Rata> rates = recalculateRateProgress(position);
+        double totaleRate = 0d;
+        double totaleIncassatoRate = 0d;
+        List<EstrattoContoResource.RataDettaglio> dettagli = new ArrayList<>();
+        for (Condomino.Config.Rata rata : rates) {
+            if (rata == null) {
+                continue;
+            }
+            final double due = round2(rata.getImporto() == null ? 0d : rata.getImporto());
+            final double paid = round2(rata.getIncassato() == null ? 0d : rata.getIncassato());
+            totaleRate += due;
+            totaleIncassatoRate += paid;
+            EstrattoContoResource.RataDettaglio row = new EstrattoContoResource.RataDettaglio();
+            row.setId(rata.getId());
+            row.setCodice(rata.getCodice());
+            row.setDescrizione(rata.getDescrizione());
+            row.setTipo(rata.getTipo() == null ? "" : rata.getTipo().name());
+            row.setStato(rata.getStato() == null ? "" : rata.getStato().name());
+            row.setScadenza(rata.getScadenza() == null ? null : rata.getScadenza().toString());
+            row.setImporto(due);
+            row.setIncassato(paid);
+            row.setScoperto(round2(Math.max(0d, due - paid)));
+            dettagli.add(row);
+        }
+        final double totalVersamenti = sumVersamenti(position.getVersamenti());
+        EstrattoContoResource response = new EstrattoContoResource();
+        response.setCondominoId(position.getId());
+        response.setIdCondominio(position.getIdCondominio());
+        response.setTotaleRate(round2(totaleRate));
+        response.setTotaleIncassatoRate(round2(totaleIncassatoRate));
+        response.setScopertoRate(round2(Math.max(0d, totaleRate - totaleIncassatoRate)));
+        response.setTotaleVersamenti(round2(totalVersamenti));
+        response.setRate(dettagli);
+        return response;
     }
 
     private List<CondominoResource> toResources(List<Condomino> positions) {
@@ -432,6 +641,8 @@ public class CondominoService {
         resource.setMotivoUscita(position.getMotivoUscita());
         resource.setPrecedenteCondominoId(position.getPrecedenteCondominoId());
         resource.setSuccessivoCondominoId(position.getSuccessivoCondominoId());
+        resource.setUnitaImmobiliareId(position.getUnitaImmobiliareId());
+        resource.setTitolaritaTipo(position.getTitolaritaTipo());
         resource.setKeycloakUserId(resolveSnapshotString(
                 position.getKeycloakUserId(),
                 root == null ? null : root.getKeycloakUserId()));
@@ -584,14 +795,22 @@ public class CondominoService {
         }
     }
 
-    private Condomino buildPositionForCreate(CondominoResource resource, Condominio exercise, CondominoRoot stableRoot) {
+    private Condomino buildPositionForCreate(
+            CondominoResource resource,
+            Condominio exercise,
+            CondominoRoot stableRoot,
+            UnitaImmobiliare unita) {
         Condomino position = new Condomino();
         position.setId(null);
         position.setVersion(null);
         position.setCondominoRootId(stableRoot.getId());
         position.setIdCondominio(exercise.getId());
-        position.setScala(normalizeBlank(resource.getScala()));
-        position.setInterno(resource.getInterno() == null ? 0L : resource.getInterno());
+        position.setUnitaImmobiliareId(unita == null ? null : unita.getId());
+        position.setTitolaritaTipo(resolveTitolaritaTipo(resource));
+        position.setScala(unita == null ? normalizeBlank(resource.getScala()) : unita.getScala());
+        position.setInterno(unita == null
+                ? (resource.getInterno() == null ? 0L : resource.getInterno())
+                : parseLongOrZero(unita.getInterno()));
         position.setAnno(exercise.getAnno());
         position.setStatoPosizione(resolveCreateState(resource));
         position.setDataIngresso(resolveEntryInstant(resource.getDataIngresso(), exercise));
@@ -607,14 +826,25 @@ public class CondominoService {
         return position;
     }
 
-    private Condomino buildPositionForUpdate(Condomino existing, CondominoResource resource) {
+    private Condomino buildPositionForUpdate(
+            Condomino existing,
+            CondominoResource resource,
+            UnitaImmobiliare unita) {
         Condomino position = new Condomino();
         position.setId(existing.getId());
         position.setVersion(existing.getVersion());
         position.setCondominoRootId(existing.getCondominoRootId());
         position.setIdCondominio(existing.getIdCondominio());
-        position.setScala(normalizeBlank(resource.getScala()));
-        position.setInterno(resource.getInterno() == null ? existing.getInterno() : resource.getInterno());
+        position.setUnitaImmobiliareId(unita == null ? existing.getUnitaImmobiliareId() : unita.getId());
+        position.setTitolaritaTipo(resource.getTitolaritaTipo() == null
+                ? (existing.getTitolaritaTipo() == null
+                        ? Condomino.TitolaritaTipo.PROPRIETARIO
+                        : existing.getTitolaritaTipo())
+                : resource.getTitolaritaTipo());
+        position.setScala(unita == null ? normalizeBlank(resource.getScala()) : unita.getScala());
+        position.setInterno(unita == null
+                ? (resource.getInterno() == null ? existing.getInterno() : resource.getInterno())
+                : parseLongOrZero(unita.getInterno()));
         position.setAnno(existing.getAnno());
         position.setStatoPosizione(resolveUpdateState(existing, resource));
         position.setDataIngresso(resolveUpdateEntryInstant(existing, resource));
@@ -652,6 +882,66 @@ public class CondominoService {
         throw new ValidationFailedException("validation.duplicate.condomino.position");
     }
 
+    private UnitaImmobiliare resolveOrCreateUnitaForPosition(
+            Condominio exercise,
+            CondominoResource resource) throws ValidationFailedException, NotFoundException {
+        if (exercise == null || exercise.getCondominioRootId() == null || exercise.getCondominioRootId().isBlank()) {
+            throw new ValidationFailedException("validation.required.condomino.condominioRootId");
+        }
+        final String condominioRootId = exercise.getCondominioRootId();
+        final String explicitUnitaId = normalizeBlank(resource.getUnitaImmobiliareId());
+        if (explicitUnitaId != null) {
+            return unitaImmobiliareRepository.findByIdAndCondominioRootId(explicitUnitaId, condominioRootId)
+                    .orElseThrow(() -> new NotFoundException("unitaImmobiliare"));
+        }
+
+        final String scala = normalizeBlank(resource.getScala());
+        final String interno = resource.getInterno() == null ? null : resource.getInterno().toString();
+        if (scala == null || interno == null || interno.isBlank()) {
+            throw new ValidationFailedException("validation.required.condomino.unitaImmobiliare");
+        }
+        return unitaImmobiliareRepository
+                .findByCondominioRootIdAndScalaAndInterno(condominioRootId, scala, interno)
+                .orElseGet(() -> {
+                    UnitaImmobiliare created = new UnitaImmobiliare();
+                    created.setCondominioRootId(condominioRootId);
+                    created.setScala(scala);
+                    created.setInterno(interno);
+                    created.setCodice(scala + "-" + interno);
+                    created.setCreatedAt(Instant.now());
+                    created.setUpdatedAt(Instant.now());
+                    return unitaImmobiliareRepository.save(created);
+                });
+    }
+
+    private void validateUnitaTitolaritaOverlap(Condomino candidate, String excludePositionId)
+            throws ValidationFailedException {
+        final String unitId = normalizeBlank(candidate.getUnitaImmobiliareId());
+        if (unitId == null) {
+            return;
+        }
+        final List<Condomino> positions = condominoRepository.findByIdCondominio(candidate.getIdCondominio());
+        final Instant candidateStart = candidate.getDataIngresso() == null ? Instant.EPOCH : candidate.getDataIngresso();
+        final Instant candidateEnd = candidate.getDataUscita() == null ? Instant.MAX : candidate.getDataUscita();
+        for (Condomino existing : positions) {
+            if (existing == null || existing.getUnitaImmobiliareId() == null) {
+                continue;
+            }
+            if (!unitId.equals(existing.getUnitaImmobiliareId())) {
+                continue;
+            }
+            if (excludePositionId != null && excludePositionId.equals(existing.getId())) {
+                continue;
+            }
+            final Instant existingStart = existing.getDataIngresso() == null ? Instant.EPOCH : existing.getDataIngresso();
+            final Instant existingEnd = existing.getDataUscita() == null ? Instant.MAX : existing.getDataUscita();
+            if (candidateStart.isAfter(existingEnd) || existingStart.isAfter(candidateEnd)) {
+                continue;
+            }
+            throw new ValidationFailedException("validation.overlap.condomino.unitaImmobiliare");
+        }
+    }
+
     private void validateAllowedCondominoRole(String appRole) throws ValidationFailedException {
         if (appRole == null) {
             return;
@@ -678,6 +968,11 @@ public class CondominoService {
         if (resource.getIdCondominio() == null || resource.getIdCondominio().isBlank()) {
             throw new ValidationFailedException("validation.required.condomino.idCondominio");
         }
+        if ((resource.getUnitaImmobiliareId() == null || resource.getUnitaImmobiliareId().isBlank())
+                && (resource.getScala() == null || resource.getScala().isBlank()
+                        || resource.getInterno() == null)) {
+            throw new ValidationFailedException("validation.required.condomino.unitaImmobiliare");
+        }
         if (resource.getSaldoIniziale() != null
                 && (resource.getSaldoIniziale().isNaN() || resource.getSaldoIniziale().isInfinite())) {
             throw new ValidationFailedException("validation.invalid.condomino.saldoIniziale");
@@ -694,6 +989,12 @@ public class CondominoService {
         return isActiveState(resource.getStatoPosizione())
                 ? Condomino.PosizioneStato.ATTIVO
                 : Condomino.PosizioneStato.CESSATO;
+    }
+
+    private Condomino.TitolaritaTipo resolveTitolaritaTipo(CondominoResource resource) {
+        return resource.getTitolaritaTipo() == null
+                ? Condomino.TitolaritaTipo.PROPRIETARIO
+                : resource.getTitolaritaTipo();
     }
 
     private Condomino.PosizioneStato resolveUpdateState(Condomino existing, CondominoResource resource) {
@@ -717,6 +1018,12 @@ public class CondominoService {
         if (incoming != null) {
             return incoming;
         }
+        // Default coerente di dominio:
+        // una posizione creata senza data esplicita e' valida dall'inizio esercizio,
+        // non dall'istante tecnico della create API.
+        if (exercise != null && exercise.getDataInizio() != null) {
+            return exercise.getDataInizio();
+        }
         return Instant.now();
     }
 
@@ -731,6 +1038,17 @@ public class CondominoService {
         return value;
     }
 
+    private Instant normalizeSubentroInstant(Condomino previousPosition, Instant requestedSubentroAt) {
+        if (requestedSubentroAt == null) {
+            return Instant.now();
+        }
+        final Instant ingresso = previousPosition == null ? null : previousPosition.getDataIngresso();
+        if (ingresso == null) {
+            return requestedSubentroAt;
+        }
+        return requestedSubentroAt.isBefore(ingresso) ? ingresso : requestedSubentroAt;
+    }
+
     private Instant resolveUpdateEntryInstant(Condomino existing, CondominoResource resource) {
         return resource.getDataIngresso() == null ? existing.getDataIngresso() : resource.getDataIngresso();
     }
@@ -743,7 +1061,7 @@ public class CondominoService {
             throws ValidationFailedException {
         final Instant effectiveExit = exitAt == null ? Instant.now() : exitAt;
         final Instant ingresso = position.getDataIngresso();
-        if (ingresso != null && effectiveExit.isBefore(ingresso)) {
+        if (ingresso != null && effectiveExit.isBefore(ingresso) && !isSameUtcDay(effectiveExit, ingresso)) {
             throw new ValidationFailedException("validation.invalid.condomino.dataUscitaBeforeIngresso");
         }
         if (exercise.getDataInizio() != null && effectiveExit.isBefore(exercise.getDataInizio())) {
@@ -779,6 +1097,7 @@ public class CondominoService {
         resource.setId(null);
         resource.setVersion(null);
         resource.setCondominoRootId(normalizeBlank(resource.getCondominoRootId()));
+        resource.setUnitaImmobiliareId(normalizeBlank(resource.getUnitaImmobiliareId()));
         resource.setSuccessivoCondominoId(normalizeBlank(resource.getSuccessivoCondominoId()));
         resource.setPrecedenteCondominoId(normalizeBlank(resource.getPrecedenteCondominoId()));
     }
@@ -881,6 +1200,8 @@ public class CondominoService {
         target.setMotivoUscita(aggregate.position().getMotivoUscita());
         target.setPrecedenteCondominoId(aggregate.position().getPrecedenteCondominoId());
         target.setSuccessivoCondominoId(aggregate.position().getSuccessivoCondominoId());
+        target.setUnitaImmobiliareId(aggregate.position().getUnitaImmobiliareId());
+        target.setTitolaritaTipo(aggregate.position().getTitolaritaTipo());
         target.setConfig(aggregate.position().getConfig());
         target.setVersamenti(aggregate.position().getVersamenti());
         target.setSaldoIniziale(aggregate.position().getSaldoIniziale());
@@ -974,6 +1295,26 @@ public class CondominoService {
         }
     }
 
+    private void validateVersamentoRata(Condomino existing, Condomino.Versamento versamento)
+            throws ValidationFailedException {
+        if (versamento.getRataId() == null || versamento.getRataId().isBlank()) {
+            return;
+        }
+        final List<Condomino.Config.Rata> rate = existing.getConfig() == null
+                ? null
+                : existing.getConfig().getRate();
+        if (rate == null || rate.isEmpty()) {
+            throw new ValidationFailedException("validation.notfound.versamento.rata");
+        }
+        final String targetId = versamento.getRataId().trim();
+        for (Condomino.Config.Rata item : rate) {
+            if (item != null && item.getId() != null && targetId.equals(item.getId())) {
+                return;
+            }
+        }
+        throw new ValidationFailedException("validation.notfound.versamento.rata");
+    }
+
     private Condomino.Versamento findVersamento(Condomino condomino, String versamentoId) {
         if (condomino.getVersamenti() == null || condomino.getVersamenti().isEmpty()) {
             return null;
@@ -996,6 +1337,219 @@ public class CondominoService {
         final double rounded = round2(delta);
         condominoRepository.incResiduoByIdAndCondominio(condominoId, idCondominio, rounded);
         condominioRepository.incResiduoById(idCondominio, rounded);
+    }
+
+    private void recalcAndPersistRateProgress(String condominoId, String idCondominio) {
+        Condomino position = condominoRepository.findById(condominoId).orElse(null);
+        if (position == null || !idCondominio.equals(position.getIdCondominio())) {
+            return;
+        }
+        List<Condomino.Config.Rata> recalculated = recalculateRateProgress(position);
+        updateRateList(condominoId, idCondominio, recalculated);
+    }
+
+    private void updateRateList(String condominoId, String idCondominio, List<Condomino.Config.Rata> rates) {
+        Query query = new Query(
+                Criteria.where("_id").is(condominoId)
+                        .and("idCondominio").is(idCondominio));
+        Update update = new Update().set("config.rate", rates);
+        mongoTemplate.updateFirst(query, update, Condomino.class);
+    }
+
+    private List<Condomino.Config.Rata> recalculateRateProgress(Condomino position) {
+        ensureConfig(position);
+        final List<Condomino.Config.Rata> source = position.getConfig().getRate() == null
+                ? new ArrayList<>()
+                : new ArrayList<>(position.getConfig().getRate());
+        if (source.isEmpty()) {
+            return source;
+        }
+
+        // Normalizziamo prima le rate (id/importo/scadenza) per avere base consistente.
+        final List<Condomino.Config.Rata> rates = new ArrayList<>();
+        for (Condomino.Config.Rata rate : source) {
+            Condomino.Config.Rata normalized = normalizeUpdatedRata(rate, rate, rate == null ? null : rate.getId());
+            if (normalized == null) {
+                continue;
+            }
+            rates.add(normalized);
+        }
+        final List<String> validRateIds = rates.stream()
+                .map(Condomino.Config.Rata::getId)
+                .filter(value -> value != null && !value.isBlank())
+                .toList();
+
+        final Map<String, Double> paidByRate = new HashMap<>();
+        double unassignedPayments = 0d;
+        if (position.getVersamenti() != null) {
+            final List<Condomino.Versamento> versamenti = new ArrayList<>(position.getVersamenti());
+            versamenti.sort(Comparator.comparing(v -> v.getDate() == null ? Instant.EPOCH : v.getDate()));
+            for (Condomino.Versamento v : versamenti) {
+                if (v == null || v.getImporto() == null || v.getImporto() <= 0d) {
+                    continue;
+                }
+                final double amount = round2(v.getImporto());
+                if (v.getRataId() != null && !v.getRataId().isBlank()) {
+                    if (validRateIds.contains(v.getRataId())) {
+                        paidByRate.merge(v.getRataId(), amount, Double::sum);
+                    } else {
+                        // Rata non più presente: rientra nell'imputazione automatica FIFO.
+                        unassignedPayments += amount;
+                    }
+                } else {
+                    unassignedPayments += amount;
+                }
+            }
+        }
+
+        // Imputazione automatica FIFO sul residuo rate in ordine scadenza.
+        final List<Condomino.Config.Rata> ordered = new ArrayList<>(rates);
+        ordered.sort(Comparator.comparing(r -> r.getScadenza() == null ? Instant.MAX : r.getScadenza()));
+        for (Condomino.Config.Rata rata : ordered) {
+            final String id = rata.getId();
+            final double due = round2(rata.getImporto() == null ? 0d : rata.getImporto());
+            final double already = round2(paidByRate.getOrDefault(id, 0d));
+            final double remainingOnRate = Math.max(0d, round2(due - already));
+            if (remainingOnRate <= 0d || unassignedPayments <= 0d) {
+                continue;
+            }
+            final double auto = Math.min(remainingOnRate, unassignedPayments);
+            paidByRate.put(id, round2(already + auto));
+            unassignedPayments = round2(unassignedPayments - auto);
+        }
+
+        final Instant now = Instant.now();
+        final List<Condomino.Config.Rata> result = new ArrayList<>();
+        for (Condomino.Config.Rata rata : rates) {
+            final double due = round2(rata.getImporto() == null ? 0d : rata.getImporto());
+            final double paidRaw = round2(paidByRate.getOrDefault(rata.getId(), 0d));
+            final double paid = Math.min(due, paidRaw);
+            rata.setIncassato(paid);
+            rata.setStato(resolveRataStato(paid, due, rata.getScadenza() == null ? now : rata.getScadenza()));
+            result.add(rata);
+        }
+        result.sort(Comparator.comparing(r -> r.getScadenza() == null ? Instant.MAX : r.getScadenza()));
+        return result;
+    }
+
+    private Condomino.Config.Rata normalizeNewRata(Condomino.Config.Rata payload) {
+        Condomino.Config.Rata rata = payload == null ? new Condomino.Config.Rata() : payload;
+        if (rata.getId() == null || rata.getId().isBlank()) {
+            rata.setId(UUID.randomUUID().toString());
+        }
+        if (rata.getTipo() == null) {
+            rata.setTipo(Condomino.Config.Rata.Tipo.ORDINARIA);
+        }
+        if (rata.getScadenza() == null) {
+            rata.setScadenza(Instant.now());
+        }
+        final double due = round2(rata.getImporto() == null ? 0d : rata.getImporto());
+        final double paid = round2(rata.getIncassato() == null ? 0d : rata.getIncassato());
+        rata.setImporto(due);
+        rata.setIncassato(Math.min(due, paid));
+        rata.setCodice(normalizeBlank(rata.getCodice()));
+        rata.setDescrizione(normalizeBlank(rata.getDescrizione()));
+        rata.setImporti(rata.getImporti() == null ? Collections.emptyList() : rata.getImporti());
+        rata.setStato(resolveRataStato(rata.getIncassato(), due, rata.getScadenza()));
+        return rata;
+    }
+
+    private Condomino.Config.Rata normalizeUpdatedRata(
+            Condomino.Config.Rata old,
+            Condomino.Config.Rata payload,
+            String rataId) {
+        Condomino.Config.Rata rata = payload == null ? new Condomino.Config.Rata() : payload;
+        rata.setId((rataId == null || rataId.isBlank()) ? (old == null ? UUID.randomUUID().toString() : old.getId()) : rataId);
+        if (rata.getTipo() == null) {
+            rata.setTipo(old == null || old.getTipo() == null
+                    ? Condomino.Config.Rata.Tipo.ORDINARIA
+                    : old.getTipo());
+        }
+        if (rata.getScadenza() == null) {
+            rata.setScadenza(old == null ? Instant.now() : old.getScadenza());
+        }
+        if (rata.getImporto() == null) {
+            rata.setImporto(old == null ? 0d : old.getImporto());
+        }
+        if (rata.getIncassato() == null) {
+            rata.setIncassato(old == null ? 0d : old.getIncassato());
+        }
+        rata.setCodice(normalizeBlank(rata.getCodice() == null && old != null ? old.getCodice() : rata.getCodice()));
+        rata.setDescrizione(normalizeBlank(rata.getDescrizione() == null && old != null ? old.getDescrizione() : rata.getDescrizione()));
+        if (rata.getImporti() == null) {
+            rata.setImporti(old == null || old.getImporti() == null ? Collections.emptyList() : old.getImporti());
+        }
+        final double due = round2(rata.getImporto() == null ? 0d : rata.getImporto());
+        final double paid = round2(rata.getIncassato() == null ? 0d : rata.getIncassato());
+        rata.setImporto(due);
+        rata.setIncassato(Math.min(due, paid));
+        rata.setStato(resolveRataStato(rata.getIncassato(), due, rata.getScadenza()));
+        return rata;
+    }
+
+    private void validateRata(Condomino.Config.Rata rata) throws ValidationFailedException {
+        if (rata.getCodice() == null || rata.getCodice().isBlank()) {
+            throw new ValidationFailedException("validation.required.rata.codice");
+        }
+        if (rata.getImporto() == null || !Double.isFinite(rata.getImporto()) || rata.getImporto() <= 0d) {
+            throw new ValidationFailedException("validation.invalid.rata.importo");
+        }
+        if (rata.getScadenza() == null) {
+            throw new ValidationFailedException("validation.required.rata.scadenza");
+        }
+    }
+
+    private void validateRateTemplate(RatePlanRequest.Template template) throws ValidationFailedException {
+        if (template == null) {
+            throw new ValidationFailedException("validation.required.ratePlan.template");
+        }
+        if (template.getCodice() == null || template.getCodice().isBlank()) {
+            throw new ValidationFailedException("validation.required.ratePlan.template.codice");
+        }
+        if (template.getImportoTotale() == null || !Double.isFinite(template.getImportoTotale()) || template.getImportoTotale() <= 0d) {
+            throw new ValidationFailedException("validation.invalid.ratePlan.template.importoTotale");
+        }
+        if (template.getScadenza() == null) {
+            throw new ValidationFailedException("validation.required.ratePlan.template.scadenza");
+        }
+    }
+
+    private Condomino.Config.Rata.Stato resolveRataStato(double incassato, double importo, Instant scadenza) {
+        final double due = round2(importo);
+        final double paid = round2(incassato);
+        if (due <= 0d) {
+            return Condomino.Config.Rata.Stato.PAGATA;
+        }
+        if (paid >= due - 0.01d) {
+            return Condomino.Config.Rata.Stato.PAGATA;
+        }
+        if (paid > 0d) {
+            return Condomino.Config.Rata.Stato.PARZIALE;
+        }
+        if (scadenza != null && scadenza.isBefore(Instant.now())) {
+            return Condomino.Config.Rata.Stato.SCADUTA;
+        }
+        return Condomino.Config.Rata.Stato.APERTA;
+    }
+
+    private void ensureConfig(Condomino position) {
+        if (position.getConfig() == null) {
+            position.setConfig(new Condomino.Config());
+        }
+    }
+
+    private double sumVersamenti(List<Condomino.Versamento> versamenti) {
+        if (versamenti == null || versamenti.isEmpty()) {
+            return 0d;
+        }
+        double total = 0d;
+        for (Condomino.Versamento v : versamenti) {
+            if (v == null || v.getImporto() == null) {
+                continue;
+            }
+            total += v.getImporto();
+        }
+        return round2(total);
     }
 
     private Condomino.Config cloneCondominoConfig(Condomino.Config source) {
@@ -1081,6 +1635,23 @@ public class CondominoService {
 
     private double safeAmount(Double value) {
         return value == null ? 0d : value;
+    }
+
+    private long parseLongOrZero(String value) {
+        if (value == null) {
+            return 0L;
+        }
+        try {
+            return Long.parseLong(value.trim());
+        } catch (NumberFormatException ex) {
+            return 0L;
+        }
+    }
+
+    private boolean isSameUtcDay(Instant left, Instant right) {
+        final LocalDate leftDay = left.atOffset(ZoneOffset.UTC).toLocalDate();
+        final LocalDate rightDay = right.atOffset(ZoneOffset.UTC).toLocalDate();
+        return leftDay.equals(rightDay);
     }
 
     private record CondominoAggregate(Condomino position, CondominoRoot root) {

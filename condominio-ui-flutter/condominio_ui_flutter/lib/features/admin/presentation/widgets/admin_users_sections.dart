@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../registry/domain/condomino.dart';
+import '../../../registry/domain/unita_immobiliare.dart';
 import '../../application/admin_users_view_providers.dart';
 
 /// Banner errore del modulo gestione accessi.
@@ -41,10 +42,12 @@ class AdminUsersCreateCondominoCard extends ConsumerWidget {
     required this.cognomeCtrl,
     required this.emailCtrl,
     required this.telefonoCtrl,
+    required this.availableUnita,
+    required this.selectedUnitaImmobiliareId,
+    required this.onSelectedUnitaChanged,
     required this.scalaCtrl,
     required this.internoCtrl,
     required this.saldoInizialeCtrl,
-    required this.millesimiCtrl,
     required this.usernameCtrl,
     required this.passwordCtrl,
     required this.residente,
@@ -67,10 +70,12 @@ class AdminUsersCreateCondominoCard extends ConsumerWidget {
   final TextEditingController cognomeCtrl;
   final TextEditingController emailCtrl;
   final TextEditingController telefonoCtrl;
+  final List<UnitaImmobiliare> availableUnita;
+  final String? selectedUnitaImmobiliareId;
+  final ValueChanged<String?> onSelectedUnitaChanged;
   final TextEditingController scalaCtrl;
   final TextEditingController internoCtrl;
   final TextEditingController saldoInizialeCtrl;
-  final TextEditingController millesimiCtrl;
   final TextEditingController usernameCtrl;
   final TextEditingController passwordCtrl;
   final bool residente;
@@ -147,10 +152,12 @@ class AdminUsersCreateCondominoCard extends ConsumerWidget {
                             const SizedBox(height: 12),
                             _AdminUsersUnitFields(
                               compact: true,
+                              availableUnita: availableUnita,
+                              selectedUnitaImmobiliareId: selectedUnitaImmobiliareId,
+                              onSelectedUnitaChanged: onSelectedUnitaChanged,
                               scalaCtrl: scalaCtrl,
                               internoCtrl: internoCtrl,
                               saldoInizialeCtrl: saldoInizialeCtrl,
-                              millesimiCtrl: millesimiCtrl,
                             ),
                           ] else ...[
                             _AdminUsersNameFields(
@@ -167,10 +174,12 @@ class AdminUsersCreateCondominoCard extends ConsumerWidget {
                             const SizedBox(height: 12),
                             _AdminUsersUnitFields(
                               compact: false,
+                              availableUnita: availableUnita,
+                              selectedUnitaImmobiliareId: selectedUnitaImmobiliareId,
+                              onSelectedUnitaChanged: onSelectedUnitaChanged,
                               scalaCtrl: scalaCtrl,
                               internoCtrl: internoCtrl,
                               saldoInizialeCtrl: saldoInizialeCtrl,
-                              millesimiCtrl: millesimiCtrl,
                             ),
                           ],
                           const SizedBox(height: 12),
@@ -475,20 +484,46 @@ class _AdminUsersContactFields extends StatelessWidget {
 class _AdminUsersUnitFields extends StatelessWidget {
   const _AdminUsersUnitFields({
     required this.compact,
+    required this.availableUnita,
+    required this.selectedUnitaImmobiliareId,
+    required this.onSelectedUnitaChanged,
     required this.scalaCtrl,
     required this.internoCtrl,
     required this.saldoInizialeCtrl,
-    required this.millesimiCtrl,
   });
 
   final bool compact;
+  final List<UnitaImmobiliare> availableUnita;
+  final String? selectedUnitaImmobiliareId;
+  final ValueChanged<String?> onSelectedUnitaChanged;
   final TextEditingController scalaCtrl;
   final TextEditingController internoCtrl;
   final TextEditingController saldoInizialeCtrl;
-  final TextEditingController millesimiCtrl;
 
   @override
   Widget build(BuildContext context) {
+    final canUseSelectedUnit = availableUnita.any(
+      (unit) => unit.id == selectedUnitaImmobiliareId,
+    );
+    final unitDropdown = DropdownButtonFormField<String?>(
+      initialValue: canUseSelectedUnit ? selectedUnitaImmobiliareId : null,
+      decoration: const InputDecoration(
+        labelText: 'Unita immobiliare (opzionale)',
+      ),
+      items: [
+        const DropdownMenuItem<String?>(
+          value: null,
+          child: Text('Nessuna unita selezionata'),
+        ),
+        ...availableUnita.map(
+          (unit) => DropdownMenuItem<String?>(
+            value: unit.id,
+            child: Text(unit.label),
+          ),
+        ),
+      ],
+      onChanged: onSelectedUnitaChanged,
+    );
     final scalaField = TextFormField(
       controller: scalaCtrl,
       decoration: const InputDecoration(labelText: 'Scala'),
@@ -504,37 +539,33 @@ class _AdminUsersUnitFields extends StatelessWidget {
       validator: _decimalValidator,
       onChanged: (_) => _normalizeDecimalController(saldoInizialeCtrl),
     );
-    final millesimiField = TextFormField(
-      controller: millesimiCtrl,
-      decoration: const InputDecoration(labelText: 'Millesimi'),
-      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-      validator: _decimalValidator,
-      onChanged: (_) => _normalizeDecimalController(millesimiCtrl),
-    );
-
     if (compact) {
       return Column(
         children: [
+          unitDropdown,
+          const SizedBox(height: 12),
           scalaField,
           const SizedBox(height: 12),
           internoField,
           const SizedBox(height: 12),
           saldoField,
-          const SizedBox(height: 12),
-          millesimiField,
         ],
       );
     }
 
-    return Row(
+    return Column(
       children: [
-        Expanded(child: scalaField),
-        const SizedBox(width: 12),
-        Expanded(child: internoField),
-        const SizedBox(width: 12),
-        Expanded(child: saldoField),
-        const SizedBox(width: 12),
-        Expanded(child: millesimiField),
+        unitDropdown,
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(child: scalaField),
+            const SizedBox(width: 12),
+            Expanded(child: internoField),
+            const SizedBox(width: 12),
+            Expanded(child: saldoField),
+          ],
+        ),
       ],
     );
   }

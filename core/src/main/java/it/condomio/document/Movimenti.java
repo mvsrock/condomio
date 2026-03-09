@@ -13,6 +13,16 @@ import lombok.Data;
 @Data
 @Document(collection = "movimenti")
 public class Movimenti {
+    /**
+     * Tipo di riparto del movimento:
+     * - CONDOMINIALE: usa configurazioniSpesa + tabelle + millesimi.
+     * - INDIVIDUALE: usa direttamente ripartizioneCondomini passata dal client.
+     */
+    public enum RipartoTipo {
+        CONDOMINIALE,
+        INDIVIDUALE
+    }
+
     @Id
     private String id;
     @Version
@@ -21,6 +31,7 @@ public class Movimenti {
     private String idCondominio;
     @Indexed
     private String codiceSpesa;
+    private RipartoTipo tipoRiparto;
     private String descrizione;
     private Double importo;
     private Instant date;

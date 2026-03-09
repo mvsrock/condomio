@@ -312,9 +312,14 @@ class DocumentsMobileLayout extends ConsumerWidget {
                           separatorBuilder: (_, _) => const Divider(height: 1),
                           itemBuilder: (context, index) {
                             final movimento = movimenti[index];
+                            final individualLabel = movimento.tipoRiparto ==
+                                    MovimentoRipartoTipo.individuale
+                                ? ' - su ${_individualAssigneeLabel(movimento)}'
+                                : '';
                             return DocumentsMobileMovimentoTile(
                               title: movimento.descrizione,
-                              subtitle: 'Codice ${movimento.codiceSpesa}',
+                              subtitle:
+                                  'Codice ${movimento.codiceSpesa} - ${movimento.tipoRiparto.label}$individualLabel',
                               importo: movimento.importo,
                               onTap: () => onOpenMovimentoDetail(movimento),
                               onEdit: isReadOnly
@@ -368,4 +373,13 @@ class DocumentsMobileLayout extends ConsumerWidget {
       ),
     );
   }
+}
+
+String _individualAssigneeLabel(MovimentoModel movimento) {
+  if (movimento.ripartizioneCondomini.isEmpty) {
+    return 'n/d';
+  }
+  return movimento.ripartizioneCondomini.first.nominativo.trim().isEmpty
+      ? movimento.ripartizioneCondomini.first.idCondomino
+      : movimento.ripartizioneCondomini.first.nominativo;
 }

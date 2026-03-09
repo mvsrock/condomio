@@ -4,7 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../admin/application/admin_users_notifier.dart';
 import '../../../admin/domain/admin_user.dart';
 import '../../../condominio_selection/application/managed_condominio_notifier.dart';
+import '../../application/unita_immobiliari_notifier.dart';
 import '../../domain/condomino.dart';
+import '../../domain/unita_immobiliare.dart';
 import '../widgets/registry_condomino_sections.dart';
 
 /// Schermata dettaglio del condomino selezionato da anagrafica.
@@ -168,6 +170,8 @@ class _RegistryCondominoEditPageState
   late final TextEditingController _telefonoController;
   late final TextEditingController _saldoInizialeController;
   late final TextEditingController _keycloakUsernameController;
+  String? _selectedUnitaImmobiliareId;
+  late CondominoTitolaritaTipo _titolaritaTipo;
   bool _hasAppAccess = false;
   String? _selectedKeycloakUserId;
 
@@ -186,6 +190,8 @@ class _RegistryCondominoEditPageState
     _keycloakUsernameController = TextEditingController(
       text: widget.condomino.keycloakUsername ?? '',
     );
+    _selectedUnitaImmobiliareId = widget.condomino.unitaImmobiliareId;
+    _titolaritaTipo = widget.condomino.titolaritaTipo;
     _hasAppAccess = widget.condomino.hasAppAccess;
     _selectedKeycloakUserId = widget.condomino.keycloakUserId;
     Future.microtask(() => ref.read(adminUsersProvider.notifier).loadUsers());
@@ -209,6 +215,7 @@ class _RegistryCondominoEditPageState
     final keycloakUsers = ref.watch(
       adminUsersProvider.select((state) => state.items),
     );
+    final availableUnita = ref.watch(unitaImmobiliariItemsProvider);
     final isReadOnly = ref.watch(selectedManagedCondominioIsClosedProvider);
 
     return Scaffold(
@@ -287,10 +294,32 @@ class _RegistryCondominoEditPageState
                                   ),
                                   const SizedBox(height: 16),
                                   RegistryCondominoExerciseSection(
+                                    availableUnita: availableUnita,
+                                    selectedUnitaImmobiliareId:
+                                        _selectedUnitaImmobiliareId,
+                                    onSelectUnitaImmobiliare: (unitId) {
+                                      setState(
+                                        () => _selectedUnitaImmobiliareId = unitId,
+                                      );
+                                      if (unitId == null || unitId.isEmpty) {
+                                        return;
+                                      }
+                                      final selectedUnit = _findUnitaById(
+                                        availableUnita,
+                                        unitId,
+                                      );
+                                      if (selectedUnit == null) return;
+                                      _scalaController.text = selectedUnit.scala;
+                                      _internoController.text = selectedUnit.interno;
+                                    },
                                     scalaController: _scalaController,
                                     internoController: _internoController,
                                     saldoInizialeController:
                                         _saldoInizialeController,
+                                    titolaritaTipo: _titolaritaTipo,
+                                    onTitolaritaChanged: (value) => setState(
+                                      () => _titolaritaTipo = value,
+                                    ),
                                     decimalFieldValidator: _decimalField,
                                   ),
                                   const SizedBox(height: 16),
@@ -370,6 +399,13 @@ class _RegistryCondominoEditPageState
         saldoIniziale: double.parse(
           _saldoInizialeController.text.trim().replaceAll(',', '.'),
         ),
+        unitaImmobiliareId: (_selectedUnitaImmobiliareId == null ||
+                _selectedUnitaImmobiliareId!.trim().isEmpty)
+            ? null
+            : _selectedUnitaImmobiliareId,
+        clearUnitaImmobiliareId: _selectedUnitaImmobiliareId == null ||
+            _selectedUnitaImmobiliareId!.trim().isEmpty,
+        titolaritaTipo: _titolaritaTipo,
         hasAppAccess: _hasAppAccess,
         ruolo: resolvedRole,
         keycloakUsername: _hasAppAccess
@@ -380,6 +416,14 @@ class _RegistryCondominoEditPageState
         clearKeycloakUserId: !_hasAppAccess,
       ),
     );
+  }
+
+  UnitaImmobiliare? _findUnitaById(List<UnitaImmobiliare> items, String? id) {
+    if (id == null || id.isEmpty) return null;
+    for (final item in items) {
+      if (item.id == id) return item;
+    }
+    return null;
   }
 
   AdminUser? _findAdminUserById(List<AdminUser> users, String? id) {

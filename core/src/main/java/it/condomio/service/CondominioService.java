@@ -474,6 +474,8 @@ public class CondominioService {
         clone.setMotivoUscita(null);
         clone.setPrecedenteCondominoId(null);
         clone.setSuccessivoCondominoId(null);
+        clone.setUnitaImmobiliareId(source.getUnitaImmobiliareId());
+        clone.setTitolaritaTipo(source.getTitolaritaTipo());
         clone.setScala(source.getScala());
         clone.setInterno(source.getInterno());
         clone.setAnno(newExercise.getAnno());
