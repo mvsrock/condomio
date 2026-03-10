@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../domain/movimento_model.dart';
 import '../domain/condomino_document_model.dart';
 import 'documents_ui_notifier.dart';
 
@@ -11,12 +12,25 @@ class DocumentsCondominoQuotaSpesaRow {
     required this.descrizione,
     required this.data,
     required this.importo,
+    required this.importoMovimento,
+    required this.tipoRiparto,
+    required this.ripartizioneTabelle,
   });
 
   final String codiceSpesa;
   final String descrizione;
   final DateTime data;
   final double importo;
+  final double importoMovimento;
+  final MovimentoRipartoTipo tipoRiparto;
+  final List<RipartizioneTabellaModel> ripartizioneTabelle;
+
+  double get incidenzaPercentuale {
+    if (importoMovimento == 0) {
+      return 0;
+    }
+    return (importo / importoMovimento) * 100;
+  }
 }
 
 /// Totale aggregato per codice spesa nel dettaglio del condomino.
@@ -49,6 +63,9 @@ final documentsCondominoQuoteSpeseProvider =
               descrizione: movimento.descrizione,
               data: movimento.date,
               importo: quota.importo,
+              importoMovimento: movimento.importo,
+              tipoRiparto: movimento.tipoRiparto,
+              ripartizioneTabelle: movimento.ripartizioneTabelle,
             ),
           );
         }

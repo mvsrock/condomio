@@ -500,8 +500,16 @@ class _DocumentsCondominoDetailContent extends StatelessWidget {
                   dense: true,
                   contentPadding: EdgeInsets.zero,
                   title: Text('${quota.codiceSpesa} - ${quota.descrizione}'),
-                  subtitle: Text(_formatDate(quota.data)),
+                  subtitle: Text(
+                    '${_formatDate(quota.data)} - ${quota.tipoRiparto.label} '
+                    '(${quota.incidenzaPercentuale.toStringAsFixed(2)}%)',
+                  ),
                   trailing: Text(quota.importo.toStringAsFixed(2)),
+                  onTap: () => _showQuotaWhyDialog(
+                    context: context,
+                    quota: quota,
+                    condomino: selectedCondomino,
+                  ),
                 );
               },
             ),
@@ -689,4 +697,289 @@ String _formatDate(DateTime date) {
   final mm = local.month.toString().padLeft(2, '0');
   final yyyy = local.year.toString();
   return '$dd/$mm/$yyyy';
+}
+
+Future<void> _showQuotaWhyDialog({
+  required BuildContext context,
+  required DocumentsCondominoQuotaSpesaRow quota,
+  required CondominoDocumentModel condomino,
+}) {
+  const movementColor = Color(0xFF1D4ED8);
+  const tableColor = Color(0xFFB45309);
+  const milliColor = Color(0xFF374151);
+  const finalColor = Color(0xFF047857);
+  final computedShares = <double>[];
+  final detailWidgets = <Widget>[];
+
+  for (final table in quota.ripartizioneTabelle) {
+    TabellaConfigModel? cfg;
+    for (final item in condomino.config.tabelle) {
+      if (item.codiceTabella.trim().toLowerCase() ==
+          table.codice.trim().toLowerCase()) {
+        cfg = item;
+        break;
+      }
+    }
+    final tablePercent = quota.importoMovimento == 0
+        ? 0
+        : (table.importo / quota.importoMovimento) * 100;
+    if (cfg == null || cfg.denominatore == 0) {
+      detailWidgets.add(
+        Container(
+          width: double.infinity,
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: const Color(0xFFD9E2EC)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(table.codice, style: const TextStyle(fontWeight: FontWeight.w700)),
+              const SizedBox(height: 4),
+              Text.rich(
+                TextSpan(
+                  style: const TextStyle(color: Color(0xFF111827)),
+                  children: [
+                    const TextSpan(text: '1) Quota tabella: '),
+                    TextSpan(
+                      text: '${table.importo.toStringAsFixed(2)} (${tablePercent.toStringAsFixed(2)}%)',
+                      style: const TextStyle(color: tableColor, fontWeight: FontWeight.w700),
+                    ),
+                  ],
+                ),
+              ),
+              const Text('2) Millesimi condomino: non presenti su questa tabella'),
+              const Text.rich(
+                TextSpan(
+                  style: TextStyle(color: Color(0xFF111827)),
+                  children: [
+                    TextSpan(text: '3) Quota condomino su tabella: '),
+                    TextSpan(
+                      text: '0.00',
+                      style: TextStyle(color: finalColor, fontWeight: FontWeight.w700),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+      continue;
+    }
+    final percent = (cfg.numeratore / cfg.denominatore) * 100;
+    final share = table.importo * (cfg.numeratore / cfg.denominatore);
+    computedShares.add(share);
+    detailWidgets.add(
+      Container(
+        width: double.infinity,
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: const Color(0xFFD9E2EC)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(table.codice, style: const TextStyle(fontWeight: FontWeight.w700)),
+            const SizedBox(height: 4),
+            Text.rich(
+              TextSpan(
+                style: const TextStyle(color: Color(0xFF111827)),
+                children: [
+                  const TextSpan(text: '1) Quota tabella: '),
+                  TextSpan(
+                    text: '${table.importo.toStringAsFixed(2)} (= ${quota.importoMovimento.toStringAsFixed(2)} x ${tablePercent.toStringAsFixed(2)}%)',
+                    style: const TextStyle(color: tableColor, fontWeight: FontWeight.w700),
+                  ),
+                ],
+              ),
+            ),
+            Text.rich(
+              TextSpan(
+                style: const TextStyle(color: Color(0xFF111827)),
+                children: [
+                  const TextSpan(text: '2) Millesimi condomino: '),
+                  TextSpan(
+                    text: '${cfg.numeratore.toStringAsFixed(2)}/${cfg.denominatore.toStringAsFixed(2)}',
+                    style: const TextStyle(color: milliColor, fontWeight: FontWeight.w700),
+                  ),
+                  const TextSpan(text: ' (quota personale registrata su questa tabella)'),
+                ],
+              ),
+            ),
+            Text.rich(
+              TextSpan(
+                style: const TextStyle(color: Color(0xFF111827)),
+                children: [
+                  const TextSpan(text: '3) Quota condomino su tabella: '),
+                  TextSpan(
+                    text: table.importo.toStringAsFixed(2),
+                    style: const TextStyle(color: tableColor, fontWeight: FontWeight.w700),
+                  ),
+                  const TextSpan(text: ' x '),
+                  TextSpan(
+                    text: cfg.numeratore.toStringAsFixed(2),
+                    style: const TextStyle(color: milliColor, fontWeight: FontWeight.w700),
+                  ),
+                  const TextSpan(text: ' / '),
+                  TextSpan(
+                    text: cfg.denominatore.toStringAsFixed(2),
+                    style: const TextStyle(color: milliColor, fontWeight: FontWeight.w700),
+                  ),
+                  const TextSpan(text: ' = '),
+                  TextSpan(
+                    text: '${share.toStringAsFixed(2)} (${percent.toStringAsFixed(2)}%)',
+                    style: const TextStyle(color: finalColor, fontWeight: FontWeight.w700),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  final computedTotal = computedShares.fold<double>(0, (sum, value) => sum + value);
+  final computedRounded = double.parse(computedTotal.toStringAsFixed(2));
+  final delta = quota.importo - computedRounded;
+  return showDialog<void>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: const Text('Perche questa quota'),
+      content: SizedBox(
+        width: 640,
+        child: SingleChildScrollView(
+          child: SelectionArea(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+              Text('Spesa: ${quota.codiceSpesa} - ${quota.descrizione}'),
+              const SizedBox(height: 8),
+              Text('Tipo riparto: ${quota.tipoRiparto.label}'),
+              Text.rich(
+                TextSpan(
+                  style: const TextStyle(color: Color(0xFF111827)),
+                  children: [
+                    const TextSpan(text: 'Importo movimento: '),
+                    TextSpan(
+                      text: quota.importoMovimento.toStringAsFixed(2),
+                      style: const TextStyle(color: movementColor, fontWeight: FontWeight.w700),
+                    ),
+                  ],
+                ),
+              ),
+              Text.rich(
+                TextSpan(
+                  style: const TextStyle(color: Color(0xFF111827)),
+                  children: [
+                    TextSpan(text: 'Quota attribuita a ${condomino.nominativo}: '),
+                    TextSpan(
+                      text: quota.importo.toStringAsFixed(2),
+                      style: const TextStyle(color: finalColor, fontWeight: FontWeight.w700),
+                    ),
+                  ],
+                ),
+              ),
+              Text('Incidenza: ${quota.incidenzaPercentuale.toStringAsFixed(2)}%'),
+              const SizedBox(height: 10),
+              if (quota.tipoRiparto == MovimentoRipartoTipo.individuale)
+                const Text(
+                  'Riparto individuale: quota assegnata direttamente al condomino in fase di registrazione.',
+                )
+              else ...[
+                const Text(
+                  'Legenda numeri:',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 4),
+                Text.rich(
+                  const TextSpan(
+                    style: TextStyle(color: Color(0xFF111827)),
+                    children: [
+                      TextSpan(text: '- '),
+                      TextSpan(
+                        text: 'Quota tabella',
+                        style: TextStyle(color: tableColor, fontWeight: FontWeight.w700),
+                      ),
+                      TextSpan(
+                        text: ': valore preso dalla ripartizione del movimento su quella tabella.',
+                      ),
+                    ],
+                  ),
+                ),
+                Text.rich(
+                  const TextSpan(
+                    style: TextStyle(color: Color(0xFF111827)),
+                    children: [
+                      TextSpan(text: '- '),
+                      TextSpan(
+                        text: 'Millesimi',
+                        style: TextStyle(color: milliColor, fontWeight: FontWeight.w700),
+                      ),
+                      TextSpan(
+                        text: ': quota personale del condomino registrata per quella tabella.',
+                      ),
+                    ],
+                  ),
+                ),
+                Text.rich(
+                  const TextSpan(
+                    style: TextStyle(color: Color(0xFF111827)),
+                    children: [
+                      TextSpan(text: '- '),
+                      TextSpan(
+                        text: 'Quota condomino',
+                        style: TextStyle(color: finalColor, fontWeight: FontWeight.w700),
+                      ),
+                      TextSpan(
+                        text: ': risultato della formula quota tabella x millesimi.',
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 10),
+                const Text(
+                  'Dettaglio tabelle (base di calcolo):',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 6),
+                if (detailWidgets.isEmpty)
+                  const Text('Nessuna tabella disponibile nel movimento.')
+                else
+                  ...detailWidgets,
+                const SizedBox(height: 8),
+                Text(
+                  'Somma quote tabella calcolata: ${computedRounded.toStringAsFixed(2)}',
+                  style: const TextStyle(fontWeight: FontWeight.w700, color: finalColor),
+                ),
+                Text(
+                  'Quota salvata nel movimento: ${quota.importo.toStringAsFixed(2)}'
+                  '${delta.abs() <= 0.0001 ? '' : ' (delta arrotondamento ${delta.toStringAsFixed(2)})'}',
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Nota: la quota salvata nel movimento e il valore contabile definitivo usato nei residui.',
+                  style: TextStyle(color: Color(0xFF52606D)),
+                ),
+              ],
+              ],
+            ),
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(dialogContext).pop(),
+          child: const Text('Chiudi'),
+        ),
+      ],
+    ),
+  );
 }

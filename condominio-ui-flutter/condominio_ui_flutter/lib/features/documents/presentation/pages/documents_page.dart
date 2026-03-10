@@ -895,25 +895,52 @@ class DocumentsPage extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  movimento.descrizione,
-                  style: const TextStyle(fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 6),
-                Chip(
-                  label: Text('Riparto: ${movimento.tipoRiparto.label}'),
-                  visualDensity: VisualDensity.compact,
-                ),
-                if (movimento.tipoRiparto == MovimentoRipartoTipo.individuale &&
-                    movimento.ripartizioneCondomini.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 6),
-                    child: Text(
-                      'Assegnata a: ${movimento.ripartizioneCondomini.first.nominativo}',
-                    ),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFD9E2EC)),
                   ),
-                const SizedBox(height: 6),
-                Text('Importo: ${movimento.importo.toStringAsFixed(2)}'),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        movimento.descrizione,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 16,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          Chip(
+                            label: Text('Riparto: ${movimento.tipoRiparto.label}'),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          Chip(
+                            label: Text(
+                              'Importo: ${movimento.importo.toStringAsFixed(2)}',
+                            ),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                        ],
+                      ),
+                      if (movimento.tipoRiparto == MovimentoRipartoTipo.individuale &&
+                          movimento.ripartizioneCondomini.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 6),
+                          child: Text(
+                            'Assegnata a: ${movimento.ripartizioneCondomini.first.nominativo}',
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
                 const SizedBox(height: 12),
                 const Text(
                   'Ripartizione per tabella',
@@ -924,11 +951,34 @@ class DocumentsPage extends ConsumerWidget {
                   const Text('Nessuna ripartizione tabella disponibile')
                 else
                   ...movimento.ripartizioneTabelle.map(
-                    (r) => ListTile(
-                      dense: true,
-                      contentPadding: EdgeInsets.zero,
-                      title: Text('${r.codice} - ${r.descrizione}'),
-                      trailing: Text(r.importo.toStringAsFixed(2)),
+                    (r) => Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFCFDFF),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0xFFE5E7EB)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.table_chart_outlined,
+                            size: 18,
+                            color: Color(0xFF4B5563),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text('${r.codice} - ${r.descrizione}'),
+                          ),
+                          Text(
+                            r.importo.toStringAsFixed(2),
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 const SizedBox(height: 12),
@@ -941,12 +991,34 @@ class DocumentsPage extends ConsumerWidget {
                   const Text('Nessuna ripartizione condomino disponibile')
                 else
                   ...movimento.ripartizioneCondomini.map(
-                    (r) => ListTile(
-                      dense: true,
-                      contentPadding: EdgeInsets.zero,
-                      title: Text(r.nominativo),
-                      subtitle: Text(r.idCondomino),
-                      trailing: Text(r.importo.toStringAsFixed(2)),
+                    (r) => Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFCFDFF),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0xFFE5E7EB)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.person_outline,
+                            size: 18,
+                            color: Color(0xFF4B5563),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(r.nominativo),
+                          ),
+                          Text(
+                            r.importo.toStringAsFixed(2),
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
               ],
