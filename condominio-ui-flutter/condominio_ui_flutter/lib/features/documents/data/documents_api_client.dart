@@ -8,6 +8,7 @@ import '../../../utils/api_error.dart';
 import '../domain/condominio_document_model.dart';
 import '../domain/condomino_document_model.dart';
 import '../domain/movimento_model.dart';
+import '../domain/preventivo_snapshot_model.dart';
 import '../domain/tabella_model.dart';
 
 /// Client HTTP del modulo documenti.
@@ -50,7 +51,8 @@ class DocumentsApiClient {
     if (response.statusCode < 200 || response.statusCode >= 300) {
       _throwHttpError('fetchEsercizioById', response);
     }
-    final json = (jsonDecode(response.body) as Map?)?.cast<String, dynamic>() ??
+    final json =
+        (jsonDecode(response.body) as Map?)?.cast<String, dynamic>() ??
         const <String, dynamic>{};
     return CondominioDocumentModel.fromJson(json);
   }
@@ -107,6 +109,38 @@ class DocumentsApiClient {
         .whereType<Map<String, dynamic>>()
         .map(MovimentoModel.fromJson)
         .toList(growable: false);
+  }
+
+  Future<PreventivoSnapshotModel> fetchPreventivoSnapshot({
+    required String accessToken,
+    required String condominioId,
+  }) async {
+    final response = await http.get(
+      _uri('/preventivi/$condominioId'),
+      headers: _headers(accessToken),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      _throwHttpError('fetchPreventivoSnapshot', response);
+    }
+    final raw =
+        (jsonDecode(response.body) as Map?)?.cast<String, dynamic>() ??
+        const <String, dynamic>{};
+    return PreventivoSnapshotModel.fromJson(raw);
+  }
+
+  Future<void> savePreventivoSnapshot({
+    required String accessToken,
+    required String condominioId,
+    required List<Map<String, dynamic>> rows,
+  }) async {
+    final response = await http.put(
+      _uri('/preventivi/$condominioId'),
+      headers: _headers(accessToken),
+      body: jsonEncode({'rows': rows}),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      _throwHttpError('savePreventivoSnapshot', response);
+    }
   }
 
   Future<void> createTabella({
@@ -271,9 +305,7 @@ class DocumentsApiClient {
       _uri('/condomino/$condominoId'),
       headers: _mergePatchHeaders(accessToken),
       body: jsonEncode({
-        'config': {
-          'tabelle': tabelle,
-        },
+        'config': {'tabelle': tabelle},
       }),
     );
     if (response.statusCode < 200 || response.statusCode >= 300) {

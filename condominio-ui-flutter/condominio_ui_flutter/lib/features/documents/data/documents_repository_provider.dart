@@ -8,6 +8,7 @@ import '../../shared/application/exercise_refresh_provider.dart';
 import '../domain/condominio_document_model.dart';
 import '../domain/condomino_document_model.dart';
 import '../domain/movimento_model.dart';
+import '../domain/preventivo_snapshot_model.dart';
 import '../domain/tabella_model.dart';
 import 'documents_api_client.dart';
 
@@ -18,18 +19,21 @@ class DocumentsDataset {
     required this.condominiAnagrafica,
     required this.movimenti,
     required this.tabelle,
+    required this.preventivoSnapshot,
   });
 
   const DocumentsDataset.empty()
     : condomini = const [],
       condominiAnagrafica = const [],
       movimenti = const [],
-      tabelle = const [];
+      tabelle = const [],
+      preventivoSnapshot = const PreventivoSnapshotModel.empty();
 
   final List<CondominioDocumentModel> condomini;
   final List<CondominoDocumentModel> condominiAnagrafica;
   final List<MovimentoModel> movimenti;
   final List<TabellaModel> tabelle;
+  final PreventivoSnapshotModel preventivoSnapshot;
 }
 
 class DocumentsDataState {
@@ -112,6 +116,7 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
     bool includeCondomini = false,
     bool includeMovimenti = false,
     bool includeTabelle = false,
+    bool includePreventivo = false,
   }) async {
     final token = _requireAccessToken();
     final condominioId = _requireSelectedCondominioId();
@@ -123,44 +128,41 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
           )
         : Future<CondominioDocumentModel?>.value(null);
     final condominiFuture = includeCondomini
-        ? _api.fetchCondomini(
-            accessToken: token,
-            condominioId: condominioId,
-          )
+        ? _api.fetchCondomini(accessToken: token, condominioId: condominioId)
         : Future<List<CondominoDocumentModel>?>.value(null);
     final movimentiFuture = includeMovimenti
-        ? _api.fetchMovimenti(
-            accessToken: token,
-            condominioId: condominioId,
-          )
+        ? _api.fetchMovimenti(accessToken: token, condominioId: condominioId)
         : Future<List<MovimentoModel>?>.value(null);
     final tabelleFuture = includeTabelle
-        ? _api.fetchTabelle(
+        ? _api.fetchTabelle(accessToken: token, condominioId: condominioId)
+        : Future<List<TabellaModel>?>.value(null);
+    final preventivoFuture = includePreventivo
+        ? _api.fetchPreventivoSnapshot(
             accessToken: token,
             condominioId: condominioId,
           )
-        : Future<List<TabellaModel>?>.value(null);
+        : Future<PreventivoSnapshotModel?>.value(null);
 
     final results = await Future.wait<Object?>([
       condominioFuture,
       condominiFuture,
       movimentiFuture,
       tabelleFuture,
+      preventivoFuture,
     ]);
     final condominio = results[0] as CondominioDocumentModel?;
     final condomini = results[1] as List<CondominoDocumentModel>?;
     final movimenti = results[2] as List<MovimentoModel>?;
     final tabelle = results[3] as List<TabellaModel>?;
+    final preventivo = results[4] as PreventivoSnapshotModel?;
 
     state = state.copyWith(
       dataset: DocumentsDataset(
-        condomini: condominio == null
-            ? state.dataset.condomini
-            : [condominio],
-        condominiAnagrafica:
-            condomini ?? state.dataset.condominiAnagrafica,
+        condomini: condominio == null ? state.dataset.condomini : [condominio],
+        condominiAnagrafica: condomini ?? state.dataset.condominiAnagrafica,
         movimenti: movimenti ?? state.dataset.movimenti,
         tabelle: tabelle ?? state.dataset.tabelle,
+        preventivoSnapshot: preventivo ?? state.dataset.preventivoSnapshot,
       ),
     );
   }
@@ -169,6 +171,7 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
     await _refreshSelectedCondominioData(
       includeCondominio: true,
       includeMovimenti: true,
+      includePreventivo: true,
     );
   }
 
@@ -177,6 +180,7 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
       includeCondominio: true,
       includeCondomini: true,
       includeMovimenti: true,
+      includePreventivo: true,
     );
   }
 
@@ -185,6 +189,7 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
       includeCondominio: true,
       includeCondomini: true,
       includeTabelle: true,
+      includePreventivo: true,
     );
   }
 
@@ -192,11 +197,14 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
     await _refreshSelectedCondominioData(
       includeCondomini: true,
       includeMovimenti: true,
+      includePreventivo: true,
     );
   }
 
   Future<void> _refreshForEvent(ExerciseRefreshEvent event) async {
-    if (!event.appliesToExercise(_ref.read(selectedManagedCondominioProvider)?.id)) {
+    if (!event.appliesToExercise(
+      _ref.read(selectedManagedCondominioProvider)?.id,
+    )) {
       return;
     }
     await _refreshSelectedCondominioData(
@@ -204,6 +212,10 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
       includeCondomini: event.hasScope(ExerciseRefreshScope.documentsCondomini),
       includeMovimenti: event.hasScope(ExerciseRefreshScope.documentsMovimenti),
       includeTabelle: event.hasScope(ExerciseRefreshScope.documentsTabelle),
+      includePreventivo:
+          event.hasScope(ExerciseRefreshScope.documentsExercise) ||
+          event.hasScope(ExerciseRefreshScope.documentsMovimenti) ||
+          event.hasScope(ExerciseRefreshScope.documentsTabelle),
     );
   }
 
@@ -217,6 +229,7 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
         includeCondomini: true,
         includeMovimenti: true,
         includeTabelle: true,
+        includePreventivo: true,
       );
       state = state.copyWith(isLoading: false);
     } catch (e, st) {
@@ -284,10 +297,12 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
       );
       state = state.copyWith(isSaving: false);
       await _refreshCondominioCondominiMovimenti();
-      _ref.read(exerciseRefreshProvider.notifier).publish(
-        exerciseId: condominioId,
-        scopes: const {ExerciseRefreshScope.registryItems},
-      );
+      _ref
+          .read(exerciseRefreshProvider.notifier)
+          .publish(
+            exerciseId: condominioId,
+            scopes: const {ExerciseRefreshScope.registryItems},
+          );
     } catch (e, st) {
       if (e is ApiError) {
         debugPrint('[DOCUMENTS][createMovimento] ${e.technicalMessage}');
@@ -326,10 +341,12 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
       );
       state = state.copyWith(isSaving: false);
       await _refreshCondominioCondominiMovimenti();
-      _ref.read(exerciseRefreshProvider.notifier).publish(
-        exerciseId: condominioId,
-        scopes: const {ExerciseRefreshScope.registryItems},
-      );
+      _ref
+          .read(exerciseRefreshProvider.notifier)
+          .publish(
+            exerciseId: condominioId,
+            scopes: const {ExerciseRefreshScope.registryItems},
+          );
     } catch (e, st) {
       if (e is ApiError) {
         debugPrint('[DOCUMENTS][updateMovimento] ${e.technicalMessage}');
@@ -342,24 +359,21 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
     }
   }
 
-  Future<void> deleteMovimento({
-    required String movimentoId,
-  }) async {
+  Future<void> deleteMovimento({required String movimentoId}) async {
     state = state.copyWith(isSaving: true, clearErrorMessage: true);
     try {
       _ensureSelectedExerciseWritable();
       final token = _requireAccessToken();
       final condominioId = _requireSelectedCondominioId();
-      await _api.deleteMovimento(
-        accessToken: token,
-        movimentoId: movimentoId,
-      );
+      await _api.deleteMovimento(accessToken: token, movimentoId: movimentoId);
       state = state.copyWith(isSaving: false);
       await _refreshCondominioCondominiMovimenti();
-      _ref.read(exerciseRefreshProvider.notifier).publish(
-        exerciseId: condominioId,
-        scopes: const {ExerciseRefreshScope.registryItems},
-      );
+      _ref
+          .read(exerciseRefreshProvider.notifier)
+          .publish(
+            exerciseId: condominioId,
+            scopes: const {ExerciseRefreshScope.registryItems},
+          );
     } catch (e, st) {
       if (e is ApiError) {
         debugPrint('[DOCUMENTS][deleteMovimento] ${e.technicalMessage}');
@@ -401,17 +415,12 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
     }
   }
 
-  Future<void> deleteTabella({
-    required String tabellaId,
-  }) async {
+  Future<void> deleteTabella({required String tabellaId}) async {
     state = state.copyWith(isSaving: true, clearErrorMessage: true);
     try {
       _ensureSelectedExerciseWritable();
       final token = _requireAccessToken();
-      await _api.deleteTabella(
-        accessToken: token,
-        tabellaId: tabellaId,
-      );
+      await _api.deleteTabella(accessToken: token, tabellaId: tabellaId);
       state = state.copyWith(isSaving: false);
       await _refreshCondominioTabelleCondomini();
     } catch (e, st) {
@@ -426,17 +435,12 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
     }
   }
 
-  Future<void> cleanupDeleteTabella({
-    required String tabellaId,
-  }) async {
+  Future<void> cleanupDeleteTabella({required String tabellaId}) async {
     state = state.copyWith(isSaving: true, clearErrorMessage: true);
     try {
       _ensureSelectedExerciseWritable();
       final token = _requireAccessToken();
-      await _api.cleanupDeleteTabella(
-        accessToken: token,
-        tabellaId: tabellaId,
-      );
+      await _api.cleanupDeleteTabella(accessToken: token, tabellaId: tabellaId);
       state = state.copyWith(isSaving: false);
       await _refreshCondominioTabelleCondomini();
     } catch (e, st) {
@@ -468,9 +472,38 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
       await _refreshCondominioAndMovimenti();
     } catch (e, st) {
       if (e is ApiError) {
-        debugPrint('[DOCUMENTS][updateConfigurazioniSpesa] ${e.technicalMessage}');
+        debugPrint(
+          '[DOCUMENTS][updateConfigurazioniSpesa] ${e.technicalMessage}',
+        );
       } else {
         debugPrint('[DOCUMENTS][updateConfigurazioniSpesa] $e');
+      }
+      debugPrint('$st');
+      state = state.copyWith(isSaving: false, errorMessage: '$e');
+      rethrow;
+    }
+  }
+
+  Future<void> savePreventivoRows({
+    required List<PreventivoRowDraft> rows,
+  }) async {
+    state = state.copyWith(isSaving: true, clearErrorMessage: true);
+    try {
+      _ensureSelectedExerciseWritable();
+      final token = _requireAccessToken();
+      final condominioId = _requireSelectedCondominioId();
+      await _api.savePreventivoSnapshot(
+        accessToken: token,
+        condominioId: condominioId,
+        rows: rows.map((row) => row.toJson()).toList(growable: false),
+      );
+      state = state.copyWith(isSaving: false);
+      await _refreshSelectedCondominioData(includePreventivo: true);
+    } catch (e, st) {
+      if (e is ApiError) {
+        debugPrint('[DOCUMENTS][savePreventivoRows] ${e.technicalMessage}');
+      } else {
+        debugPrint('[DOCUMENTS][savePreventivoRows] $e');
       }
       debugPrint('$st');
       state = state.copyWith(isSaving: false, errorMessage: '$e');
@@ -494,13 +527,17 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
       );
       state = state.copyWith(isSaving: false);
       await _refreshCondominiAndMovimenti();
-      _ref.read(exerciseRefreshProvider.notifier).publish(
-        exerciseId: condominioId,
-        scopes: const {ExerciseRefreshScope.registryItems},
-      );
+      _ref
+          .read(exerciseRefreshProvider.notifier)
+          .publish(
+            exerciseId: condominioId,
+            scopes: const {ExerciseRefreshScope.registryItems},
+          );
     } catch (e, st) {
       if (e is ApiError) {
-        debugPrint('[DOCUMENTS][updateCondominoQuoteTabelle] ${e.technicalMessage}');
+        debugPrint(
+          '[DOCUMENTS][updateCondominoQuoteTabelle] ${e.technicalMessage}',
+        );
       } else {
         debugPrint('[DOCUMENTS][updateCondominoQuoteTabelle] $e');
       }
@@ -526,10 +563,12 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
       );
       state = state.copyWith(isSaving: false);
       await _refreshCondominioCondominiMovimenti();
-      _ref.read(exerciseRefreshProvider.notifier).publish(
-        exerciseId: condominioId,
-        scopes: const {ExerciseRefreshScope.registryItems},
-      );
+      _ref
+          .read(exerciseRefreshProvider.notifier)
+          .publish(
+            exerciseId: condominioId,
+            scopes: const {ExerciseRefreshScope.registryItems},
+          );
     } catch (e, st) {
       if (e is ApiError) {
         debugPrint('[DOCUMENTS][addCondominoVersamento] ${e.technicalMessage}');
@@ -560,13 +599,17 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
       );
       state = state.copyWith(isSaving: false);
       await _refreshCondominioCondominiMovimenti();
-      _ref.read(exerciseRefreshProvider.notifier).publish(
-        exerciseId: condominioId,
-        scopes: const {ExerciseRefreshScope.registryItems},
-      );
+      _ref
+          .read(exerciseRefreshProvider.notifier)
+          .publish(
+            exerciseId: condominioId,
+            scopes: const {ExerciseRefreshScope.registryItems},
+          );
     } catch (e, st) {
       if (e is ApiError) {
-        debugPrint('[DOCUMENTS][updateCondominoVersamento] ${e.technicalMessage}');
+        debugPrint(
+          '[DOCUMENTS][updateCondominoVersamento] ${e.technicalMessage}',
+        );
       } else {
         debugPrint('[DOCUMENTS][updateCondominoVersamento] $e');
       }
@@ -592,13 +635,17 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
       );
       state = state.copyWith(isSaving: false);
       await _refreshCondominioCondominiMovimenti();
-      _ref.read(exerciseRefreshProvider.notifier).publish(
-        exerciseId: condominioId,
-        scopes: const {ExerciseRefreshScope.registryItems},
-      );
+      _ref
+          .read(exerciseRefreshProvider.notifier)
+          .publish(
+            exerciseId: condominioId,
+            scopes: const {ExerciseRefreshScope.registryItems},
+          );
     } catch (e, st) {
       if (e is ApiError) {
-        debugPrint('[DOCUMENTS][deleteCondominoVersamento] ${e.technicalMessage}');
+        debugPrint(
+          '[DOCUMENTS][deleteCondominoVersamento] ${e.technicalMessage}',
+        );
       } else {
         debugPrint('[DOCUMENTS][deleteCondominoVersamento] $e');
       }
@@ -621,13 +668,17 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
       );
       state = state.copyWith(isSaving: false);
       await _refreshCondominioCondominiMovimenti();
-      _ref.read(exerciseRefreshProvider.notifier).publish(
-        exerciseId: condominioId,
-        scopes: const {ExerciseRefreshScope.registryItems},
-      );
+      _ref
+          .read(exerciseRefreshProvider.notifier)
+          .publish(
+            exerciseId: condominioId,
+            scopes: const {ExerciseRefreshScope.registryItems},
+          );
     } catch (e, st) {
       if (e is ApiError) {
-        debugPrint('[DOCUMENTS][rebuildStoricoCondominio] ${e.technicalMessage}');
+        debugPrint(
+          '[DOCUMENTS][rebuildStoricoCondominio] ${e.technicalMessage}',
+        );
       } else {
         debugPrint('[DOCUMENTS][rebuildStoricoCondominio] $e');
       }
@@ -740,21 +791,23 @@ final documentsDataProvider =
           }
         },
       );
-      ref.listen<ExerciseRefreshEvent>(
-        exerciseRefreshProvider,
-        (previous, next) {
-          final selectedExerciseId = ref.read(selectedManagedCondominioProvider)?.id;
-          if (previous?.revision == next.revision ||
-              !next.appliesToExercise(selectedExerciseId) ||
-              (!next.hasScope(ExerciseRefreshScope.documentsExercise) &&
-                  !next.hasScope(ExerciseRefreshScope.documentsCondomini) &&
-                  !next.hasScope(ExerciseRefreshScope.documentsMovimenti) &&
-                  !next.hasScope(ExerciseRefreshScope.documentsTabelle))) {
-            return;
-          }
-          notifier._refreshForEvent(next);
-        },
-      );
+      ref.listen<ExerciseRefreshEvent>(exerciseRefreshProvider, (
+        previous,
+        next,
+      ) {
+        final selectedExerciseId = ref
+            .read(selectedManagedCondominioProvider)
+            ?.id;
+        if (previous?.revision == next.revision ||
+            !next.appliesToExercise(selectedExerciseId) ||
+            (!next.hasScope(ExerciseRefreshScope.documentsExercise) &&
+                !next.hasScope(ExerciseRefreshScope.documentsCondomini) &&
+                !next.hasScope(ExerciseRefreshScope.documentsMovimenti) &&
+                !next.hasScope(ExerciseRefreshScope.documentsTabelle))) {
+          return;
+        }
+        notifier._refreshForEvent(next);
+      });
       return notifier;
     });
 
@@ -827,10 +880,7 @@ class CondominoTabellaQuotaDraft {
 
   Map<String, dynamic> toJson() {
     return {
-      'tabella': {
-        'codice': codice,
-        'descrizione': descrizione,
-      },
+      'tabella': {'codice': codice, 'descrizione': descrizione},
       'numeratore': numeratore,
       'denominatore': denominatore,
     };
@@ -913,6 +963,30 @@ class MovimentoRipartoCondominoDraft {
       'idCondomino': idCondomino,
       'nominativo': nominativo,
       'importo': importo,
+    };
+  }
+}
+
+/// Riga preventivo inviata al backend.
+class PreventivoRowDraft {
+  const PreventivoRowDraft({
+    required this.codiceSpesa,
+    required this.codiceTabella,
+    required this.descrizioneTabella,
+    required this.preventivo,
+  });
+
+  final String codiceSpesa;
+  final String codiceTabella;
+  final String descrizioneTabella;
+  final double preventivo;
+
+  Map<String, dynamic> toJson() {
+    return {
+      'codiceSpesa': codiceSpesa.trim(),
+      'codiceTabella': codiceTabella.trim(),
+      'descrizioneTabella': descrizioneTabella.trim(),
+      'preventivo': preventivo,
     };
   }
 }

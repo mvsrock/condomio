@@ -10,26 +10,26 @@ import '../../domain/movimento_model.dart';
 import '../../domain/tabella_model.dart';
 import 'documents_common_widgets.dart';
 
-typedef DocumentsConfigureRipartoCallback = Future<void> Function(
-  CondominioDocumentModel selectedCondominio,
-  List<TabellaModel> tabelle,
-);
-typedef DocumentsCreateMovimentoCallback = Future<void> Function(
-  CondominioDocumentModel? selectedCondominio,
-);
+typedef DocumentsConfigureRipartoCallback =
+    Future<void> Function(
+      CondominioDocumentModel selectedCondominio,
+      List<TabellaModel> tabelle,
+    );
+typedef DocumentsCreateMovimentoCallback =
+    Future<void> Function(CondominioDocumentModel? selectedCondominio);
+typedef DocumentsOpenPreventivoCallback =
+    Future<void> Function(CondominioDocumentModel? selectedCondominio);
 typedef DocumentsRefreshDataCallback = Future<void> Function();
-typedef DocumentsOpenSelectedCondominoDetailCallback = void Function(
-  CondominoDocumentModel selectedCondomino,
-  bool isSaving,
-);
-typedef DocumentsMobileMovimentoCallback = Future<void> Function(
-  MovimentoModel movimento,
-);
-typedef DocumentsMobileTabellaCallback = Future<void> Function(
-  CondominioDocumentModel? selectedCondominio,
-  List<TabellaModel> tabelle,
-  TabellaModel tabella,
-);
+typedef DocumentsOpenSelectedCondominoDetailCallback =
+    void Function(CondominoDocumentModel selectedCondomino, bool isSaving);
+typedef DocumentsMobileMovimentoCallback =
+    Future<void> Function(MovimentoModel movimento);
+typedef DocumentsMobileTabellaCallback =
+    Future<void> Function(
+      CondominioDocumentModel? selectedCondominio,
+      List<TabellaModel> tabelle,
+      TabellaModel tabella,
+    );
 
 /// Selettore del condominio/anno attivo.
 class DocumentsCondominioSelectorBar extends ConsumerWidget {
@@ -52,7 +52,8 @@ class DocumentsCondominioSelectorBar extends ConsumerWidget {
           final condominio = dataset.condomini[index];
           final selected = selectedCondominio?.id == condominio.id;
           final isClosed =
-              selectedExercise?.id == condominio.id && selectedExercise!.isClosed;
+              selectedExercise?.id == condominio.id &&
+              selectedExercise!.isClosed;
           return ChoiceChip(
             label: Text(
               '${condominio.label} / ${condominio.gestioneLabel} (${condominio.anno})${isClosed ? ' - chiuso' : ''}',
@@ -76,6 +77,7 @@ class DocumentsSummaryHeader extends ConsumerWidget {
     final condomini = ref.watch(condominiBySelectedCondominioProvider);
     final tabelle = ref.watch(tabelleBySelectedCondominioProvider);
     final movimenti = ref.watch(movimentiBySelectedCondominioProvider);
+    final preventivo = ref.watch(selectedPreventivoSnapshotProvider);
     final isReadOnly = ref.watch(selectedManagedCondominioIsClosedProvider);
 
     if (selectedCondominio == null) {
@@ -107,6 +109,10 @@ class DocumentsSummaryHeader extends ConsumerWidget {
           icon: Icons.receipt_long_outlined,
           label: 'Movimenti: ${movimenti.length}',
         ),
+        DocumentsStatChip(
+          icon: Icons.analytics_outlined,
+          label: 'Delta budget: ${preventivo.totaleDelta.toStringAsFixed(2)}',
+        ),
         if (isReadOnly)
           const DocumentsStatChip(
             icon: Icons.lock_outline,
@@ -124,12 +130,14 @@ class DocumentsActionsBar extends ConsumerWidget {
     required this.onConfigureRiparto,
     required this.onCreateTabella,
     required this.onCreateMovimento,
+    required this.onOpenPreventivo,
     required this.onRefresh,
   });
 
   final DocumentsConfigureRipartoCallback onConfigureRiparto;
   final Future<void> Function() onCreateTabella;
   final DocumentsCreateMovimentoCallback onCreateMovimento;
+  final DocumentsOpenPreventivoCallback onOpenPreventivo;
   final DocumentsRefreshDataCallback onRefresh;
 
   @override
@@ -163,6 +171,13 @@ class DocumentsActionsBar extends ConsumerWidget {
           icon: const Icon(Icons.receipt_long_outlined),
           label: const Text('Nuova spesa'),
         ),
+        FilledButton.icon(
+          onPressed: isSaving
+              ? null
+              : () => onOpenPreventivo(selectedCondominio),
+          icon: const Icon(Icons.analytics_outlined),
+          label: const Text('Preventivo'),
+        ),
         OutlinedButton.icon(
           onPressed: isLoading ? null : onRefresh,
           icon: const Icon(Icons.refresh),
@@ -189,7 +204,7 @@ class DocumentsMobileLayout extends ConsumerWidget {
   });
 
   final DocumentsOpenSelectedCondominoDetailCallback
-      onOpenSelectedCondominoDetail;
+  onOpenSelectedCondominoDetail;
   final DocumentsMobileMovimentoCallback onOpenMovimentoDetail;
   final DocumentsMobileMovimentoCallback onEditMovimento;
   final DocumentsMobileMovimentoCallback onDeleteMovimento;
@@ -312,7 +327,8 @@ class DocumentsMobileLayout extends ConsumerWidget {
                           separatorBuilder: (_, _) => const Divider(height: 1),
                           itemBuilder: (context, index) {
                             final movimento = movimenti[index];
-                            final individualLabel = movimento.tipoRiparto ==
+                            final individualLabel =
+                                movimento.tipoRiparto ==
                                     MovimentoRipartoTipo.individuale
                                 ? ' - su ${_individualAssigneeLabel(movimento)}'
                                 : '';

@@ -37,6 +37,7 @@ import it.condomio.document.CondominioRoot;
 import it.condomio.document.Condomino;
 import it.condomio.document.CondominoRoot;
 import it.condomio.document.Movimenti;
+import it.condomio.document.Preventivo;
 import it.condomio.document.Tabella;
 import it.condomio.document.UnitaImmobiliare;
 import it.condomio.repository.CondominioRepository;
@@ -146,6 +147,7 @@ public class MongoStructureMaintenanceService implements ApplicationRunner {
         ensureCondominoIndexes();
         ensureUnitaImmobiliareIndexes();
         ensureMovimentiIndexes();
+        ensurePreventivoIndexes();
         ensureTabellaIndexes();
     }
 
@@ -338,6 +340,13 @@ public class MongoStructureMaintenanceService implements ApplicationRunner {
                 .on("idCondominio", Sort.Direction.ASC)
                 .on("codiceSpesa", Sort.Direction.ASC)
                 .named("exercise_codice_idx"));
+    }
+
+    private void ensurePreventivoIndexes() {
+        IndexOperations ops = mongoTemplate.indexOps(Preventivo.class);
+        createIndexIfMissing(ops, "updated_at_idx", new Index()
+                .on("updatedAt", Sort.Direction.DESC)
+                .named("updated_at_idx"));
     }
 
     private void ensureTabellaIndexes() {

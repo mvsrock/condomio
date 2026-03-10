@@ -155,7 +155,7 @@ Una fase non e' `Production ready` finche' non supera tutte le verifiche:
 - `Fase 0 - Hardening`: **Production ready**
 - `Fase 1 - Ciclo rate/incassi`: **Production ready**
 - `Fase 2 - Unita' e titolarita'`: **Production ready**
-- `Fase 3`: **In sviluppo**
+- `Fase 3`: **Production ready**
 - `Fase 4`: **In sviluppo**
 - `Fase 5`: **In sviluppo**
 - `Fase 6`: **In sviluppo**
@@ -174,11 +174,14 @@ Una fase non e' `Production ready` finche' non supera tutte le verifiche:
 - `interno` alfanumerico supportato end-to-end (core + flutter + parser documenti)
 - Riparto condominiale reso coerente con partecipazione opzionale per tabella
 - Error mapping FE aggiornato sui nuovi codici business (`unita in uso`, `noPartecipanti`)
+- Verticale preventivo/consuntivo disponibile con API dedicate (`/preventivi/{idCondominio}`)
+- Confronto budget vs consuntivo esposto in UI documenti con editing preventivo per coppia codice/tabella
+- Consuntivo aggregato automaticamente dai movimenti reali dell'esercizio
 
 ### Gap per diventare realmente vendibile
 - Hardening error UX ancora incompleto in piu' punti operativi
 - Alcuni flussi admin sono completi funzionalmente ma non ancora rifiniti come UX business-grade
-- Mancano verticali fondamentali per studio amministrativo: preventivo/consuntivo, morosita', documentale, report
+- Mancano verticali fondamentali per studio amministrativo: morosita', documentale, report
 
 ## Principi di rilascio
 
@@ -268,7 +271,7 @@ Oggi il subentro e' corretto sul piano contabile-temporale; qui diventa anche co
 ## Fase 3 - Preventivo, consuntivo e chiusura anno
 
 ### Stato
-In sviluppo
+Production ready
 
 ### Obiettivo
 Gestire l'intero esercizio dall'apertura alla chiusura.
@@ -280,6 +283,18 @@ Gestire l'intero esercizio dall'apertura alla chiusura.
 - regole esplicite di carry-over
 - apertura esercizio successivo guidata
 - storico confrontabile anno su anno
+
+### Chiusura fase
+- backend preventivo/consuntivo su collection dedicata `preventivo` con ownership/open guard in scrittura
+- API complete:
+  - `GET /preventivi/{idCondominio}` snapshot confronto
+  - `PUT /preventivi/{idCondominio}` salvataggio preventivo
+- confronto consuntivo calcolato server-side dalle ripartizioni dei movimenti, senza input manuale duplicato
+- UI documenti:
+  - pulsante `Preventivo`
+  - tabella editabile preventivo per riga codice spesa + tabella
+  - totali preventivo/consuntivo/delta in dialog e riepilogo pagina
+- chiusura esercizio e apertura esercizio successivo gia' integrate nel flusso selezione esercizio con carry-over esplicito
 
 ## Fase 4 - Morosita', solleciti e recupero crediti
 

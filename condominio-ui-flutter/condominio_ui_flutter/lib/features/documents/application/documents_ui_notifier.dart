@@ -4,6 +4,7 @@ import '../data/documents_repository_provider.dart';
 import '../domain/condominio_document_model.dart';
 import '../domain/condomino_document_model.dart';
 import '../domain/movimento_model.dart';
+import '../domain/preventivo_snapshot_model.dart';
 import '../domain/tabella_model.dart';
 
 /// Stato UI modulo Documenti.
@@ -107,45 +108,64 @@ final condominiBySelectedCondominioProvider =
     });
 
 /// Tabelle appartenenti al condominio selezionato.
-final tabelleBySelectedCondominioProvider =
-    Provider<List<TabellaModel>>((ref) {
-      final dataset = ref.watch(documentsRepositoryProvider);
-      final selectedCondominio = ref.watch(selectedCondominioProvider);
-      if (selectedCondominio == null) return const [];
-      return dataset.tabelle
-          .where((t) => t.idCondominio == selectedCondominio.id)
-          .toList(growable: false);
-    });
+final tabelleBySelectedCondominioProvider = Provider<List<TabellaModel>>((ref) {
+  final dataset = ref.watch(documentsRepositoryProvider);
+  final selectedCondominio = ref.watch(selectedCondominioProvider);
+  if (selectedCondominio == null) return const [];
+  return dataset.tabelle
+      .where((t) => t.idCondominio == selectedCondominio.id)
+      .toList(growable: false);
+});
 
 /// Movimenti filtrati per condominio + ricerca testuale.
-final movimentiBySelectedCondominioProvider =
-    Provider<List<MovimentoModel>>((ref) {
-      final dataset = ref.watch(documentsRepositoryProvider);
-      final selectedCondominio = ref.watch(selectedCondominioProvider);
-      final query = ref.watch(
-        documentsUiProvider.select((s) => s.searchMovimenti.toLowerCase().trim()),
-      );
-      if (selectedCondominio == null) return const [];
+final movimentiBySelectedCondominioProvider = Provider<List<MovimentoModel>>((
+  ref,
+) {
+  final dataset = ref.watch(documentsRepositoryProvider);
+  final selectedCondominio = ref.watch(selectedCondominioProvider);
+  final query = ref.watch(
+    documentsUiProvider.select((s) => s.searchMovimenti.toLowerCase().trim()),
+  );
+  if (selectedCondominio == null) return const [];
 
-      return dataset.movimenti.where((m) {
+  return dataset.movimenti
+      .where((m) {
         if (m.idCondominio != selectedCondominio.id) return false;
         if (query.isEmpty) return true;
         return m.descrizione.toLowerCase().contains(query) ||
             m.codiceSpesa.toLowerCase().contains(query);
-      }).toList(growable: false);
-    });
+      })
+      .toList(growable: false);
+});
 
 /// Condomino selezionato nel pannello anagrafica.
-final selectedCondominoDocumentProvider =
-    Provider<CondominoDocumentModel?>((ref) {
-      final list = ref.watch(condominiBySelectedCondominioProvider);
-      final selectedId = ref.watch(
-        documentsUiProvider.select((s) => s.selectedCondominoId),
-      );
-      if (list.isEmpty) return null;
-      if (selectedId == null) return list.first;
-      for (final c in list) {
-        if (c.id == selectedId) return c;
-      }
-      return list.first;
-    });
+final selectedCondominoDocumentProvider = Provider<CondominoDocumentModel?>((
+  ref,
+) {
+  final list = ref.watch(condominiBySelectedCondominioProvider);
+  final selectedId = ref.watch(
+    documentsUiProvider.select((s) => s.selectedCondominoId),
+  );
+  if (list.isEmpty) return null;
+  if (selectedId == null) return list.first;
+  for (final c in list) {
+    if (c.id == selectedId) return c;
+  }
+  return list.first;
+});
+
+/// Snapshot preventivo/consuntivo dell'esercizio selezionato.
+final selectedPreventivoSnapshotProvider = Provider<PreventivoSnapshotModel>((
+  ref,
+) {
+  final dataset = ref.watch(documentsRepositoryProvider);
+  final selectedCondominio = ref.watch(selectedCondominioProvider);
+  if (selectedCondominio == null) {
+    return const PreventivoSnapshotModel.empty();
+  }
+  final snapshot = dataset.preventivoSnapshot;
+  if (snapshot.idCondominio == selectedCondominio.id || snapshot.isEmpty) {
+    return snapshot;
+  }
+  return const PreventivoSnapshotModel.empty();
+});

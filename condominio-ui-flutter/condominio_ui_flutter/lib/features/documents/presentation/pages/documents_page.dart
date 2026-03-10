@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/app_breakpoints.dart';
+import '../../../condominio_selection/application/managed_condominio_notifier.dart';
 import '../../application/documents_ui_notifier.dart';
 import '../../data/documents_repository_provider.dart';
 import '../../domain/condominio_document_model.dart';
@@ -10,6 +11,7 @@ import '../../domain/movimento_model.dart';
 import '../../domain/tabella_model.dart';
 import '../dialogs/documents_config_dialogs.dart';
 import '../dialogs/documents_crud_dialogs.dart';
+import '../dialogs/documents_budget_dialogs.dart';
 import '../widgets/documents_panels.dart';
 import '../widgets/documents_shell_sections.dart';
 
@@ -80,16 +82,19 @@ class DocumentsPage extends ConsumerWidget {
                     selectedCondominio: selectedCondominio,
                     tabelle: tabelle,
                   ),
-              onCreateTabella: () => _openCreateTabellaDialog(
-                context: context,
-                ref: ref,
-              ),
+              onCreateTabella: () =>
+                  _openCreateTabellaDialog(context: context, ref: ref),
               onCreateMovimento: (selectedCondominio) =>
                   _openCreateMovimentoDialog(
                     context: context,
                     ref: ref,
                     selectedCondominio: selectedCondominio,
                   ),
+              onOpenPreventivo: (selectedCondominio) => _openPreventivoDialog(
+                context: context,
+                ref: ref,
+                selectedCondominio: selectedCondominio,
+              ),
               onRefresh: dataNotifier.loadForSelectedCondominio,
             ),
             const SizedBox(height: 12),
@@ -121,12 +126,11 @@ class DocumentsPage extends ConsumerWidget {
                         ref: ref,
                         movimento: movimento,
                       ),
-                      onDeleteMovimento: (movimento) =>
-                          _confirmDeleteMovimento(
-                            context: context,
-                            ref: ref,
-                            movimento: movimento,
-                          ),
+                      onDeleteMovimento: (movimento) => _confirmDeleteMovimento(
+                        context: context,
+                        ref: ref,
+                        movimento: movimento,
+                      ),
                       onEditTabella: (selectedCondominio, tabelle, tabella) =>
                           _openEditTabellaDialog(
                             context: context,
@@ -135,15 +139,14 @@ class DocumentsPage extends ConsumerWidget {
                             tabelle: tabelle,
                             tabella: tabella,
                           ),
-                      onDeleteTabella:
-                          (selectedCondominio, tabelle, tabella) =>
-                              _confirmDeleteTabella(
-                                context: context,
-                                ref: ref,
-                                selectedCondominio: selectedCondominio,
-                                tabelle: tabelle,
-                                tabella: tabella,
-                              ),
+                      onDeleteTabella: (selectedCondominio, tabelle, tabella) =>
+                          _confirmDeleteTabella(
+                            context: context,
+                            ref: ref,
+                            selectedCondominio: selectedCondominio,
+                            tabelle: tabelle,
+                            tabella: tabella,
+                          ),
                     ),
             ),
           ],
@@ -163,14 +166,16 @@ class DocumentsPage extends ConsumerWidget {
     );
     if (result == null) return;
     try {
-      await ref.read(documentsDataProvider.notifier).createTabella(
+      await ref
+          .read(documentsDataProvider.notifier)
+          .createTabella(
             codice: result.codice,
             descrizione: result.descrizione,
           );
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Tabella creata')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Tabella creata')));
       }
     } catch (e) {
       if (context.mounted) {
@@ -201,7 +206,9 @@ class DocumentsPage extends ConsumerWidget {
     if (!context.mounted) return;
 
     try {
-      await ref.read(documentsDataProvider.notifier).updateConfigurazioniSpesa(
+      await ref
+          .read(documentsDataProvider.notifier)
+          .updateConfigurazioniSpesa(
             configurazioni: result.items
                 .map(
                   (c) => CondominioConfigurazioneDraft(
@@ -220,13 +227,17 @@ class DocumentsPage extends ConsumerWidget {
                 .toList(growable: false),
           );
       if (result.rebuildStorico) {
-        await ref.read(documentsDataProvider.notifier).rebuildStoricoCondominio();
+        await ref
+            .read(documentsDataProvider.notifier)
+            .rebuildStoricoCondominio();
       }
       if (context.mounted) {
         final message = result.rebuildStorico
             ? 'Configurazioni aggiornate e storico ricalcolato'
             : 'Configurazioni aggiornate (valide per nuove spese)';
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(message)));
       }
     } catch (e) {
       if (context.mounted) {
@@ -261,7 +272,9 @@ class DocumentsPage extends ConsumerWidget {
     );
     if (result == null) return;
     try {
-      await ref.read(documentsDataProvider.notifier).createMovimento(
+      await ref
+          .read(documentsDataProvider.notifier)
+          .createMovimento(
             codiceSpesa: result.codiceSpesa,
             tipoRiparto: result.tipoRiparto,
             descrizione: result.descrizione,
@@ -288,6 +301,51 @@ class DocumentsPage extends ConsumerWidget {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Errore: $e')));
+      }
+    }
+  }
+
+  Future<void> _openPreventivoDialog({
+    required BuildContext context,
+    required WidgetRef ref,
+    required CondominioDocumentModel? selectedCondominio,
+  }) async {
+    if (selectedCondominio == null) return;
+    final snapshot = ref.read(selectedPreventivoSnapshotProvider);
+    final isReadOnly = ref.read(selectedManagedCondominioIsClosedProvider);
+    final result = await showDocumentsPreventivoDialog(
+      context: context,
+      snapshot: snapshot,
+      isReadOnly: isReadOnly,
+    );
+    if (result == null || !context.mounted) {
+      return;
+    }
+    try {
+      await ref
+          .read(documentsDataProvider.notifier)
+          .savePreventivoRows(
+            rows: result.rows
+                .map(
+                  (row) => PreventivoRowDraft(
+                    codiceSpesa: row.codiceSpesa,
+                    codiceTabella: row.codiceTabella,
+                    descrizioneTabella: row.descrizioneTabella,
+                    preventivo: row.preventivo,
+                  ),
+                )
+                .toList(growable: false),
+          );
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Preventivo aggiornato')));
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Errore salvataggio preventivo: $e')),
+        );
       }
     }
   }
@@ -320,7 +378,9 @@ class DocumentsPage extends ConsumerWidget {
     );
     if (result == null) return;
     try {
-      await ref.read(documentsDataProvider.notifier).updateMovimento(
+      await ref
+          .read(documentsDataProvider.notifier)
+          .updateMovimento(
             movimentoId: movimento.id,
             codiceSpesa: result.codiceSpesa,
             tipoRiparto: result.tipoRiparto,
@@ -337,9 +397,9 @@ class DocumentsPage extends ConsumerWidget {
                 .toList(growable: false),
           );
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Spesa aggiornata')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Spesa aggiornata')));
       }
     } catch (e) {
       if (context.mounted) {
@@ -361,13 +421,13 @@ class DocumentsPage extends ConsumerWidget {
     );
     if (ok != true) return;
     try {
-      await ref.read(documentsDataProvider.notifier).deleteMovimento(
-            movimentoId: movimento.id,
-          );
+      await ref
+          .read(documentsDataProvider.notifier)
+          .deleteMovimento(movimentoId: movimento.id);
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Spesa eliminata')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Spesa eliminata')));
       }
     } catch (e) {
       if (context.mounted) {
@@ -396,7 +456,10 @@ class DocumentsPage extends ConsumerWidget {
     if (!context.mounted) return;
     final newCode = result.codice.trim();
     if (newCode.toLowerCase() != tabella.codice.trim().toLowerCase()) {
-      final linkedCodes = _linkedSpesaCodesForTabella(selectedCondominio, tabella);
+      final linkedCodes = _linkedSpesaCodesForTabella(
+        selectedCondominio,
+        tabella,
+      );
       if (linkedCodes.isNotEmpty) {
         final proceed = await showDocumentsRenameTabellaInUseDialog(
           context: context,
@@ -409,15 +472,17 @@ class DocumentsPage extends ConsumerWidget {
       }
     }
     try {
-      await ref.read(documentsDataProvider.notifier).updateTabella(
+      await ref
+          .read(documentsDataProvider.notifier)
+          .updateTabella(
             tabellaId: tabella.id,
             codice: result.codice,
             descrizione: result.descrizione,
           );
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Tabella aggiornata')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Tabella aggiornata')));
       }
     } catch (e) {
       if (context.mounted) {
@@ -435,7 +500,10 @@ class DocumentsPage extends ConsumerWidget {
     required List<TabellaModel> tabelle,
     required TabellaModel tabella,
   }) async {
-    final linkedCodes = _linkedSpesaCodesForTabella(selectedCondominio, tabella);
+    final linkedCodes = _linkedSpesaCodesForTabella(
+      selectedCondominio,
+      tabella,
+    );
     if (linkedCodes.isNotEmpty) {
       final action = await showDocumentsLinkedTabellaDialog(
         context: context,
@@ -457,9 +525,9 @@ class DocumentsPage extends ConsumerWidget {
           context.mounted &&
           selectedCondominio != null) {
         try {
-          await ref.read(documentsDataProvider.notifier).cleanupDeleteTabella(
-                tabellaId: tabella.id,
-              );
+          await ref
+              .read(documentsDataProvider.notifier)
+              .cleanupDeleteTabella(tabellaId: tabella.id);
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
@@ -490,13 +558,13 @@ class DocumentsPage extends ConsumerWidget {
     );
     if (ok != true) return;
     try {
-      await ref.read(documentsDataProvider.notifier).deleteTabella(
-            tabellaId: tabella.id,
-          );
+      await ref
+          .read(documentsDataProvider.notifier)
+          .deleteTabella(tabellaId: tabella.id);
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Tabella eliminata')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Tabella eliminata')));
       }
     } catch (e) {
       if (context.mounted) {
@@ -515,7 +583,9 @@ class DocumentsPage extends ConsumerWidget {
     final linked = <String>[];
     for (final config in selectedCondominio.configurazioniSpesa) {
       final hasLink = config.tabelle.any(
-        (t) => t.codice.trim().toLowerCase() == tabella.codice.trim().toLowerCase(),
+        (t) =>
+            t.codice.trim().toLowerCase() ==
+            tabella.codice.trim().toLowerCase(),
       );
       if (hasLink) {
         linked.add(config.codice);
@@ -559,11 +629,7 @@ class DocumentsPage extends ConsumerWidget {
         Expanded(
           flex: 3,
           child: DocumentsDetailPanel(
-            onOpenQuoteDialog: (
-              selectedCondomino,
-              allCondomini,
-              tabelle,
-            ) =>
+            onOpenQuoteDialog: (selectedCondomino, allCondomini, tabelle) =>
                 _openCondominoQuoteDialog(
                   context: context,
                   ref: ref,
@@ -650,11 +716,12 @@ class DocumentsPage extends ConsumerWidget {
                 DocumentsCondominoDetailSheetContent(
                   condomino: condomino,
                   isSaving: isSaving,
-                  onAddVersamento: (selectedCondomino) => _openAddVersamentoDialog(
-                    context: context,
-                    ref: ref,
-                    selectedCondomino: selectedCondomino,
-                  ),
+                  onAddVersamento: (selectedCondomino) =>
+                      _openAddVersamentoDialog(
+                        context: context,
+                        ref: ref,
+                        selectedCondomino: selectedCondomino,
+                      ),
                   onEditVersamento: (selectedCondomino, versamento) =>
                       _openEditVersamentoDialog(
                         context: context,
@@ -715,7 +782,9 @@ class DocumentsPage extends ConsumerWidget {
     if (!context.mounted) return;
 
     try {
-      await ref.read(documentsDataProvider.notifier).updateCondominoQuoteTabelle(
+      await ref
+          .read(documentsDataProvider.notifier)
+          .updateCondominoQuoteTabelle(
             condominoId: selectedCondomino.id,
             quote: result.rows
                 .map(
@@ -729,13 +798,17 @@ class DocumentsPage extends ConsumerWidget {
                 .toList(growable: false),
           );
       if (result.rebuildStorico) {
-        await ref.read(documentsDataProvider.notifier).rebuildStoricoCondominio();
+        await ref
+            .read(documentsDataProvider.notifier)
+            .rebuildStoricoCondominio();
       }
       if (context.mounted) {
         final message = result.rebuildStorico
             ? 'Quote aggiornate e storico ricalcolato'
             : 'Quote aggiornate (valide per nuove spese)';
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(message)));
       }
     } catch (e) {
       if (context.mounted) {
@@ -756,7 +829,10 @@ class DocumentsPage extends ConsumerWidget {
       title: 'Nuovo versamento - ${selectedCondomino.nominativo}',
       confirmLabel: 'Salva',
       rataItems: [
-        const DropdownMenuItem<String?>(value: null, child: Text('Nessuna rata')),
+        const DropdownMenuItem<String?>(
+          value: null,
+          child: Text('Nessuna rata'),
+        ),
         ...selectedCondomino.config.rate.map(
           (rata) => DropdownMenuItem<String?>(
             value: rata.id,
@@ -771,7 +847,9 @@ class DocumentsPage extends ConsumerWidget {
 
     try {
       final now = DateTime.now().toUtc();
-      await ref.read(documentsDataProvider.notifier).addCondominoVersamento(
+      await ref
+          .read(documentsDataProvider.notifier)
+          .addCondominoVersamento(
             condominoId: selectedCondomino.id,
             versamento: CondominoVersamentoDraft(
               descrizione: result.descrizione,
@@ -782,15 +860,15 @@ class DocumentsPage extends ConsumerWidget {
             ),
           );
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Versamento registrato')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Versamento registrato')));
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Errore versamento: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Errore versamento: $e')));
       }
     }
   }
@@ -806,7 +884,10 @@ class DocumentsPage extends ConsumerWidget {
       title: 'Modifica versamento',
       confirmLabel: 'Salva',
       rataItems: [
-        const DropdownMenuItem<String?>(value: null, child: Text('Nessuna rata')),
+        const DropdownMenuItem<String?>(
+          value: null,
+          child: Text('Nessuna rata'),
+        ),
         ...selectedCondomino.config.rate.map(
           (rata) => DropdownMenuItem<String?>(
             value: rata.id,
@@ -822,7 +903,9 @@ class DocumentsPage extends ConsumerWidget {
     if (!context.mounted) return;
 
     try {
-      await ref.read(documentsDataProvider.notifier).updateCondominoVersamento(
+      await ref
+          .read(documentsDataProvider.notifier)
+          .updateCondominoVersamento(
             condominoId: selectedCondomino.id,
             versamentoId: versamento.id,
             versamento: CondominoVersamentoDraft(
@@ -835,9 +918,9 @@ class DocumentsPage extends ConsumerWidget {
             ),
           );
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Versamento aggiornato')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Versamento aggiornato')));
       }
     } catch (e) {
       if (context.mounted) {
@@ -863,14 +946,16 @@ class DocumentsPage extends ConsumerWidget {
     if (!context.mounted) return;
 
     try {
-      await ref.read(documentsDataProvider.notifier).deleteCondominoVersamento(
+      await ref
+          .read(documentsDataProvider.notifier)
+          .deleteCondominoVersamento(
             condominoId: selectedCondomino.id,
             versamentoId: versamento.id,
           );
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Versamento eliminato')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Versamento eliminato')));
       }
     } catch (e) {
       if (context.mounted) {
@@ -919,7 +1004,9 @@ class DocumentsPage extends ConsumerWidget {
                         runSpacing: 8,
                         children: [
                           Chip(
-                            label: Text('Riparto: ${movimento.tipoRiparto.label}'),
+                            label: Text(
+                              'Riparto: ${movimento.tipoRiparto.label}',
+                            ),
                             visualDensity: VisualDensity.compact,
                           ),
                           Chip(
@@ -930,7 +1017,8 @@ class DocumentsPage extends ConsumerWidget {
                           ),
                         ],
                       ),
-                      if (movimento.tipoRiparto == MovimentoRipartoTipo.individuale &&
+                      if (movimento.tipoRiparto ==
+                              MovimentoRipartoTipo.individuale &&
                           movimento.ripartizioneCondomini.isNotEmpty)
                         Padding(
                           padding: const EdgeInsets.only(top: 6),
@@ -1010,9 +1098,7 @@ class DocumentsPage extends ConsumerWidget {
                             color: Color(0xFF4B5563),
                           ),
                           const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(r.nominativo),
-                          ),
+                          Expanded(child: Text(r.nominativo)),
                           Text(
                             r.importo.toStringAsFixed(2),
                             style: const TextStyle(fontWeight: FontWeight.w700),
@@ -1047,7 +1133,9 @@ class DocumentsPage extends ConsumerWidget {
     );
     if (result == null) return;
     try {
-      await ref.read(documentsDataProvider.notifier).addCondominoRata(
+      await ref
+          .read(documentsDataProvider.notifier)
+          .addCondominoRata(
             condominoId: selectedCondomino.id,
             rata: CondominoRataDraft(
               codice: result.codice,
@@ -1058,15 +1146,15 @@ class DocumentsPage extends ConsumerWidget {
             ),
           );
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Rata aggiunta')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Rata aggiunta')));
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Errore rata: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Errore rata: $e')));
       }
     }
   }
@@ -1089,7 +1177,9 @@ class DocumentsPage extends ConsumerWidget {
     );
     if (result == null) return;
     try {
-      await ref.read(documentsDataProvider.notifier).updateCondominoRata(
+      await ref
+          .read(documentsDataProvider.notifier)
+          .updateCondominoRata(
             condominoId: selectedCondomino.id,
             rataId: rata.id,
             rata: CondominoRataDraft(
@@ -1102,15 +1192,15 @@ class DocumentsPage extends ConsumerWidget {
             ),
           );
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Rata aggiornata')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Rata aggiornata')));
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Errore modifica rata: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Errore modifica rata: $e')));
       }
     }
   }
@@ -1127,22 +1217,23 @@ class DocumentsPage extends ConsumerWidget {
     );
     if (ok != true) return;
     try {
-      await ref.read(documentsDataProvider.notifier).deleteCondominoRata(
+      await ref
+          .read(documentsDataProvider.notifier)
+          .deleteCondominoRata(
             condominoId: selectedCondomino.id,
             rataId: rata.id,
           );
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Rata eliminata')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Rata eliminata')));
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Errore elimina rata: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Errore elimina rata: $e')));
       }
     }
   }
-
 }
