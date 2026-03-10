@@ -149,7 +149,7 @@ Una fase non e' `Production ready` finche' non supera tutte le verifiche:
 - migrazione/compatibilita' dati verificata
 - test minimi automatici sul perimetro fase
 
-## Audit stato reale (2026-03-09)
+## Audit stato reale (2026-03-10)
 
 ### Quadro sintetico
 - `Fase 0 - Hardening`: **Production ready**
@@ -169,6 +169,11 @@ Una fase non e' `Production ready` finche' non supera tutte le verifiche:
 - Subentro/cessazione posizione presenti
 - Unita' immobiliari e titolarita' presenti con storico titolarita'
 - UI con Riverpod strutturata per feature e separazione livelli
+- Update unita' con sync snapshot su `condomino` (scala/interno riallineati automaticamente)
+- Disassociazione unita' da posizione disponibile in modifica anagrafica
+- `interno` alfanumerico supportato end-to-end (core + flutter + parser documenti)
+- Riparto condominiale reso coerente con partecipazione opzionale per tabella
+- Error mapping FE aggiornato sui nuovi codici business (`unita in uso`, `noPartecipanti`)
 
 ### Gap per diventare realmente vendibile
 - Hardening error UX ancora incompleto in piu' punti operativi
@@ -256,6 +261,9 @@ Oggi il subentro e' corretto sul piano contabile-temporale; qui diventa anche co
 - gestione unita' completa in UI admin (create/edit/delete + storico titolarita')
 - validazione business su unita' (`scala` + `interno` obbligatori, `codice` derivato automaticamente come concatenazione univoca nel condominio)
 - subentro guidato vincolato alla stessa unita'
+- sincronizzazione automatica dei dati denormalizzati posizione quando cambia l'unita'
+- supporto disassociazione unita' in modifica posizione (senza workaround manuali)
+- supporto `interno` non numerico su tutto il flusso applicativo
 
 ## Fase 3 - Preventivo, consuntivo e chiusura anno
 

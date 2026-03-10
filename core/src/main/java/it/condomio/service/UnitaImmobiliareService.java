@@ -8,6 +8,7 @@ import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import it.condomio.controller.model.UnitaTitolaritaResource;
 import it.condomio.controller.model.UnitaImmobiliareResource;
@@ -51,6 +52,7 @@ public class UnitaImmobiliareService {
             throws ApiException {
         Condominio exercise = esercizioGuardService.requireOwnedOpenExercise(idCondominio, keycloakUserId);
         validate(payload);
+        ensureUniqueByScalaInterno(exercise.getCondominioRootId(), payload, null);
         UnitaImmobiliare unit = new UnitaImmobiliare();
         unit.setCondominioRootId(exercise.getCondominioRootId());
         applyPayload(unit, payload);
@@ -68,15 +70,20 @@ public class UnitaImmobiliareService {
         validate(payload);
         UnitaImmobiliare existing = repository.findByIdAndCondominioRootId(id, exercise.getCondominioRootId())
                 .orElseThrow(() -> new NotFoundException("unitaImmobiliare"));
+        ensureUniqueByScalaInterno(exercise.getCondominioRootId(), payload, existing.getId());
         applyPayload(existing, payload);
         existing.setUpdatedAt(Instant.now());
-        return toResource(repository.save(existing));
+        UnitaImmobiliare saved = repository.save(existing);
+        syncCondominoUnitSnapshot(saved);
+        return toResource(saved);
     }
 
+    @Transactional
     public void delete(String idCondominio, String id, String keycloakUserId) throws ApiException {
         Condominio exercise = esercizioGuardService.requireOwnedOpenExercise(idCondominio, keycloakUserId);
         UnitaImmobiliare existing = repository.findByIdAndCondominioRootId(id, exercise.getCondominioRootId())
                 .orElseThrow(() -> new NotFoundException("unitaImmobiliare"));
+        ensureUnitNotReferenced(exercise.getCondominioRootId(), existing.getId());
         repository.deleteById(existing.getId());
     }
 
@@ -122,6 +129,27 @@ public class UnitaImmobiliareService {
         }
         if (payload.getInterno() == null || payload.getInterno().isBlank()) {
             throw new ValidationFailedException("validation.required.unitaImmobiliare.interno");
+        }
+    }
+
+    private void ensureUniqueByScalaInterno(
+            String condominioRootId,
+            UnitaImmobiliareResource payload,
+            String excludeUnitId) throws ValidationFailedException {
+        final String scala = normalize(payload == null ? null : payload.getScala());
+        final String interno = normalize(payload == null ? null : payload.getInterno());
+        if (scala == null || interno == null) {
+            return;
+        }
+        boolean exists = excludeUnitId == null
+                ? repository.existsByCondominioRootIdAndScalaAndInterno(condominioRootId, scala, interno)
+                : repository.existsByCondominioRootIdAndScalaAndInternoAndIdNot(
+                        condominioRootId,
+                        scala,
+                        interno,
+                        excludeUnitId);
+        if (exists) {
+            throw new ValidationFailedException("validation.duplicate.unitaImmobiliare.scalaInterno");
         }
     }
 
@@ -209,4 +237,37 @@ public class UnitaImmobiliareService {
                 .replaceAll("[^a-zA-Z0-9]", "")
                 .toUpperCase();
     }
+
+    /**
+     * Mantiene allineato il read model caldo `condomino` quando cambia l'unita':
+     * scala/interno sono snapshot denormalizzati usati da UI e query filtro.
+     */
+    private void syncCondominoUnitSnapshot(UnitaImmobiliare unit) {
+        if (unit == null || unit.getId() == null || unit.getId().isBlank()) {
+            return;
+        }
+        condominoRepository.syncUnitSnapshotByUnitaImmobiliareId(
+                unit.getId(),
+                unit.getScala(),
+                unit.getInterno());
+    }
+
+    /**
+     * Blocco hard-delete di unita' quando esistono ancora posizioni collegate.
+     */
+    private void ensureUnitNotReferenced(String condominioRootId, String unitaImmobiliareId) throws ApiException {
+        List<String> exerciseIds = condominioRepository.findByCondominioRootIdOrderByAnnoDesc(condominioRootId)
+                .stream()
+                .map(Condominio::getId)
+                .filter(value -> value != null && !value.isBlank())
+                .toList();
+        if (exerciseIds.isEmpty()) {
+            return;
+        }
+        boolean used = condominoRepository.existsByIdCondominioInAndUnitaImmobiliareId(exerciseIds, unitaImmobiliareId);
+        if (used) {
+            throw new ValidationFailedException("validation.inuse.unitaImmobiliare");
+        }
+    }
+
 }

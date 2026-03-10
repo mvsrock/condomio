@@ -106,6 +106,9 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
         ref.read(unitaImmobiliariItemsProvider),
         _selectedUnitaImmobiliareId,
       );
+      if (selectedUnita == null) {
+        throw Exception('Seleziona unita immobiliare.');
+      }
 
       final username = _usernameCtrl.text.trim().isEmpty
           ? _defaultUsername()
@@ -175,8 +178,8 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
           id: '',
           nome: _nomeCtrl.text.trim(),
           cognome: _cognomeCtrl.text.trim(),
-          scala: selectedUnita?.scala ?? _scalaCtrl.text.trim(),
-          interno: selectedUnita?.interno ?? _internoCtrl.text.trim(),
+          scala: selectedUnita.scala,
+          interno: selectedUnita.interno,
           email: _emailCtrl.text.trim(),
           telefono: _telefonoCtrl.text.trim(),
           saldoIniziale: double.parse(_saldoInizialeCtrl.text.trim().replaceAll(',', '.')),
@@ -186,7 +189,7 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
           hasAppAccess: accessEnabled,
           keycloakUserId: accessUserId,
           keycloakUsername: accessUsername,
-          unitaImmobiliareId: selectedUnita?.id,
+          unitaImmobiliareId: selectedUnita.id,
         ),
       );
 
@@ -353,8 +356,6 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
                   }
                 }),
                 onCreateUnitaInline: _createUnitaInlineFromCondominoForm,
-                scalaCtrl: _scalaCtrl,
-                internoCtrl: _internoCtrl,
                 saldoInizialeCtrl: _saldoInizialeCtrl,
                 usernameCtrl: _usernameCtrl,
                 passwordCtrl: _passwordCtrl,
@@ -426,8 +427,6 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
                 }
               }),
               onCreateUnitaInline: _createUnitaInlineFromCondominoForm,
-              scalaCtrl: _scalaCtrl,
-              internoCtrl: _internoCtrl,
               saldoInizialeCtrl: _saldoInizialeCtrl,
               usernameCtrl: _usernameCtrl,
               passwordCtrl: _passwordCtrl,

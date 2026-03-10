@@ -194,7 +194,10 @@ class _RegistryCondominoEditPageState
     _titolaritaTipo = widget.condomino.titolaritaTipo;
     _hasAppAccess = widget.condomino.hasAppAccess;
     _selectedKeycloakUserId = widget.condomino.keycloakUserId;
-    Future.microtask(() => ref.read(adminUsersProvider.notifier).loadUsers());
+    Future.microtask(() {
+      ref.read(adminUsersProvider.notifier).loadUsers();
+      ref.read(unitaImmobiliariProvider.notifier).load();
+    });
   }
 
   @override
@@ -302,6 +305,8 @@ class _RegistryCondominoEditPageState
                                         () => _selectedUnitaImmobiliareId = unitId,
                                       );
                                       if (unitId == null || unitId.isEmpty) {
+                                        _scalaController.clear();
+                                        _internoController.clear();
                                         return;
                                       }
                                       final selectedUnit = _findUnitaById(
@@ -312,8 +317,8 @@ class _RegistryCondominoEditPageState
                                       _scalaController.text = selectedUnit.scala;
                                       _internoController.text = selectedUnit.interno;
                                     },
-                                    scalaController: _scalaController,
-                                    internoController: _internoController,
+                                    onCreateUnitaInline:
+                                        isReadOnly ? null : _createUnitaInlineFromEditForm,
                                     saldoInizialeController:
                                         _saldoInizialeController,
                                     titolaritaTipo: _titolaritaTipo,
@@ -388,12 +393,14 @@ class _RegistryCondominoEditPageState
         ? _roleFromKeycloakUser(selectedUser)
         : widget.condomino.ruolo;
 
+    final hasSelectedUnit = _selectedUnitaImmobiliareId != null &&
+        _selectedUnitaImmobiliareId!.trim().isNotEmpty;
     Navigator.of(context).pop(
       widget.condomino.copyWith(
         nome: _nomeController.text.trim(),
         cognome: _cognomeController.text.trim(),
-        scala: _scalaController.text.trim(),
-        interno: _internoController.text.trim(),
+        scala: hasSelectedUnit ? _scalaController.text.trim() : '',
+        interno: hasSelectedUnit ? _internoController.text.trim() : '',
         email: _emailController.text.trim(),
         telefono: _telefonoController.text.trim(),
         saldoIniziale: double.parse(
@@ -440,6 +447,100 @@ class _RegistryCondominoEditPageState
       return CondominoRuolo.consigliere;
     }
     return CondominoRuolo.standard;
+  }
+
+  /// Crea unita' immobiliare inline dal form di modifica e la seleziona subito.
+  Future<void> _createUnitaInlineFromEditForm() async {
+    final scalaCtrl = TextEditingController(text: _scalaController.text.trim());
+    final internoCtrl = TextEditingController(text: _internoController.text.trim());
+    try {
+      final created = await showDialog<UnitaImmobiliare>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Nuova unita immobiliare'),
+          content: SizedBox(
+            width: 520,
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: scalaCtrl,
+                    decoration: const InputDecoration(labelText: 'Scala'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextField(
+                    controller: internoCtrl,
+                    decoration: const InputDecoration(labelText: 'Interno'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Annulla'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final scala = scalaCtrl.text.trim();
+                final interno = internoCtrl.text.trim();
+                if (scala.isEmpty || interno.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Scala e interno sono obbligatori.'),
+                    ),
+                  );
+                  return;
+                }
+                Navigator.of(dialogContext).pop(
+                  UnitaImmobiliare(
+                    id: '',
+                    codice: '',
+                    scala: scala,
+                    interno: interno,
+                    subalterno: '',
+                    destinazioneUso: '',
+                    metriQuadri: null,
+                  ),
+                );
+              },
+              child: const Text('Crea'),
+            ),
+          ],
+        ),
+      );
+      if (created == null) {
+        return;
+      }
+
+      await ref.read(unitaImmobiliariProvider.notifier).create(created);
+      final units = ref.read(unitaImmobiliariItemsProvider);
+      final matching = units
+          .where((item) => item.scala == created.scala && item.interno == created.interno)
+          .toList(growable: false);
+      if (matching.isEmpty) {
+        return;
+      }
+      final selected = matching.last;
+      setState(() {
+        _selectedUnitaImmobiliareId = selected.id;
+        _scalaController.text = selected.scala;
+        _internoController.text = selected.interno;
+      });
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Errore creazione unita: $e')),
+      );
+    } finally {
+      scalaCtrl.dispose();
+      internoCtrl.dispose();
+    }
   }
 }
 

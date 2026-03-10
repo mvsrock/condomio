@@ -120,7 +120,7 @@ class Condomino {
       'email': email,
       'cellulare': telefono,
       'scala': scala,
-      'interno': int.tryParse(interno) ?? 0,
+      'interno': interno,
       'anno': DateTime.now().year,
       'saldoIniziale': saldoIniziale,
       'appRole': ruolo.keycloakRoleName,

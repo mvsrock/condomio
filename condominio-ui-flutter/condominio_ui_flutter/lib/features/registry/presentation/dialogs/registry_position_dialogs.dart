@@ -198,7 +198,7 @@ class _RegistrySubentroDialogState extends State<RegistrySubentroDialog> {
                 TextFormField(
                   controller: _emailController,
                   decoration: const InputDecoration(labelText: 'Email'),
-                  validator: _required,
+                  validator: _optionalEmail,
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
@@ -276,6 +276,14 @@ class _RegistrySubentroDialogState extends State<RegistrySubentroDialog> {
       return 'Campo obbligatorio';
     }
     return null;
+  }
+
+  String? _optionalEmail(String? value) {
+    final normalized = value?.trim() ?? '';
+    if (normalized.isEmpty) {
+      return null;
+    }
+    return normalized.contains('@') ? null : 'Email non valida';
   }
 
   String? _decimal(String? value) {

@@ -358,59 +358,55 @@ public class RipartoRealtimeService {
             }
 
             final Map<String, Condomino.Config.TabellaConfig> configByCondomino = new HashMap<>();
-            final List<String> missingQuotaCondomini = new ArrayList<>();
+            final List<Condomino> partecipanti = new ArrayList<>();
             for (Condomino condomino : condomini) {
                 Condomino.Config.TabellaConfig cfg = findConfigForTabella(condomino, codiceTabella);
                 if (cfg != null && cfg.getNumeratore() != null && cfg.getDenominatore() != null
                         && cfg.getNumeratore() > 0d && cfg.getDenominatore() > 0d) {
                     configByCondomino.put(condomino.getId(), cfg);
-                } else {
-                    missingQuotaCondomini.add(buildNominativo(condomino));
+                    partecipanti.add(condomino);
                 }
             }
-            if (!missingQuotaCondomini.isEmpty()) {
+            // Regola dominio: un condomino puo' non partecipare a una specifica tabella.
+            // In quel caso resta semplicemente a quota 0 per questa tabella.
+            if (partecipanti.isEmpty()) {
                 throw new ValidationFailedException(
-                        "validation.required.riparto.quotaTabella."
-                                + codiceTabella
-                                + ".missingCondomini="
-                                + String.join(",", missingQuotaCondomini));
+                        "validation.required.riparto.quotaTabella." + codiceTabella + ".noPartecipanti");
             }
 
-            // Validazione coerenza millesimi tabella:
-            // - stesso denominatore per tutti
-            // - somma numeratori == denominatore
-            Double referenceDen = null;
-            double sumNum = 0d;
-            for (Condomino condomino : condomini) {
+            // Riparto sui soli partecipanti: usiamo il peso reale num/den.
+            // Non imponiamo piu' che tutti i condomini abbiano quote su questa tabella.
+            final Map<String, Double> weightByCondomino = new HashMap<>();
+            double totalWeight = 0d;
+            for (Condomino condomino : partecipanti) {
                 Condomino.Config.TabellaConfig cfg = configByCondomino.get(condomino.getId());
                 final double num = cfg.getNumeratore();
                 final double den = cfg.getDenominatore();
-                if (referenceDen == null) {
-                    referenceDen = den;
-                } else if (Math.abs(referenceDen - den) > 0.0001d) {
-                    throw new ValidationFailedException(
-                            "validation.required.riparto.denominatoreIncoerente." + codiceTabella);
+                final double weight = num / den;
+                if (weight <= 0d || Double.isNaN(weight) || Double.isInfinite(weight)) {
+                    continue;
                 }
-                sumNum += num;
+                weightByCondomino.put(condomino.getId(), weight);
+                totalWeight += weight;
             }
-            if (referenceDen == null || Math.abs(sumNum - referenceDen) > 0.0001d) {
+            if (totalWeight <= 0d) {
                 throw new ValidationFailedException(
-                        "validation.required.riparto.sommaMillesimiIncoerente." + codiceTabella
-                                + ".sum=" + round2(sumNum)
-                                + ".den=" + round2(referenceDen == null ? 0d : referenceDen));
+                        "validation.required.riparto.quotaTabella." + codiceTabella + ".noPartecipanti");
             }
 
-            // Riparto deterministico su millesimi reali (num/den),
-            // con correzione centesimi sull'ultimo condomino per garantire totale.
+            // Riparto deterministico con correzione centesimi sull'ultimo partecipante.
             double allocated = 0d;
-            for (int i = 0; i < condomini.size(); i++) {
-                final Condomino condomino = condomini.get(i);
-                final Condomino.Config.TabellaConfig cfg = configByCondomino.get(condomino.getId());
+            for (int i = 0; i < partecipanti.size(); i++) {
+                final Condomino condomino = partecipanti.get(i);
+                final double weight = weightByCondomino.getOrDefault(condomino.getId(), 0d);
+                if (weight <= 0d) {
+                    continue;
+                }
                 final double share;
-                if (i == condomini.size() - 1) {
+                if (i == partecipanti.size() - 1) {
                     share = round2(quotaTabella.getImporto() - allocated);
                 } else {
-                    share = round2(quotaTabella.getImporto() * (cfg.getNumeratore() / cfg.getDenominatore()));
+                    share = round2(quotaTabella.getImporto() * (weight / totalWeight));
                     allocated += share;
                 }
                 quoteByCondomino.merge(condomino.getId(), share, Double::sum);

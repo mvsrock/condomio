@@ -291,8 +291,7 @@ class RegistryCondominoExerciseSection extends StatelessWidget {
     required this.availableUnita,
     required this.selectedUnitaImmobiliareId,
     required this.onSelectUnitaImmobiliare,
-    required this.scalaController,
-    required this.internoController,
+    required this.onCreateUnitaInline,
     required this.saldoInizialeController,
     required this.titolaritaTipo,
     required this.onTitolaritaChanged,
@@ -302,8 +301,7 @@ class RegistryCondominoExerciseSection extends StatelessWidget {
   final List<UnitaImmobiliare> availableUnita;
   final String? selectedUnitaImmobiliareId;
   final ValueChanged<String?>? onSelectUnitaImmobiliare;
-  final TextEditingController scalaController;
-  final TextEditingController internoController;
+  final VoidCallback? onCreateUnitaInline;
   final TextEditingController saldoInizialeController;
   final CondominoTitolaritaTipo titolaritaTipo;
   final ValueChanged<CondominoTitolaritaTipo>? onTitolaritaChanged;
@@ -347,23 +345,14 @@ class RegistryCondominoExerciseSection extends StatelessWidget {
           ],
           onChanged: onSelectUnitaImmobiliare,
         ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: TextFormField(
-                controller: scalaController,
-                decoration: const InputDecoration(labelText: 'Scala'),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: TextFormField(
-                controller: internoController,
-                decoration: const InputDecoration(labelText: 'Interno'),
-              ),
-            ),
-          ],
+        const SizedBox(height: 8),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: OutlinedButton.icon(
+            onPressed: onCreateUnitaInline,
+            icon: const Icon(Icons.add_home_work_outlined),
+            label: const Text('Nuova unita'),
+          ),
         ),
         const SizedBox(height: 12),
         DropdownButtonFormField<CondominoTitolaritaTipo>(

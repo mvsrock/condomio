@@ -98,7 +98,7 @@ public class Condomino {
     private String unitaImmobiliareId;
     private TitolaritaTipo titolaritaTipo;
     private String scala;
-    private Long interno;
+    private String interno;
     private Long anno;
 
     private Config config;

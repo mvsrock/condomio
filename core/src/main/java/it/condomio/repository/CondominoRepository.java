@@ -25,6 +25,7 @@ public interface CondominoRepository extends MongoRepository<Condomino, String>,
     boolean existsByIdCondominioAndCondominoRootId(String idCondominio, String condominoRootId);
     boolean existsByIdCondominioAndCondominoRootIdIn(String idCondominio, List<String> condominoRootIds);
     boolean existsByIdCondominioAndKeycloakUserId(String idCondominio, String keycloakUserId);
+    boolean existsByIdCondominioInAndUnitaImmobiliareId(List<String> idCondominio, String unitaImmobiliareId);
 
     /** Update puntuale residuo di un condomino specifico nel condominio atteso. */
     @Query("{ '_id': ?0, 'idCondominio': ?1 }")
@@ -45,6 +46,14 @@ public interface CondominoRepository extends MongoRepository<Condomino, String>,
     @Query("{ '_id': ?0, 'idCondominio': ?1 }")
     @Update("{ '$pull': { 'versamenti': { 'id': ?2 } } }")
     long removeVersamentoByIdAndCondominio(String id, String idCondominio, String versamentoId);
+
+    /**
+     * Riallinea snapshot unita' (scala/interno) su tutte le posizioni collegate
+     * alla stessa unita' immobiliare.
+     */
+    @Query("{ 'unitaImmobiliareId': ?0 }")
+    @Update("{ '$set': { 'scala': ?1, 'interno': ?2 } }")
+    long syncUnitSnapshotByUnitaImmobiliareId(String unitaImmobiliareId, String scala, String interno);
 }
 
 interface CondominoRepositoryCustom {

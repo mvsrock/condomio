@@ -92,6 +92,10 @@ class ApiError implements Exception {
       'validation.required.unitaImmobiliare.codice': 'Inserisci il codice dell\'unita immobiliare.',
       'validation.required.unitaImmobiliare.scala': 'Inserisci la scala dell\'unita immobiliare.',
       'validation.required.unitaImmobiliare.interno': 'Inserisci l\'interno dell\'unita immobiliare.',
+      'validation.duplicate.unitaImmobiliare.scalaInterno':
+          'Esiste gia\' un\'unita immobiliare con la stessa scala e interno.',
+      'validation.inuse.unitaImmobiliare':
+          'Unita immobiliare in uso: non puo\' essere eliminata finche\' esistono posizioni collegate.',
       'validation.required.condomino.unitaImmobiliare':
           'Seleziona un\'unita immobiliare oppure compila scala e interno.',
       'validation.overlap.condomino.unitaImmobiliare':
@@ -115,8 +119,12 @@ class ApiError implements Exception {
     if (code.startsWith('validation.invalid.movimento.ripartizioneCondomini.sumMismatch')) {
       return 'La ripartizione individuale non coincide con l\'importo del movimento.';
     }
+    if (code.startsWith('validation.required.riparto.quotaTabella.') &&
+        code.endsWith('.noPartecipanti')) {
+      return 'Nessun condomino partecipa alla tabella selezionata: assegna almeno una quota valida.';
+    }
     if (code.startsWith('validation.required.riparto.quotaTabella.')) {
-      return 'Mancano quote tabellari per alcuni condomini: completa la configurazione quote.';
+      return 'Configurazione quote tabellari non valida per il riparto richiesto.';
     }
     if (code.startsWith('validation.required.riparto.sommaMillesimiIncoerente.')) {
       return 'La somma delle quote non e\' coerente con il denominatore della tabella.';

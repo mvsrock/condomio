@@ -12,6 +12,12 @@ import it.condomio.document.UnitaImmobiliare;
 public interface UnitaImmobiliareRepository extends MongoRepository<UnitaImmobiliare, String> {
     List<UnitaImmobiliare> findByCondominioRootIdOrderByScalaAscInternoAsc(String condominioRootId);
     Optional<UnitaImmobiliare> findByIdAndCondominioRootId(String id, String condominioRootId);
+    boolean existsByCondominioRootIdAndScalaAndInterno(String condominioRootId, String scala, String interno);
+    boolean existsByCondominioRootIdAndScalaAndInternoAndIdNot(
+            String condominioRootId,
+            String scala,
+            String interno,
+            String id);
     Optional<UnitaImmobiliare> findByCondominioRootIdAndScalaAndInterno(
             String condominioRootId,
             String scala,

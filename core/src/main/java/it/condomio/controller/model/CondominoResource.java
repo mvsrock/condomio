@@ -29,7 +29,7 @@ public class CondominoResource {
 
     private String idCondominio;
     private String scala;
-    private Long interno;
+    private String interno;
     private Long anno;
     private Condomino.PosizioneStato statoPosizione;
     private Instant dataIngresso;

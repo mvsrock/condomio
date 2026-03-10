@@ -82,7 +82,7 @@ public class CondominoService {
             throws ApiException {
         sanitizeForCreate(resource);
         validateAllowedCondominoRole(resource.getAppRole());
-        validateBaseFields(resource);
+        validateBaseFields(resource, true);
 
         Condominio exercise = esercizioGuardService.requireOwnedOpenExercise(
                 resource.getIdCondominio(),
@@ -92,7 +92,7 @@ public class CondominoService {
         StableRootWriteResult rootWrite = resolveOrCreateStableRootForCreate(exercise, resource);
         CondominoRoot stableRoot = rootWrite.root();
         ensureUniquePositionOnExercise(exercise.getId(), stableRoot.getId(), null);
-        UnitaImmobiliare unita = resolveOrCreateUnitaForPosition(exercise, resource);
+        UnitaImmobiliare unita = resolveOrCreateUnitaForPosition(exercise, resource, false);
 
         Condomino position = buildPositionForCreate(resource, exercise, stableRoot, unita);
         validateUnitaTitolaritaOverlap(position, null);
@@ -182,7 +182,7 @@ public class CondominoService {
         } else {
             validateAllowedCondominoRole(updatedResource.getAppRole());
         }
-        validateBaseFields(updatedResource);
+        validateBaseFields(updatedResource, false);
         normalizeStableFields(updatedResource);
 
         Condominio exercise = condominioRepository.findById(aggregate.position().getIdCondominio())
@@ -192,7 +192,7 @@ public class CondominoService {
                 exercise.getCondominioRootId(),
                 updatedResource);
         CondominoRoot updatedRoot = rootWrite.root();
-        UnitaImmobiliare unita = resolveOrCreateUnitaForPosition(exercise, updatedResource);
+        UnitaImmobiliare unita = resolveOrCreateUnitaForPosition(exercise, updatedResource, true);
 
         Condomino updatedPosition = buildPositionForUpdate(aggregate.position(), updatedResource, unita);
         applySnapshotFields(updatedPosition, updatedRoot);
@@ -302,13 +302,13 @@ public class CondominoService {
         incoming.setResiduo(incomingSaldo);
 
         validateAllowedCondominoRole(incoming.getAppRole());
-        validateBaseFields(incoming);
+        validateBaseFields(incoming, true);
         normalizeStableFields(incoming);
 
         StableRootWriteResult rootWrite = resolveOrCreateStableRootForCreate(exercise, incoming);
         CondominoRoot stableRoot = rootWrite.root();
         ensureUniquePositionOnExercise(exercise.getId(), stableRoot.getId(), null);
-        UnitaImmobiliare unita = resolveOrCreateUnitaForPosition(exercise, incoming);
+        UnitaImmobiliare unita = resolveOrCreateUnitaForPosition(exercise, incoming, false);
 
         Condomino previousPosition = aggregate.position();
         previousPosition.setStatoPosizione(Condomino.PosizioneStato.CESSATO);
@@ -616,7 +616,7 @@ public class CondominoService {
                         .thenComparing(CondominoResource::getCognome, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER))
                         .thenComparing(CondominoResource::getNome, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER))
                         .thenComparing(CondominoResource::getScala, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER))
-                        .thenComparing(CondominoResource::getInterno, Comparator.nullsLast(Long::compareTo)))
+                        .thenComparing(CondominoResource::getInterno, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)))
                 .toList();
     }
 
@@ -809,8 +809,8 @@ public class CondominoService {
         position.setTitolaritaTipo(resolveTitolaritaTipo(resource));
         position.setScala(unita == null ? normalizeBlank(resource.getScala()) : unita.getScala());
         position.setInterno(unita == null
-                ? (resource.getInterno() == null ? 0L : resource.getInterno())
-                : parseLongOrZero(unita.getInterno()));
+                ? normalizeBlank(resource.getInterno())
+                : normalizeBlank(unita.getInterno()));
         position.setAnno(exercise.getAnno());
         position.setStatoPosizione(resolveCreateState(resource));
         position.setDataIngresso(resolveEntryInstant(resource.getDataIngresso(), exercise));
@@ -830,12 +830,15 @@ public class CondominoService {
             Condomino existing,
             CondominoResource resource,
             UnitaImmobiliare unita) {
+        final boolean clearUnitBinding = isUnitBindingExplicitlyCleared(resource);
         Condomino position = new Condomino();
         position.setId(existing.getId());
         position.setVersion(existing.getVersion());
         position.setCondominoRootId(existing.getCondominoRootId());
         position.setIdCondominio(existing.getIdCondominio());
-        position.setUnitaImmobiliareId(unita == null ? existing.getUnitaImmobiliareId() : unita.getId());
+        position.setUnitaImmobiliareId(unita == null
+                ? (clearUnitBinding ? null : existing.getUnitaImmobiliareId())
+                : unita.getId());
         position.setTitolaritaTipo(resource.getTitolaritaTipo() == null
                 ? (existing.getTitolaritaTipo() == null
                         ? Condomino.TitolaritaTipo.PROPRIETARIO
@@ -844,7 +847,7 @@ public class CondominoService {
         position.setScala(unita == null ? normalizeBlank(resource.getScala()) : unita.getScala());
         position.setInterno(unita == null
                 ? (resource.getInterno() == null ? existing.getInterno() : resource.getInterno())
-                : parseLongOrZero(unita.getInterno()));
+                : normalizeBlank(unita.getInterno()));
         position.setAnno(existing.getAnno());
         position.setStatoPosizione(resolveUpdateState(existing, resource));
         position.setDataIngresso(resolveUpdateEntryInstant(existing, resource));
@@ -884,7 +887,8 @@ public class CondominoService {
 
     private UnitaImmobiliare resolveOrCreateUnitaForPosition(
             Condominio exercise,
-            CondominoResource resource) throws ValidationFailedException, NotFoundException {
+            CondominoResource resource,
+            boolean allowMissing) throws ValidationFailedException, NotFoundException {
         if (exercise == null || exercise.getCondominioRootId() == null || exercise.getCondominioRootId().isBlank()) {
             throw new ValidationFailedException("validation.required.condomino.condominioRootId");
         }
@@ -896,7 +900,10 @@ public class CondominoService {
         }
 
         final String scala = normalizeBlank(resource.getScala());
-        final String interno = resource.getInterno() == null ? null : resource.getInterno().toString();
+        final String interno = normalizeBlank(resource.getInterno());
+        if (allowMissing && scala == null && interno == null) {
+            return null;
+        }
         if (scala == null || interno == null || interno.isBlank()) {
             throw new ValidationFailedException("validation.required.condomino.unitaImmobiliare");
         }
@@ -955,22 +962,20 @@ public class CondominoService {
         }
     }
 
-    private void validateBaseFields(CondominoResource resource) throws ValidationFailedException {
+    private void validateBaseFields(CondominoResource resource, boolean requireUnit) throws ValidationFailedException {
         if (resource.getNome() == null || resource.getNome().trim().isEmpty()) {
             throw new ValidationFailedException("validation.required.condomino.nome");
         }
         if (resource.getCognome() == null || resource.getCognome().trim().isEmpty()) {
             throw new ValidationFailedException("validation.required.condomino.cognome");
         }
-        if (resource.getEmail() == null || resource.getEmail().trim().isEmpty()) {
-            throw new ValidationFailedException("validation.required.condomino.email");
-        }
         if (resource.getIdCondominio() == null || resource.getIdCondominio().isBlank()) {
             throw new ValidationFailedException("validation.required.condomino.idCondominio");
         }
-        if ((resource.getUnitaImmobiliareId() == null || resource.getUnitaImmobiliareId().isBlank())
+        if (requireUnit
+                && (resource.getUnitaImmobiliareId() == null || resource.getUnitaImmobiliareId().isBlank())
                 && (resource.getScala() == null || resource.getScala().isBlank()
-                        || resource.getInterno() == null)) {
+                        || resource.getInterno() == null || resource.getInterno().isBlank())) {
             throw new ValidationFailedException("validation.required.condomino.unitaImmobiliare");
         }
         if (resource.getSaldoIniziale() != null
@@ -1637,21 +1642,24 @@ public class CondominoService {
         return value == null ? 0d : value;
     }
 
-    private long parseLongOrZero(String value) {
-        if (value == null) {
-            return 0L;
-        }
-        try {
-            return Long.parseLong(value.trim());
-        } catch (NumberFormatException ex) {
-            return 0L;
-        }
-    }
-
     private boolean isSameUtcDay(Instant left, Instant right) {
         final LocalDate leftDay = left.atOffset(ZoneOffset.UTC).toLocalDate();
         final LocalDate rightDay = right.atOffset(ZoneOffset.UTC).toLocalDate();
         return leftDay.equals(rightDay);
+    }
+
+    /**
+     * In update, il frontend segnala la rimozione unita' inviando:
+     * - unitaImmobiliareId vuoto/null
+     * - scala e interno vuoti/null
+     */
+    private boolean isUnitBindingExplicitlyCleared(CondominoResource resource) {
+        if (resource == null) {
+            return false;
+        }
+        return isBlank(resource.getUnitaImmobiliareId())
+                && isBlank(resource.getScala())
+                && isBlank(resource.getInterno());
     }
 
     private record CondominoAggregate(Condomino position, CondominoRoot root) {

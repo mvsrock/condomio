@@ -29,7 +29,7 @@ class CondominoDocumentModel {
   final String email;
   final String cellulare;
   final String scala;
-  final int interno;
+  final String interno;
   final int anno;
   final CondominoConfigModel config;
   final List<VersamentoModel> versamenti;
@@ -53,15 +53,16 @@ class CondominoDocumentModel {
       email: json['email'] as String? ?? '',
       cellulare: json['cellulare'] as String? ?? '',
       scala: json['scala'] as String? ?? '',
-      interno: (json['interno'] as num?)?.toInt() ?? 0,
-      anno: (json['anno'] as num?)?.toInt() ?? 0,
+      // Dopo la migrazione unita' l'interno puo' essere anche alfanumerico (es. 16A).
+      interno: (json['interno'] ?? '').toString(),
+      anno: _asInt(json['anno']),
       config: CondominoConfigModel.fromJson(
         json['config'] as Map<String, dynamic>? ?? const {},
       ),
       versamenti: (json['versamenti'] as List<dynamic>? ?? const [])
           .map((e) => VersamentoModel.fromJson(e as Map<String, dynamic>))
           .toList(growable: false),
-      residuo: (json['residuo'] as num?)?.toDouble() ?? 0,
+      residuo: _asDouble(json['residuo']),
       statoPosizione: _positionStateFromJson(json['statoPosizione']),
       dataIngresso: _parseDateTime(json['dataIngresso']),
       dataUscita: _parseDateTime(json['dataUscita']),
@@ -121,8 +122,8 @@ class TabellaConfigModel {
     final tabella = json['tabella'] as Map<String, dynamic>? ?? const {};
     return TabellaConfigModel(
       codiceTabella: tabella['codice'] as String? ?? '',
-      numeratore: (json['numeratore'] as num?)?.toDouble() ?? 0,
-      denominatore: (json['denominatore'] as num?)?.toDouble() ?? 0,
+      numeratore: _asDouble(json['numeratore']),
+      denominatore: _asDouble(json['denominatore']),
     );
   }
 }
@@ -158,8 +159,8 @@ class RataModel {
       tipo: json['tipo'] as String? ?? '',
       stato: json['stato'] as String? ?? '',
       scadenza: _parseDateTime(json['scadenza']),
-      importo: (json['importo'] as num?)?.toDouble() ?? 0,
-      incassato: (json['incassato'] as num?)?.toDouble() ?? 0,
+      importo: _asDouble(json['importo']),
+      incassato: _asDouble(json['incassato']),
       importi: (json['importi'] as List<dynamic>? ?? const [])
           .map((e) => ImportoRataModel.fromJson(e as Map<String, dynamic>))
           .toList(growable: false),
@@ -179,7 +180,7 @@ class ImportoRataModel {
   factory ImportoRataModel.fromJson(Map<String, dynamic> json) {
     return ImportoRataModel(
       codice: json['codice'] as String? ?? '',
-      importo: (json['importo'] as num?)?.toDouble() ?? 0,
+      importo: _asDouble(json['importo']),
     );
   }
 }
@@ -215,7 +216,7 @@ class VersamentoModel {
     return VersamentoModel(
       id: json['id'] as String? ?? '',
       descrizione: json['descrizione'] as String? ?? '',
-      importo: (json['importo'] as num?)?.toDouble() ?? 0,
+      importo: _asDouble(json['importo']),
       rataId: json['rataId'] as String?,
       date: parseDate('date'),
       insertedAt: parseDate('insertedAt'),
@@ -241,7 +242,24 @@ class RipartizioneModel {
     return RipartizioneModel(
       codice: json['codice'] as String? ?? '',
       descrizione: json['descrizione'] as String? ?? '',
-      importo: (json['importo'] as num?)?.toDouble() ?? 0,
+      importo: _asDouble(json['importo']),
     );
   }
+}
+
+int _asInt(Object? value) {
+  if (value is num) {
+    return value.toInt();
+  }
+  final parsed = int.tryParse((value ?? '').toString().trim());
+  return parsed ?? 0;
+}
+
+double _asDouble(Object? value) {
+  if (value is num) {
+    return value.toDouble();
+  }
+  final normalized = (value ?? '').toString().trim().replaceAll(',', '.');
+  final parsed = double.tryParse(normalized);
+  return parsed ?? 0;
 }

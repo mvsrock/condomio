@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../auth/application/keycloak_provider.dart';
 import '../../condominio_selection/application/managed_condominio_notifier.dart';
+import '../../shared/application/exercise_refresh_provider.dart';
 import '../../../utils/api_error.dart';
 import '../data/condomino_api_client.dart';
 import '../domain/unita_immobiliare.dart';
@@ -100,6 +101,10 @@ class UnitaImmobiliariNotifier extends StateNotifier<UnitaImmobiliariState> {
           ..sort((a, b) => a.label.compareTo(b.label)),
         isLoading: false,
       );
+      _ref.read(exerciseRefreshProvider.notifier).publish(
+        exerciseId: condominioId,
+        scopes: const {ExerciseRefreshScope.registryItems},
+      );
     } catch (e, st) {
       if (e is ApiError) {
         debugPrint('[UNITA][create] ${e.technicalMessage}');
@@ -128,6 +133,10 @@ class UnitaImmobiliariNotifier extends StateNotifier<UnitaImmobiliariState> {
             .toList(growable: false),
         isLoading: false,
       );
+      _ref.read(exerciseRefreshProvider.notifier).publish(
+        exerciseId: condominioId,
+        scopes: const {ExerciseRefreshScope.registryItems},
+      );
     } catch (e, st) {
       if (e is ApiError) {
         debugPrint('[UNITA][update] ${e.technicalMessage}');
@@ -153,6 +162,10 @@ class UnitaImmobiliariNotifier extends StateNotifier<UnitaImmobiliariState> {
       state = state.copyWith(
         items: state.items.where((item) => item.id != unitaId).toList(growable: false),
         isLoading: false,
+      );
+      _ref.read(exerciseRefreshProvider.notifier).publish(
+        exerciseId: condominioId,
+        scopes: const {ExerciseRefreshScope.registryItems},
       );
     } catch (e, st) {
       if (e is ApiError) {

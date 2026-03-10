@@ -48,8 +48,6 @@ class AdminUsersCreateCondominoCard extends ConsumerWidget {
     required this.selectedUnitaImmobiliareId,
     required this.onSelectedUnitaChanged,
     required this.onCreateUnitaInline,
-    required this.scalaCtrl,
-    required this.internoCtrl,
     required this.saldoInizialeCtrl,
     required this.usernameCtrl,
     required this.passwordCtrl,
@@ -77,8 +75,6 @@ class AdminUsersCreateCondominoCard extends ConsumerWidget {
   final String? selectedUnitaImmobiliareId;
   final ValueChanged<String?> onSelectedUnitaChanged;
   final Future<void> Function() onCreateUnitaInline;
-  final TextEditingController scalaCtrl;
-  final TextEditingController internoCtrl;
   final TextEditingController saldoInizialeCtrl;
   final TextEditingController usernameCtrl;
   final TextEditingController passwordCtrl;
@@ -160,8 +156,6 @@ class AdminUsersCreateCondominoCard extends ConsumerWidget {
                               selectedUnitaImmobiliareId: selectedUnitaImmobiliareId,
                               onSelectedUnitaChanged: onSelectedUnitaChanged,
                               onCreateUnitaInline: onCreateUnitaInline,
-                              scalaCtrl: scalaCtrl,
-                              internoCtrl: internoCtrl,
                               saldoInizialeCtrl: saldoInizialeCtrl,
                             ),
                           ] else ...[
@@ -183,8 +177,6 @@ class AdminUsersCreateCondominoCard extends ConsumerWidget {
                               selectedUnitaImmobiliareId: selectedUnitaImmobiliareId,
                               onSelectedUnitaChanged: onSelectedUnitaChanged,
                               onCreateUnitaInline: onCreateUnitaInline,
-                              scalaCtrl: scalaCtrl,
-                              internoCtrl: internoCtrl,
                               saldoInizialeCtrl: saldoInizialeCtrl,
                             ),
                           ],
@@ -459,8 +451,7 @@ class _AdminUsersContactFields extends StatelessWidget {
     final emailField = TextFormField(
       controller: emailCtrl,
       decoration: const InputDecoration(labelText: 'Email'),
-      validator: (value) =>
-          (value == null || !value.contains('@')) ? 'Email non valida' : null,
+      validator: _optionalEmailValidator,
     );
     final telefonoField = TextFormField(
       controller: telefonoCtrl,
@@ -485,6 +476,14 @@ class _AdminUsersContactFields extends StatelessWidget {
       ],
     );
   }
+
+  String? _optionalEmailValidator(String? value) {
+    final normalized = value?.trim() ?? '';
+    if (normalized.isEmpty) {
+      return null;
+    }
+    return normalized.contains('@') ? null : 'Email non valida';
+  }
 }
 
 class _AdminUsersUnitFields extends StatelessWidget {
@@ -494,8 +493,6 @@ class _AdminUsersUnitFields extends StatelessWidget {
     required this.selectedUnitaImmobiliareId,
     required this.onSelectedUnitaChanged,
     required this.onCreateUnitaInline,
-    required this.scalaCtrl,
-    required this.internoCtrl,
     required this.saldoInizialeCtrl,
   });
 
@@ -504,8 +501,6 @@ class _AdminUsersUnitFields extends StatelessWidget {
   final String? selectedUnitaImmobiliareId;
   final ValueChanged<String?> onSelectedUnitaChanged;
   final Future<void> Function() onCreateUnitaInline;
-  final TextEditingController scalaCtrl;
-  final TextEditingController internoCtrl;
   final TextEditingController saldoInizialeCtrl;
 
   @override
@@ -516,13 +511,9 @@ class _AdminUsersUnitFields extends StatelessWidget {
     final unitDropdown = DropdownButtonFormField<String?>(
       initialValue: canUseSelectedUnit ? selectedUnitaImmobiliareId : null,
       decoration: const InputDecoration(
-        labelText: 'Unita immobiliare (opzionale)',
+        labelText: 'Unita immobiliare',
       ),
       items: [
-        const DropdownMenuItem<String?>(
-          value: null,
-          child: Text('Nessuna unita selezionata'),
-        ),
         ...availableUnita.map(
           (unit) => DropdownMenuItem<String?>(
             value: unit.id,
@@ -541,14 +532,15 @@ class _AdminUsersUnitFields extends StatelessWidget {
         }
         onSelectedUnitaChanged(value);
       },
-    );
-    final scalaField = TextFormField(
-      controller: scalaCtrl,
-      decoration: const InputDecoration(labelText: 'Scala'),
-    );
-    final internoField = TextFormField(
-      controller: internoCtrl,
-      decoration: const InputDecoration(labelText: 'Interno'),
+      validator: (value) {
+        if (value == null || value.trim().isEmpty) {
+          return 'Seleziona unita';
+        }
+        if (value == _createUnitaInlineValue) {
+          return 'Completa prima la creazione della nuova unita';
+        }
+        return null;
+      },
     );
     final saldoField = TextFormField(
       controller: saldoInizialeCtrl,
@@ -562,10 +554,6 @@ class _AdminUsersUnitFields extends StatelessWidget {
         children: [
           unitDropdown,
           const SizedBox(height: 12),
-          scalaField,
-          const SizedBox(height: 12),
-          internoField,
-          const SizedBox(height: 12),
           saldoField,
         ],
       );
@@ -575,15 +563,7 @@ class _AdminUsersUnitFields extends StatelessWidget {
       children: [
         unitDropdown,
         const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(child: scalaField),
-            const SizedBox(width: 12),
-            Expanded(child: internoField),
-            const SizedBox(width: 12),
-            Expanded(child: saldoField),
-          ],
-        ),
+        saldoField,
       ],
     );
   }
