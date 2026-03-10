@@ -179,6 +179,7 @@ Una fase non e' `Production ready` finche' non supera tutte le verifiche:
 - Consuntivo aggregato automaticamente dai movimenti reali dell'esercizio
 - Vista morosita' con aging debito e stato pratica (`in bonis`, `sollecitato`, `legale`)
 - Solleciti manuali e automatici con storico per posizione esercizio
+- Dashboard home restylizzata in chiave operativa (contesto, KPI, scadenze, attivita' recenti, azioni rapide)
 
 ### Gap per diventare realmente vendibile
 - Hardening error UX ancora incompleto in piu' punti operativi
