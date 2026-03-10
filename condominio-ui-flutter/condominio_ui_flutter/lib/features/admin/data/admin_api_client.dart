@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 
 import '../../../config/keycloak_config.dart';
 import '../../../utils/api_error.dart';
+import '../domain/admin_group.dart';
 import '../domain/admin_role.dart';
 import '../domain/admin_user.dart';
 
@@ -11,7 +12,9 @@ class AdminApiClient {
   const AdminApiClient();
 
   Uri _uri(String path, [Map<String, String>? queryParameters]) {
-    return Uri.parse('${KeycloakAppConfig.keycloakServiceUrl}$path').replace(
+    return Uri.parse(
+      '${KeycloakAppConfig.coreApiUrl}/keycloak-admin$path',
+    ).replace(
       queryParameters: queryParameters,
     );
   }
@@ -117,6 +120,95 @@ class AdminApiClient {
         .whereType<Map<String, dynamic>>()
         .map(AdminRole.fromJson)
         .toList();
+  }
+
+  Future<List<AdminGroup>> fetchGroups({
+    required String accessToken,
+    int page = 0,
+    int size = 200,
+  }) async {
+    final response = await http.get(
+      _uri('/groups', {
+        'page': '$page',
+        'size': '$size',
+        'sort': 'groupName',
+        'direction': 'ASC',
+      }),
+      headers: _headers(accessToken),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      _throwHttpError('fetchGroups', response);
+    }
+
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    final content = (data['content'] as List?) ?? const [];
+    return content
+        .whereType<Map<String, dynamic>>()
+        .map(AdminGroup.fromJson)
+        .toList(growable: false);
+  }
+
+  /// Aggiorna gruppo/ruolo di un utente Keycloak tramite endpoint `/users`.
+  Future<void> updateUserGroup({
+    required String accessToken,
+    required AdminUser user,
+    required String fromGroupId,
+    required String toGroupId,
+  }) async {
+    final response = await http.put(
+      _uri('/users'),
+      headers: _headers(accessToken),
+      body: jsonEncode({
+        'userId': user.userId,
+        'username': user.username,
+        'firstName': user.firstName,
+        'lastName': user.lastName,
+        'email': user.email,
+        'password': null,
+        'enabled': user.enabled,
+        'fromGroupId': fromGroupId,
+        'toGroupId': [toGroupId],
+      }),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      _throwHttpError('updateUserGroup', response);
+    }
+  }
+
+  /// Assegna uno o piu' gruppi a un utente senza richiedere `fromGroupId`.
+  ///
+  /// Utile come fallback quando il backend utenti non espone il gruppo corrente
+  /// (caso legacy/inconsistente): consente comunque di propagare il ruolo
+  /// verso Keycloak.
+  Future<void> addUserToGroups({
+    required String accessToken,
+    required String userId,
+    required List<String> groupIds,
+  }) async {
+    final response = await http.post(
+      _uri('/users/$userId/add_groups'),
+      headers: _headers(accessToken),
+      body: jsonEncode({'groupIds': groupIds}),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      _throwHttpError('addUserToGroups', response);
+    }
+  }
+
+  /// Aggiorna il ruolo applicativo utente con endpoint semantico backend.
+  Future<void> updateUserAppRole({
+    required String accessToken,
+    required String userId,
+    required String roleName,
+  }) async {
+    final response = await http.put(
+      _uri('/users/$userId/app-role'),
+      headers: _headers(accessToken),
+      body: jsonEncode({'roleName': roleName}),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      _throwHttpError('updateUserAppRole', response);
+    }
   }
 
   Future<AdminRole> createRole({

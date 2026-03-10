@@ -98,7 +98,8 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
     setState(() => _isSavingCondomino = true);
     try {
       // Legami funzionali:
-      // - `adminUsersProvider` -> API Keycloak service (/users) per gestione utenza
+      // - `adminUsersProvider` -> API Core facade (/keycloak-admin/users)
+      //   che inoltra a keycloak-service via discovery/Feign (no direct FE -> keycloak-service)
       // - `condominiProvider`  -> API Core (/condomino) per persistenza anagrafica
       final registryNotifier = ref.read(condominiProvider.notifier);
       final authNotifier = ref.read(adminUsersProvider.notifier);

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../condominio_selection/application/managed_condominio_notifier.dart';
+import '../../../home/application/home_navigation_provider.dart';
 import '../../application/documents_ui_notifier.dart';
 import '../../application/documents_view_providers.dart';
 import '../../data/documents_repository_provider.dart';
@@ -11,31 +12,33 @@ import '../../domain/movimento_model.dart';
 import '../../domain/tabella_model.dart';
 import 'documents_common_widgets.dart';
 
-typedef DocumentsMovimentoCallback = Future<void> Function(
-  MovimentoModel movimento,
-);
+typedef DocumentsMovimentoCallback =
+    Future<void> Function(MovimentoModel movimento);
 typedef DocumentsCondominoSelectCallback = void Function(String? condominoId);
-typedef DocumentsCondominoQuoteDialogCallback = Future<void> Function(
-  CondominoDocumentModel selectedCondomino,
-  List<CondominoDocumentModel> allCondomini,
-  List<TabellaModel> tabelle,
-);
-typedef DocumentsCondominoActionCallback = Future<void> Function(
-  CondominoDocumentModel selectedCondomino,
-);
-typedef DocumentsVersamentoCallback = Future<void> Function(
-  CondominoDocumentModel selectedCondomino,
-  VersamentoModel versamento,
-);
-typedef DocumentsRataCallback = Future<void> Function(
-  CondominoDocumentModel selectedCondomino,
-  RataModel rata,
-);
-typedef DocumentsTabellaCallback = Future<void> Function(
-  CondominioDocumentModel? selectedCondominio,
-  List<TabellaModel> tabelle,
-  TabellaModel tabella,
-);
+typedef DocumentsCondominoQuoteDialogCallback =
+    Future<void> Function(
+      CondominoDocumentModel selectedCondomino,
+      List<CondominoDocumentModel> allCondomini,
+      List<TabellaModel> tabelle,
+    );
+typedef DocumentsCondominoActionCallback =
+    Future<void> Function(CondominoDocumentModel selectedCondomino);
+typedef DocumentsVersamentoCallback =
+    Future<void> Function(
+      CondominoDocumentModel selectedCondomino,
+      VersamentoModel versamento,
+    );
+typedef DocumentsRataCallback =
+    Future<void> Function(
+      CondominoDocumentModel selectedCondomino,
+      RataModel rata,
+    );
+typedef DocumentsTabellaCallback =
+    Future<void> Function(
+      CondominioDocumentModel? selectedCondominio,
+      List<TabellaModel> tabelle,
+      TabellaModel tabella,
+    );
 
 /// Pannello elenco condomini. Legge in autonomia lista e selezione correnti.
 class DocumentsCondominiPanel extends ConsumerWidget {
@@ -136,6 +139,8 @@ class DocumentsMovimentiPanel extends ConsumerWidget {
     );
     final ui = ref.read(documentsUiProvider.notifier);
     final isReadOnly = ref.watch(selectedManagedCondominioIsClosedProvider);
+    final isAdmin = ref.watch(homeIsAdminProvider);
+    final isMutationBlocked = isReadOnly || !isAdmin;
 
     return Card(
       child: Padding(
@@ -160,24 +165,24 @@ class DocumentsMovimentiPanel extends ConsumerWidget {
                 physics: const NeverScrollableScrollPhysics(),
                 separatorBuilder: (_, _) => const Divider(height: 1),
                 itemBuilder: (context, index) {
-                    final movimento = movimenti[index];
-                    final individualLabel = movimento.tipoRiparto ==
-                            MovimentoRipartoTipo.individuale
-                        ? ' - su ${_individualAssigneeLabel(movimento)}'
-                        : '';
-                    return ListTile(
-                      dense: true,
-                      title: Text(movimento.descrizione),
-                      subtitle: Text(
-                        'Codice ${movimento.codiceSpesa} - ${movimento.tipoRiparto.label}$individualLabel',
-                      ),
-                      onTap: () => onOpenMovimentoDetail(movimento),
+                  final movimento = movimenti[index];
+                  final individualLabel =
+                      movimento.tipoRiparto == MovimentoRipartoTipo.individuale
+                      ? ' - su ${_individualAssigneeLabel(movimento)}'
+                      : '';
+                  return ListTile(
+                    dense: true,
+                    title: Text(movimento.descrizione),
+                    subtitle: Text(
+                      'Codice ${movimento.codiceSpesa} - ${movimento.tipoRiparto.label}$individualLabel',
+                    ),
+                    onTap: () => onOpenMovimentoDetail(movimento),
                     trailing: DocumentsListTileActionsMenu(
                       amountText: movimento.importo.toStringAsFixed(2),
-                      onEdit: isReadOnly
+                      onEdit: isMutationBlocked
                           ? null
                           : () => onEditMovimento(movimento),
-                      onDelete: isReadOnly
+                      onDelete: isMutationBlocked
                           ? null
                           : () => onDeleteMovimento(movimento),
                     ),
@@ -191,7 +196,8 @@ class DocumentsMovimentiPanel extends ConsumerWidget {
                   separatorBuilder: (_, _) => const Divider(height: 1),
                   itemBuilder: (context, index) {
                     final movimento = movimenti[index];
-                    final individualLabel = movimento.tipoRiparto ==
+                    final individualLabel =
+                        movimento.tipoRiparto ==
                             MovimentoRipartoTipo.individuale
                         ? ' - su ${_individualAssigneeLabel(movimento)}'
                         : '';
@@ -204,10 +210,10 @@ class DocumentsMovimentiPanel extends ConsumerWidget {
                       onTap: () => onOpenMovimentoDetail(movimento),
                       trailing: DocumentsListTileActionsMenu(
                         amountText: movimento.importo.toStringAsFixed(2),
-                        onEdit: isReadOnly
+                        onEdit: isMutationBlocked
                             ? null
                             : () => onEditMovimento(movimento),
-                        onDelete: isReadOnly
+                        onDelete: isMutationBlocked
                             ? null
                             : () => onDeleteMovimento(movimento),
                       ),
@@ -261,6 +267,8 @@ class DocumentsDetailPanel extends ConsumerWidget {
       documentsDataProvider.select((state) => state.isSaving),
     );
     final isReadOnly = ref.watch(selectedManagedCondominioIsClosedProvider);
+    final isAdmin = ref.watch(homeIsAdminProvider);
+    final isMutationBlocked = isReadOnly || !isAdmin;
 
     return Card(
       child: Padding(
@@ -284,10 +292,10 @@ class DocumentsDetailPanel extends ConsumerWidget {
                   versamenti: versamenti,
                   rate: rate,
                   isSaving: isSaving,
-                  isReadOnly: isReadOnly,
+                  isReadOnly: isMutationBlocked,
                   isActivePosition: selectedCondomino.isActivePosition,
                   showQuoteButton: true,
-                  onOpenQuoteDialog: isReadOnly
+                  onOpenQuoteDialog: isMutationBlocked
                       ? null
                       : () => onOpenQuoteDialog(
                           selectedCondomino,
@@ -295,14 +303,10 @@ class DocumentsDetailPanel extends ConsumerWidget {
                           tabelle,
                         ),
                   onAddVersamento: () => onAddVersamento(selectedCondomino),
-                  onEditVersamento: (versamento) => onEditVersamento(
-                    selectedCondomino,
-                    versamento,
-                  ),
-                  onDeleteVersamento: (versamento) => onDeleteVersamento(
-                    selectedCondomino,
-                    versamento,
-                  ),
+                  onEditVersamento: (versamento) =>
+                      onEditVersamento(selectedCondomino, versamento),
+                  onDeleteVersamento: (versamento) =>
+                      onDeleteVersamento(selectedCondomino, versamento),
                   onAddRata: () => onAddRata(selectedCondomino),
                   onEditRata: (rata) => onEditRata(selectedCondomino, rata),
                   onDeleteRata: (rata) => onDeleteRata(selectedCondomino, rata),
@@ -323,14 +327,14 @@ class DocumentsDetailPanel extends ConsumerWidget {
                     trailing: DocumentsListTileActionsMenu(
                       amountText: '',
                       showAmount: false,
-                      onEdit: isReadOnly
+                      onEdit: isMutationBlocked
                           ? null
                           : () => onEditTabella(
                               selectedCondominio,
                               tabelle,
                               tabella,
                             ),
-                      onDelete: isReadOnly
+                      onDelete: isMutationBlocked
                           ? null
                           : () => onDeleteTabella(
                               selectedCondominio,
@@ -381,9 +385,13 @@ class DocumentsCondominoDetailSheetContent extends ConsumerWidget {
     final quoteByCodice = ref.watch(
       documentsCondominoQuoteByCodiceProvider(condomino.id),
     );
-    final versamenti = ref.watch(documentsCondominoVersamentiProvider(condomino.id));
+    final versamenti = ref.watch(
+      documentsCondominoVersamentiProvider(condomino.id),
+    );
     final rate = condomino.config.rate;
     final isReadOnly = ref.watch(selectedManagedCondominioIsClosedProvider);
+    final isAdmin = ref.watch(homeIsAdminProvider);
+    final isMutationBlocked = isReadOnly || !isAdmin;
 
     return _DocumentsCondominoDetailContent(
       selectedCondomino: condomino,
@@ -392,15 +400,13 @@ class DocumentsCondominoDetailSheetContent extends ConsumerWidget {
       versamenti: versamenti,
       rate: rate,
       isSaving: isSaving,
-      isReadOnly: isReadOnly,
+      isReadOnly: isMutationBlocked,
       isActivePosition: condomino.isActivePosition,
       showQuoteButton: false,
       onAddVersamento: () => onAddVersamento(condomino),
       onEditVersamento: (versamento) => onEditVersamento(condomino, versamento),
-      onDeleteVersamento: (versamento) => onDeleteVersamento(
-        condomino,
-        versamento,
-      ),
+      onDeleteVersamento: (versamento) =>
+          onDeleteVersamento(condomino, versamento),
       onAddRata: () => onAddRata(condomino),
       onEditRata: (rata) => onEditRata(condomino, rata),
       onDeleteRata: (rata) => onDeleteRata(condomino, rata),
@@ -555,15 +561,14 @@ class _DocumentsCondominoDetailContent extends StatelessWidget {
         ],
         const SizedBox(height: 8),
         OutlinedButton.icon(
-          onPressed: (isSaving || isReadOnly || !isActivePosition) ? null : onAddRata,
+          onPressed: (isSaving || isReadOnly || !isActivePosition)
+              ? null
+              : onAddRata,
           icon: const Icon(Icons.event_note_outlined),
           label: const Text('Aggiungi rata'),
         ),
         const SizedBox(height: 10),
-        const Text(
-          'Rate',
-          style: TextStyle(fontWeight: FontWeight.w700),
-        ),
+        const Text('Rate', style: TextStyle(fontWeight: FontWeight.w700)),
         const SizedBox(height: 6),
         if (rate.isEmpty)
           const Text('Nessuna rata configurata')
@@ -584,7 +589,9 @@ class _DocumentsCondominoDetailContent extends StatelessWidget {
                     '${rata.tipo} | ${_formatDate(rata.scadenza ?? DateTime.now())} | ${rata.stato}',
                   ),
                   trailing: isReadOnly || !isActivePosition
-                      ? Text('${rata.incassato.toStringAsFixed(2)} / ${rata.importo.toStringAsFixed(2)}')
+                      ? Text(
+                          '${rata.incassato.toStringAsFixed(2)} / ${rata.importo.toStringAsFixed(2)}',
+                        )
                       : PopupMenuButton<DocumentsRowAction>(
                           onSelected: (value) {
                             if (value == DocumentsRowAction.edit) {
@@ -737,7 +744,10 @@ Future<void> _showQuotaWhyDialog({
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(table.codice, style: const TextStyle(fontWeight: FontWeight.w700)),
+              Text(
+                table.codice,
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
               const SizedBox(height: 4),
               Text.rich(
                 TextSpan(
@@ -745,13 +755,19 @@ Future<void> _showQuotaWhyDialog({
                   children: [
                     const TextSpan(text: '1) Quota tabella: '),
                     TextSpan(
-                      text: '${table.importo.toStringAsFixed(2)} (${tablePercent.toStringAsFixed(2)}%)',
-                      style: const TextStyle(color: tableColor, fontWeight: FontWeight.w700),
+                      text:
+                          '${table.importo.toStringAsFixed(2)} (${tablePercent.toStringAsFixed(2)}%)',
+                      style: const TextStyle(
+                        color: tableColor,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ],
                 ),
               ),
-              const Text('2) Millesimi condomino: non presenti su questa tabella'),
+              const Text(
+                '2) Millesimi condomino: non presenti su questa tabella',
+              ),
               const Text.rich(
                 TextSpan(
                   style: TextStyle(color: Color(0xFF111827)),
@@ -759,7 +775,10 @@ Future<void> _showQuotaWhyDialog({
                     TextSpan(text: '3) Quota condomino su tabella: '),
                     TextSpan(
                       text: '0.00',
-                      style: TextStyle(color: finalColor, fontWeight: FontWeight.w700),
+                      style: TextStyle(
+                        color: finalColor,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ],
                 ),
@@ -786,7 +805,10 @@ Future<void> _showQuotaWhyDialog({
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(table.codice, style: const TextStyle(fontWeight: FontWeight.w700)),
+            Text(
+              table.codice,
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
             const SizedBox(height: 4),
             Text.rich(
               TextSpan(
@@ -794,8 +816,12 @@ Future<void> _showQuotaWhyDialog({
                 children: [
                   const TextSpan(text: '1) Quota tabella: '),
                   TextSpan(
-                    text: '${table.importo.toStringAsFixed(2)} (= ${quota.importoMovimento.toStringAsFixed(2)} x ${tablePercent.toStringAsFixed(2)}%)',
-                    style: const TextStyle(color: tableColor, fontWeight: FontWeight.w700),
+                    text:
+                        '${table.importo.toStringAsFixed(2)} (= ${quota.importoMovimento.toStringAsFixed(2)} x ${tablePercent.toStringAsFixed(2)}%)',
+                    style: const TextStyle(
+                      color: tableColor,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ],
               ),
@@ -806,10 +832,16 @@ Future<void> _showQuotaWhyDialog({
                 children: [
                   const TextSpan(text: '2) Millesimi condomino: '),
                   TextSpan(
-                    text: '${cfg.numeratore.toStringAsFixed(2)}/${cfg.denominatore.toStringAsFixed(2)}',
-                    style: const TextStyle(color: milliColor, fontWeight: FontWeight.w700),
+                    text:
+                        '${cfg.numeratore.toStringAsFixed(2)}/${cfg.denominatore.toStringAsFixed(2)}',
+                    style: const TextStyle(
+                      color: milliColor,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
-                  const TextSpan(text: ' (quota personale registrata su questa tabella)'),
+                  const TextSpan(
+                    text: ' (quota personale registrata su questa tabella)',
+                  ),
                 ],
               ),
             ),
@@ -820,22 +852,35 @@ Future<void> _showQuotaWhyDialog({
                   const TextSpan(text: '3) Quota condomino su tabella: '),
                   TextSpan(
                     text: table.importo.toStringAsFixed(2),
-                    style: const TextStyle(color: tableColor, fontWeight: FontWeight.w700),
+                    style: const TextStyle(
+                      color: tableColor,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                   const TextSpan(text: ' x '),
                   TextSpan(
                     text: cfg.numeratore.toStringAsFixed(2),
-                    style: const TextStyle(color: milliColor, fontWeight: FontWeight.w700),
+                    style: const TextStyle(
+                      color: milliColor,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                   const TextSpan(text: ' / '),
                   TextSpan(
                     text: cfg.denominatore.toStringAsFixed(2),
-                    style: const TextStyle(color: milliColor, fontWeight: FontWeight.w700),
+                    style: const TextStyle(
+                      color: milliColor,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                   const TextSpan(text: ' = '),
                   TextSpan(
-                    text: '${share.toStringAsFixed(2)} (${percent.toStringAsFixed(2)}%)',
-                    style: const TextStyle(color: finalColor, fontWeight: FontWeight.w700),
+                    text:
+                        '${share.toStringAsFixed(2)} (${percent.toStringAsFixed(2)}%)',
+                    style: const TextStyle(
+                      color: finalColor,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ],
               ),
@@ -845,7 +890,10 @@ Future<void> _showQuotaWhyDialog({
       ),
     );
   }
-  final computedTotal = computedShares.fold<double>(0, (sum, value) => sum + value);
+  final computedTotal = computedShares.fold<double>(
+    0,
+    (sum, value) => sum + value,
+  );
   final computedRounded = double.parse(computedTotal.toStringAsFixed(2));
   final delta = quota.importo - computedRounded;
   return showDialog<void>(
@@ -860,115 +908,140 @@ Future<void> _showQuotaWhyDialog({
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-              Text('Spesa: ${quota.codiceSpesa} - ${quota.descrizione}'),
-              const SizedBox(height: 8),
-              Text('Tipo riparto: ${quota.tipoRiparto.label}'),
-              Text.rich(
-                TextSpan(
-                  style: const TextStyle(color: Color(0xFF111827)),
-                  children: [
-                    const TextSpan(text: 'Importo movimento: '),
-                    TextSpan(
-                      text: quota.importoMovimento.toStringAsFixed(2),
-                      style: const TextStyle(color: movementColor, fontWeight: FontWeight.w700),
-                    ),
-                  ],
-                ),
-              ),
-              Text.rich(
-                TextSpan(
-                  style: const TextStyle(color: Color(0xFF111827)),
-                  children: [
-                    TextSpan(text: 'Quota attribuita a ${condomino.nominativo}: '),
-                    TextSpan(
-                      text: quota.importo.toStringAsFixed(2),
-                      style: const TextStyle(color: finalColor, fontWeight: FontWeight.w700),
-                    ),
-                  ],
-                ),
-              ),
-              Text('Incidenza: ${quota.incidenzaPercentuale.toStringAsFixed(2)}%'),
-              const SizedBox(height: 10),
-              if (quota.tipoRiparto == MovimentoRipartoTipo.individuale)
-                const Text(
-                  'Riparto individuale: quota assegnata direttamente al condomino in fase di registrazione.',
-                )
-              else ...[
-                const Text(
-                  'Legenda numeri:',
-                  style: TextStyle(fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 4),
+                Text('Spesa: ${quota.codiceSpesa} - ${quota.descrizione}'),
+                const SizedBox(height: 8),
+                Text('Tipo riparto: ${quota.tipoRiparto.label}'),
                 Text.rich(
-                  const TextSpan(
-                    style: TextStyle(color: Color(0xFF111827)),
+                  TextSpan(
+                    style: const TextStyle(color: Color(0xFF111827)),
                     children: [
-                      TextSpan(text: '- '),
+                      const TextSpan(text: 'Importo movimento: '),
                       TextSpan(
-                        text: 'Quota tabella',
-                        style: TextStyle(color: tableColor, fontWeight: FontWeight.w700),
-                      ),
-                      TextSpan(
-                        text: ': valore preso dalla ripartizione del movimento su quella tabella.',
+                        text: quota.importoMovimento.toStringAsFixed(2),
+                        style: const TextStyle(
+                          color: movementColor,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ],
                   ),
                 ),
                 Text.rich(
-                  const TextSpan(
-                    style: TextStyle(color: Color(0xFF111827)),
+                  TextSpan(
+                    style: const TextStyle(color: Color(0xFF111827)),
                     children: [
-                      TextSpan(text: '- '),
                       TextSpan(
-                        text: 'Millesimi',
-                        style: TextStyle(color: milliColor, fontWeight: FontWeight.w700),
+                        text: 'Quota attribuita a ${condomino.nominativo}: ',
                       ),
                       TextSpan(
-                        text: ': quota personale del condomino registrata per quella tabella.',
+                        text: quota.importo.toStringAsFixed(2),
+                        style: const TextStyle(
+                          color: finalColor,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ],
                   ),
                 ),
-                Text.rich(
-                  const TextSpan(
-                    style: TextStyle(color: Color(0xFF111827)),
-                    children: [
-                      TextSpan(text: '- '),
-                      TextSpan(
-                        text: 'Quota condomino',
-                        style: TextStyle(color: finalColor, fontWeight: FontWeight.w700),
-                      ),
-                      TextSpan(
-                        text: ': risultato della formula quota tabella x millesimi.',
-                      ),
-                    ],
-                  ),
+                Text(
+                  'Incidenza: ${quota.incidenzaPercentuale.toStringAsFixed(2)}%',
                 ),
                 const SizedBox(height: 10),
-                const Text(
-                  'Dettaglio tabelle (base di calcolo):',
-                  style: TextStyle(fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 6),
-                if (detailWidgets.isEmpty)
-                  const Text('Nessuna tabella disponibile nel movimento.')
-                else
-                  ...detailWidgets,
-                const SizedBox(height: 8),
-                Text(
-                  'Somma quote tabella calcolata: ${computedRounded.toStringAsFixed(2)}',
-                  style: const TextStyle(fontWeight: FontWeight.w700, color: finalColor),
-                ),
-                Text(
-                  'Quota salvata nel movimento: ${quota.importo.toStringAsFixed(2)}'
-                  '${delta.abs() <= 0.0001 ? '' : ' (delta arrotondamento ${delta.toStringAsFixed(2)})'}',
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Nota: la quota salvata nel movimento e il valore contabile definitivo usato nei residui.',
-                  style: TextStyle(color: Color(0xFF52606D)),
-                ),
-              ],
+                if (quota.tipoRiparto == MovimentoRipartoTipo.individuale)
+                  const Text(
+                    'Riparto individuale: quota assegnata direttamente al condomino in fase di registrazione.',
+                  )
+                else ...[
+                  const Text(
+                    'Legenda numeri:',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 4),
+                  Text.rich(
+                    const TextSpan(
+                      style: TextStyle(color: Color(0xFF111827)),
+                      children: [
+                        TextSpan(text: '- '),
+                        TextSpan(
+                          text: 'Quota tabella',
+                          style: TextStyle(
+                            color: tableColor,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        TextSpan(
+                          text:
+                              ': valore preso dalla ripartizione del movimento su quella tabella.',
+                        ),
+                      ],
+                    ),
+                  ),
+                  Text.rich(
+                    const TextSpan(
+                      style: TextStyle(color: Color(0xFF111827)),
+                      children: [
+                        TextSpan(text: '- '),
+                        TextSpan(
+                          text: 'Millesimi',
+                          style: TextStyle(
+                            color: milliColor,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        TextSpan(
+                          text:
+                              ': quota personale del condomino registrata per quella tabella.',
+                        ),
+                      ],
+                    ),
+                  ),
+                  Text.rich(
+                    const TextSpan(
+                      style: TextStyle(color: Color(0xFF111827)),
+                      children: [
+                        TextSpan(text: '- '),
+                        TextSpan(
+                          text: 'Quota condomino',
+                          style: TextStyle(
+                            color: finalColor,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        TextSpan(
+                          text:
+                              ': risultato della formula quota tabella x millesimi.',
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    'Dettaglio tabelle (base di calcolo):',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 6),
+                  if (detailWidgets.isEmpty)
+                    const Text('Nessuna tabella disponibile nel movimento.')
+                  else
+                    ...detailWidgets,
+                  const SizedBox(height: 8),
+                  Text(
+                    'Somma quote tabella calcolata: ${computedRounded.toStringAsFixed(2)}',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: finalColor,
+                    ),
+                  ),
+                  Text(
+                    'Quota salvata nel movimento: ${quota.importo.toStringAsFixed(2)}'
+                    '${delta.abs() <= 0.0001 ? '' : ' (delta arrotondamento ${delta.toStringAsFixed(2)})'}',
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Nota: la quota salvata nel movimento e il valore contabile definitivo usato nei residui.',
+                    style: TextStyle(color: Color(0xFF52606D)),
+                  ),
+                ],
               ],
             ),
           ),

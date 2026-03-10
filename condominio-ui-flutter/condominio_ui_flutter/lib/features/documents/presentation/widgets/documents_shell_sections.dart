@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../condominio_selection/application/managed_condominio_notifier.dart';
+import '../../../home/application/home_navigation_provider.dart';
 import '../../application/documents_ui_notifier.dart';
 import '../../data/documents_repository_provider.dart';
 import '../../domain/condominio_document_model.dart';
@@ -157,39 +158,43 @@ class DocumentsActionsBar extends ConsumerWidget {
     final selectedCondominio = ref.watch(selectedCondominioProvider);
     final tabelle = ref.watch(tabelleBySelectedCondominioProvider);
     final isReadOnly = ref.watch(selectedManagedCondominioIsClosedProvider);
+    final isAdmin = ref.watch(homeIsAdminProvider);
+    final canManage = isAdmin && !isReadOnly;
 
     return Wrap(
       spacing: 8,
       runSpacing: 8,
       children: [
         FilledButton.icon(
-          onPressed: (isSaving || selectedCondominio == null || isReadOnly)
+          onPressed: (isSaving || selectedCondominio == null || !canManage)
               ? null
               : () => onConfigureRiparto(selectedCondominio, tabelle),
           icon: const Icon(Icons.settings_suggest_outlined),
           label: const Text('Configura riparto'),
         ),
         FilledButton.icon(
-          onPressed: (isSaving || isReadOnly) ? null : onCreateTabella,
+          onPressed: (isSaving || !canManage) ? null : onCreateTabella,
           icon: const Icon(Icons.table_chart_outlined),
           label: const Text('Nuova tabella'),
         ),
         FilledButton.icon(
-          onPressed: (isSaving || isReadOnly)
+          onPressed: (isSaving || !canManage)
               ? null
               : () => onCreateMovimento(selectedCondominio),
           icon: const Icon(Icons.receipt_long_outlined),
           label: const Text('Nuova spesa'),
         ),
         FilledButton.icon(
-          onPressed: isSaving
+          onPressed: (isSaving || selectedCondominio == null)
               ? null
               : () => onOpenPreventivo(selectedCondominio),
           icon: const Icon(Icons.analytics_outlined),
           label: const Text('Preventivo'),
         ),
         FilledButton.icon(
-          onPressed: isSaving ? null : () => onOpenMorosita(selectedCondominio),
+          onPressed: (isSaving || selectedCondominio == null)
+              ? null
+              : () => onOpenMorosita(selectedCondominio),
           icon: const Icon(Icons.warning_amber_outlined),
           label: const Text('Morosita'),
         ),

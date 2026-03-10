@@ -108,6 +108,10 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
     if (selected == null) {
       throw Exception('Nessun condominio selezionato');
     }
+    final keycloak = _ref.read(keycloakServiceProvider);
+    if (!keycloak.hasRealmRole('amministratore')) {
+      throw Exception('Operazione consentita solo agli amministratori.');
+    }
     if (selected.isClosed) {
       throw Exception(
         'Esercizio chiuso: operazione documentale non consentita in modalita sola lettura.',
@@ -614,6 +618,31 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
         );
       } else {
         debugPrint('[DOCUMENTS][generateAutomaticSolleciti] $e');
+      }
+      debugPrint('$st');
+      state = state.copyWith(isSaving: false, errorMessage: '$e');
+      rethrow;
+    }
+  }
+
+  /// Ricarica solo la vista morosita' per l'esercizio selezionato.
+  ///
+  /// Usato dal dialog morosita' per riflettere subito gli aggiornamenti
+  /// evitando di ricaricare tutto il dataset documenti.
+  Future<List<MorositaItemModel>> reloadMorositaItems() async {
+    state = state.copyWith(isSaving: true, clearErrorMessage: true);
+    try {
+      await _refreshSelectedCondominioData(
+        includeCondomini: true,
+        includeMorosita: true,
+      );
+      state = state.copyWith(isSaving: false);
+      return state.dataset.morositaItems;
+    } catch (e, st) {
+      if (e is ApiError) {
+        debugPrint('[DOCUMENTS][reloadMorositaItems] ${e.technicalMessage}');
+      } else {
+        debugPrint('[DOCUMENTS][reloadMorositaItems] $e');
       }
       debugPrint('$st');
       state = state.copyWith(isSaving: false, errorMessage: '$e');

@@ -52,6 +52,8 @@ class AdminRolesState {
 
 class AdminRolesNotifier extends StateNotifier<AdminRolesState> {
   AdminRolesNotifier(this._ref, this._api) : super(AdminRolesState.initial());
+  static const String _roleMutationDisabledMessage =
+      'Ruoli predefiniti: non e possibile creare o eliminare ruoli.';
 
   final Ref _ref;
   final AdminApiClient _api;
@@ -86,40 +88,18 @@ class AdminRolesNotifier extends StateNotifier<AdminRolesState> {
     required String roleName,
     required String description,
   }) async {
-    state = state.copyWith(isCreating: true, clearErrorMessage: true);
-    try {
-      final token = _requireAccessToken();
-      final created = await _api.createRole(
-        accessToken: token,
-        roleName: roleName,
-        description: description,
-      );
-      final items = [...state.items];
-      if (!_isHiddenRole(created)) {
-        items.add(created);
-        items.sort((a, b) => a.roleName.compareTo(b.roleName));
-      }
-      state = state.copyWith(isCreating: false, items: items);
-    } catch (e) {
-      state = state.copyWith(isCreating: false, errorMessage: '$e');
-    }
+    state = state.copyWith(
+      isCreating: false,
+      clearErrorMessage: true,
+      errorMessage: _roleMutationDisabledMessage,
+    );
   }
 
   Future<void> deleteRole(String roleId) async {
-    final nextDeleting = {...state.deletingIds, roleId};
-    state = state.copyWith(deletingIds: nextDeleting, clearErrorMessage: true);
-    try {
-      final token = _requireAccessToken();
-      await _api.deleteRole(accessToken: token, roleId: roleId);
-      final afterDelete = {...state.deletingIds}..remove(roleId);
-      final items = state.items
-          .where((r) => r.roleId != roleId)
-          .toList(growable: false);
-      state = state.copyWith(deletingIds: afterDelete, items: items);
-    } catch (e) {
-      final afterDelete = {...state.deletingIds}..remove(roleId);
-      state = state.copyWith(deletingIds: afterDelete, errorMessage: '$e');
-    }
+    state = state.copyWith(
+      clearErrorMessage: true,
+      errorMessage: _roleMutationDisabledMessage,
+    );
   }
 }
 

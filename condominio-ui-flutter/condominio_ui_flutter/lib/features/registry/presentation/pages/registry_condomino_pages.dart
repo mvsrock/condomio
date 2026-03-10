@@ -111,13 +111,15 @@ class _RegistryCondominoDetailPageState
   }
 
   Future<void> _openEdit() async {
-    final updated = await Navigator.of(context).push<Condomino>(
+    final saved = await Navigator.of(context).push<Condomino>(
       MaterialPageRoute(
-        builder: (_) => RegistryCondominoEditPage(condomino: _current),
+        builder: (_) => RegistryCondominoEditPage(
+          condomino: _current,
+          onSave: widget.onUpdated,
+        ),
       ),
     );
-    if (updated == null) return;
-    final saved = await widget.onUpdated(updated);
+    if (saved == null) return;
     if (!mounted) return;
     setState(() => _current = saved);
   }
@@ -150,9 +152,14 @@ enum _RegistryDetailAction { cease, subentro, delete }
 /// Usa Riverpod solo per leggere utenti Keycloak disponibili: la logica di save
 /// resta locale alla pagina e restituisce un `Condomino` aggiornato al caller.
 class RegistryCondominoEditPage extends ConsumerStatefulWidget {
-  const RegistryCondominoEditPage({super.key, required this.condomino});
+  const RegistryCondominoEditPage({
+    super.key,
+    required this.condomino,
+    required this.onSave,
+  });
 
   final Condomino condomino;
+  final Future<Condomino> Function(Condomino updated) onSave;
 
   @override
   ConsumerState<RegistryCondominoEditPage> createState() =>
@@ -174,6 +181,7 @@ class _RegistryCondominoEditPageState
   late CondominoTitolaritaTipo _titolaritaTipo;
   bool _hasAppAccess = false;
   String? _selectedKeycloakUserId;
+  late CondominoRuolo _selectedAppRole;
 
   @override
   void initState() {
@@ -183,7 +191,9 @@ class _RegistryCondominoEditPageState
     _scalaController = TextEditingController(text: widget.condomino.scala);
     _internoController = TextEditingController(text: widget.condomino.interno);
     _emailController = TextEditingController(text: widget.condomino.email);
-    _telefonoController = TextEditingController(text: widget.condomino.telefono);
+    _telefonoController = TextEditingController(
+      text: widget.condomino.telefono,
+    );
     _saldoInizialeController = TextEditingController(
       text: widget.condomino.saldoIniziale.toStringAsFixed(2),
     );
@@ -194,6 +204,7 @@ class _RegistryCondominoEditPageState
     _titolaritaTipo = widget.condomino.titolaritaTipo;
     _hasAppAccess = widget.condomino.hasAppAccess;
     _selectedKeycloakUserId = widget.condomino.keycloakUserId;
+    _selectedAppRole = widget.condomino.ruolo;
     Future.microtask(() {
       ref.read(adminUsersProvider.notifier).loadUsers();
       ref.read(unitaImmobiliariProvider.notifier).load();
@@ -302,7 +313,8 @@ class _RegistryCondominoEditPageState
                                         _selectedUnitaImmobiliareId,
                                     onSelectUnitaImmobiliare: (unitId) {
                                       setState(
-                                        () => _selectedUnitaImmobiliareId = unitId,
+                                        () => _selectedUnitaImmobiliareId =
+                                            unitId,
                                       );
                                       if (unitId == null || unitId.isEmpty) {
                                         _scalaController.clear();
@@ -314,17 +326,19 @@ class _RegistryCondominoEditPageState
                                         unitId,
                                       );
                                       if (selectedUnit == null) return;
-                                      _scalaController.text = selectedUnit.scala;
-                                      _internoController.text = selectedUnit.interno;
+                                      _scalaController.text =
+                                          selectedUnit.scala;
+                                      _internoController.text =
+                                          selectedUnit.interno;
                                     },
-                                    onCreateUnitaInline:
-                                        isReadOnly ? null : _createUnitaInlineFromEditForm,
+                                    onCreateUnitaInline: isReadOnly
+                                        ? null
+                                        : _createUnitaInlineFromEditForm,
                                     saldoInizialeController:
                                         _saldoInizialeController,
                                     titolaritaTipo: _titolaritaTipo,
-                                    onTitolaritaChanged: (value) => setState(
-                                      () => _titolaritaTipo = value,
-                                    ),
+                                    onTitolaritaChanged: (value) =>
+                                        setState(() => _titolaritaTipo = value),
                                     decimalFieldValidator: _decimalField,
                                   ),
                                   const SizedBox(height: 16),
@@ -332,12 +346,15 @@ class _RegistryCondominoEditPageState
                                     hasAppAccess: _hasAppAccess,
                                     selectedKeycloakUserId:
                                         _selectedKeycloakUserId,
+                                    selectedRole: _selectedAppRole,
                                     keycloakUsers: keycloakUsers,
                                     onAccessChanged: (value) => setState(() {
                                       _hasAppAccess = value;
                                       if (!value) {
                                         _selectedKeycloakUserId = null;
                                         _keycloakUsernameController.clear();
+                                        _selectedAppRole =
+                                            CondominoRuolo.standard;
                                       }
                                     }),
                                     onUserSelected: (value) {
@@ -350,13 +367,23 @@ class _RegistryCondominoEditPageState
                                       );
                                       _keycloakUsernameController.text =
                                           user?.username ?? '';
+                                      if (user != null) {
+                                        _selectedAppRole =
+                                            _roleFromKeycloakUser(user);
+                                      }
+                                    },
+                                    onRoleSelected: (value) {
+                                      if (value == null) return;
+                                      setState(() => _selectedAppRole = value);
                                     },
                                   ),
                                   const SizedBox(height: 18),
                                   Align(
                                     alignment: Alignment.centerRight,
                                     child: FilledButton.icon(
-                                      onPressed: isReadOnly ? null : _save,
+                                      onPressed: isReadOnly
+                                          ? null
+                                          : () => _save(),
                                       icon: const Icon(Icons.save_outlined),
                                       label: const Text('Salva modifiche'),
                                     ),
@@ -378,7 +405,7 @@ class _RegistryCondominoEditPageState
     );
   }
 
-  void _save() {
+  Future<void> _save() async {
     if (!(_formKey.currentState?.validate() ?? false)) {
       return;
     }
@@ -389,14 +416,14 @@ class _RegistryCondominoEditPageState
       keycloakUsers,
       _selectedKeycloakUserId,
     );
-    final resolvedRole = (_hasAppAccess && selectedUser != null)
-        ? _roleFromKeycloakUser(selectedUser)
-        : widget.condomino.ruolo;
+    final resolvedRole = _hasAppAccess
+        ? _selectedAppRole
+        : CondominoRuolo.standard;
 
-    final hasSelectedUnit = _selectedUnitaImmobiliareId != null &&
+    final hasSelectedUnit =
+        _selectedUnitaImmobiliareId != null &&
         _selectedUnitaImmobiliareId!.trim().isNotEmpty;
-    Navigator.of(context).pop(
-      widget.condomino.copyWith(
+    final candidate = widget.condomino.copyWith(
         nome: _nomeController.text.trim(),
         cognome: _cognomeController.text.trim(),
         scala: hasSelectedUnit ? _scalaController.text.trim() : '',
@@ -406,23 +433,40 @@ class _RegistryCondominoEditPageState
         saldoIniziale: double.parse(
           _saldoInizialeController.text.trim().replaceAll(',', '.'),
         ),
-        unitaImmobiliareId: (_selectedUnitaImmobiliareId == null ||
+        unitaImmobiliareId:
+            (_selectedUnitaImmobiliareId == null ||
                 _selectedUnitaImmobiliareId!.trim().isEmpty)
             ? null
             : _selectedUnitaImmobiliareId,
-        clearUnitaImmobiliareId: _selectedUnitaImmobiliareId == null ||
+        clearUnitaImmobiliareId:
+            _selectedUnitaImmobiliareId == null ||
             _selectedUnitaImmobiliareId!.trim().isEmpty,
         titolaritaTipo: _titolaritaTipo,
         hasAppAccess: _hasAppAccess,
         ruolo: resolvedRole,
         keycloakUsername: _hasAppAccess
-            ? (selectedUser?.username ?? _keycloakUsernameController.text.trim())
+            ? (selectedUser?.username ??
+                  _keycloakUsernameController.text.trim())
             : null,
         keycloakUserId: _hasAppAccess ? selectedUser?.userId : null,
         clearKeycloakUsername: !_hasAppAccess,
         clearKeycloakUserId: !_hasAppAccess,
-      ),
     );
+    try {
+      final saved = await widget.onSave(candidate);
+      if (!mounted) return;
+      Navigator.of(context).pop(saved);
+    } catch (e) {
+      if (!mounted) return;
+      debugPrint('[REGISTRY][editSaveError] $e');
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(
+        const SnackBar(
+          content: Text('Impossibile salvare la modifica. Verifica i dati e riprova.'),
+        ),
+      );
+    }
   }
 
   UnitaImmobiliare? _findUnitaById(List<UnitaImmobiliare> items, String? id) {
@@ -452,7 +496,9 @@ class _RegistryCondominoEditPageState
   /// Crea unita' immobiliare inline dal form di modifica e la seleziona subito.
   Future<void> _createUnitaInlineFromEditForm() async {
     final scalaCtrl = TextEditingController(text: _scalaController.text.trim());
-    final internoCtrl = TextEditingController(text: _internoController.text.trim());
+    final internoCtrl = TextEditingController(
+      text: _internoController.text.trim(),
+    );
     try {
       final created = await showDialog<UnitaImmobiliare>(
         context: context,
@@ -519,7 +565,10 @@ class _RegistryCondominoEditPageState
       await ref.read(unitaImmobiliariProvider.notifier).create(created);
       final units = ref.read(unitaImmobiliariItemsProvider);
       final matching = units
-          .where((item) => item.scala == created.scala && item.interno == created.interno)
+          .where(
+            (item) =>
+                item.scala == created.scala && item.interno == created.interno,
+          )
           .toList(growable: false);
       if (matching.isEmpty) {
         return;
@@ -534,9 +583,9 @@ class _RegistryCondominoEditPageState
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Errore creazione unita: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Errore creazione unita: $e')));
     } finally {
       scalaCtrl.dispose();
       internoCtrl.dispose();

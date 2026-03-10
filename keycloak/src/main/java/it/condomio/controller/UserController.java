@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import it.condomio.PageDto;
 import it.condomio.dto.AddUserGroupDTO;
+import it.condomio.dto.KeycloakUserAppRoleUpdateDTO;
 import it.condomio.dto.KeycloakUserUpdateDTO;
 import it.condomio.exception.ValidationFailedException;
 import it.condomio.request.search.UserSearchRequest;
@@ -109,6 +110,14 @@ public class UserController {
     public void addUserToGroups(@PathVariable String userId,
                                 @RequestBody AddUserGroupDTO request) {
         userService.addGroupToUser(userId,request.getGroupIds());
+    }
+
+    @PutMapping("/{userId}/app-role")
+    public ResponseEntity<Void> updateUserAppRole(
+            @PathVariable String userId,
+            @RequestBody KeycloakUserAppRoleUpdateDTO request) {
+        userService.updateUserAppRole(userId, request.getRoleName());
+        return ResponseEntity.ok().build();
     }
 
 }

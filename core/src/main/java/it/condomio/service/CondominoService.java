@@ -77,6 +77,9 @@ public class CondominoService {
     @Autowired
     private UnitaImmobiliareRepository unitaImmobiliareRepository;
 
+    @Autowired
+    private KeycloakAppRoleBridgeService keycloakAppRoleBridgeService;
+
     /** Crea una nuova posizione esercizio, riusando o creando l'anagrafica stabile. */
     public CondominoResource createCondomino(CondominoResource resource, String adminKeycloakUserId)
             throws ApiException {
@@ -185,6 +188,11 @@ public class CondominoService {
         validateBaseFields(updatedResource, false);
         normalizeStableFields(updatedResource);
 
+        syncKeycloakAppRoleIfNeeded(
+                aggregate,
+                updatedResource,
+                requesterKeycloakUserId);
+
         Condominio exercise = condominioRepository.findById(aggregate.position().getIdCondominio())
                 .orElseThrow(() -> new NotFoundException("condominio"));
         StableRootWriteResult rootWrite = syncStableRoot(
@@ -205,6 +213,42 @@ public class CondominoService {
             syncPositionSnapshots(updatedRoot, saved.getId());
         }
         return toResource(saved, updatedRoot);
+    }
+
+    /**
+     * Aggiorna il ruolo applicativo su Keycloak solo quando cambia davvero.
+     *
+     * Il controllo tenant e ownership e' gia' enforced in `updateCondomino`.
+     * @throws ForbiddenException 
+     */
+    private void syncKeycloakAppRoleIfNeeded(
+            CondominoAggregate aggregate,
+            CondominoResource updatedResource,
+            String requesterKeycloakUserId) throws ForbiddenException {
+        final String oldUserId = normalizeBlank(aggregate.root().getKeycloakUserId());
+        final String newUserId = normalizeBlank(updatedResource.getKeycloakUserId());
+        final String oldRole = normalizeRole(aggregate.root().getAppRole());
+        final String newRole = normalizeRole(updatedResource.getAppRole());
+        final boolean oldEnabled = Boolean.TRUE.equals(aggregate.root().getAppEnabled());
+        final boolean newEnabled = Boolean.TRUE.equals(updatedResource.getAppEnabled());
+
+        if (!newEnabled || newUserId == null || newRole == null) {
+            return;
+        }
+        if (oldEnabled
+                && oldUserId != null
+                && oldUserId.equals(newUserId)
+                && defaultString(oldRole).equals(defaultString(newRole))) {
+            return;
+        }
+
+        keycloakAppRoleBridgeService.updateAppRole(
+                requesterKeycloakUserId,
+                newUserId,
+                aggregate.position().getId(),
+                aggregate.position().getIdCondominio(),
+                oldRole,
+                newRole);
     }
 
     /** Delete della sola posizione esercizio; la root viene rimossa solo se orfana. */
@@ -1622,6 +1666,11 @@ public class CondominoService {
         }
         final String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private String normalizeRole(String value) {
+        final String normalized = normalizeBlank(value);
+        return normalized == null ? null : normalized.toLowerCase();
     }
 
     private boolean isBlank(String value) {

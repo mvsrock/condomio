@@ -29,7 +29,6 @@ import jakarta.validation.Valid;
 @RestController
 @RequestMapping("/roles")
 public class RoleController {
-
     @Autowired
     private RoleService roleService;
 

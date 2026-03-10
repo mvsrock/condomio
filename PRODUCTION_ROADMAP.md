@@ -172,6 +172,7 @@ Una fase non e' `Production ready` finche' non supera tutte le verifiche:
 - Update unita' con sync snapshot su `condomino` (scala/interno riallineati automaticamente)
 - Disassociazione unita' da posizione disponibile in modifica anagrafica
 - `interno` alfanumerico supportato end-to-end (core + flutter + parser documenti)
+- Flusso admin allineato a sicurezza service-to-service: Flutter chiama solo `core`, e `core` inoltra a `keycloak-service` via OpenFeign + discovery
 - Riparto condominiale reso coerente con partecipazione opzionale per tabella
 - Error mapping FE aggiornato sui nuovi codici business (`unita in uso`, `noPartecipanti`)
 - Verticale preventivo/consuntivo disponibile con API dedicate (`/preventivi/{idCondominio}`)

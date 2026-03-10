@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/app_breakpoints.dart';
 import '../../../condominio_selection/application/managed_condominio_notifier.dart';
+import '../../../home/application/home_navigation_provider.dart';
 import '../../application/documents_ui_notifier.dart';
 import '../../data/documents_repository_provider.dart';
 import '../../domain/condominio_document_model.dart';
@@ -319,10 +320,11 @@ class DocumentsPage extends ConsumerWidget {
     if (selectedCondominio == null) return;
     final snapshot = ref.read(selectedPreventivoSnapshotProvider);
     final isReadOnly = ref.read(selectedManagedCondominioIsClosedProvider);
+    final isAdmin = ref.read(homeIsAdminProvider);
     final result = await showDocumentsPreventivoDialog(
       context: context,
       snapshot: snapshot,
-      isReadOnly: isReadOnly,
+      isReadOnly: isReadOnly || !isAdmin,
     );
     if (result == null || !context.mounted) {
       return;
@@ -365,11 +367,12 @@ class DocumentsPage extends ConsumerWidget {
     final items = ref.read(selectedMorositaItemsProvider);
     final isSaving = ref.read(documentsIsSavingProvider);
     final isReadOnly = ref.read(selectedManagedCondominioIsClosedProvider);
+    final isAdmin = ref.read(homeIsAdminProvider);
     await showDocumentsMorositaDialog(
       context: context,
       items: items,
       isSaving: isSaving,
-      isReadOnly: isReadOnly,
+      isReadOnly: isReadOnly || !isAdmin,
       onUpdateStato: (item, stato) async {
         await ref
             .read(documentsDataProvider.notifier)
@@ -389,6 +392,12 @@ class DocumentsPage extends ConsumerWidget {
         return ref
             .read(documentsDataProvider.notifier)
             .generateAutomaticSolleciti(minDaysOverdue: minDays);
+      },
+      onReloadItems: () {
+        return ref.read(documentsDataProvider.notifier).reloadMorositaItems();
+      },
+      readSollecitiMap: () {
+        return ref.read(selectedSollecitiByCondominoProvider);
       },
     );
   }

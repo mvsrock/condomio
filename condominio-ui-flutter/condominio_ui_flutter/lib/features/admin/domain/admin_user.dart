@@ -1,6 +1,7 @@
 class AdminUser {
   const AdminUser({
     required this.userId,
+    required this.groupId,
     required this.username,
     required this.firstName,
     required this.lastName,
@@ -10,6 +11,7 @@ class AdminUser {
   });
 
   final String userId;
+  final String groupId;
   final String username;
   final String firstName;
   final String lastName;
@@ -20,6 +22,7 @@ class AdminUser {
   factory AdminUser.fromJson(Map<String, dynamic> json) {
     return AdminUser(
       userId: (json['userId'] ?? json['id'] ?? '').toString(),
+      groupId: (json['groupId'] ?? '').toString(),
       username: (json['username'] ?? '').toString(),
       firstName: (json['firstName'] ?? '').toString(),
       lastName: (json['lastName'] ?? '').toString(),

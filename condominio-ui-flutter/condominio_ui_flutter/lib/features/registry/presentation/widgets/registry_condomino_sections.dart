@@ -153,10 +153,7 @@ String _formatDate(DateTime? value) {
 
 /// Banner che spiega in modo funzionale cosa e' condiviso tra esercizi.
 class RegistryCondominoScopeNotice extends StatelessWidget {
-  const RegistryCondominoScopeNotice({
-    super.key,
-    required this.condomino,
-  });
+  const RegistryCondominoScopeNotice({super.key, required this.condomino});
 
   final Condomino condomino;
 
@@ -323,9 +320,10 @@ class RegistryCondominoExerciseSection extends StatelessWidget {
         ),
         const SizedBox(height: 14),
         DropdownButtonFormField<String?>(
-          initialValue: availableUnita.any(
-            (unit) => unit.id == selectedUnitaImmobiliareId,
-          )
+          initialValue:
+              availableUnita.any(
+                (unit) => unit.id == selectedUnitaImmobiliareId,
+              )
               ? selectedUnitaImmobiliareId
               : null,
           decoration: const InputDecoration(
@@ -389,16 +387,20 @@ class RegistryCondominoAppAccessSection extends StatelessWidget {
     super.key,
     required this.hasAppAccess,
     required this.selectedKeycloakUserId,
+    required this.selectedRole,
     required this.keycloakUsers,
     required this.onAccessChanged,
     required this.onUserSelected,
+    required this.onRoleSelected,
   });
 
   final bool hasAppAccess;
   final String? selectedKeycloakUserId;
+  final CondominoRuolo selectedRole;
   final List<AdminUser> keycloakUsers;
   final ValueChanged<bool>? onAccessChanged;
   final ValueChanged<String?>? onUserSelected;
+  final ValueChanged<CondominoRuolo?>? onRoleSelected;
 
   @override
   Widget build(BuildContext context) {
@@ -424,9 +426,10 @@ class RegistryCondominoAppAccessSection extends StatelessWidget {
         if (hasAppAccess) ...[
           const SizedBox(height: 8),
           DropdownButtonFormField<String>(
-            initialValue: keycloakUsers.any(
-              (user) => user.userId == selectedKeycloakUserId,
-            )
+            initialValue:
+                keycloakUsers.any(
+                  (user) => user.userId == selectedKeycloakUserId,
+                )
                 ? selectedKeycloakUserId
                 : null,
             decoration: const InputDecoration(labelText: 'Utente app'),
@@ -446,6 +449,20 @@ class RegistryCondominoAppAccessSection extends StatelessWidget {
               }
               return null;
             },
+          ),
+          const SizedBox(height: 12),
+          DropdownButtonFormField<CondominoRuolo>(
+            initialValue: selectedRole,
+            decoration: const InputDecoration(labelText: 'Ruolo app'),
+            items: CondominoRuolo.values
+                .map(
+                  (role) => DropdownMenuItem<CondominoRuolo>(
+                    value: role,
+                    child: Text(role.label),
+                  ),
+                )
+                .toList(growable: false),
+            onChanged: onRoleSelected,
           ),
         ],
       ],

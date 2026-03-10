@@ -368,22 +368,15 @@ class RegistryTabPage extends ConsumerWidget {
 
     final updated = await Navigator.of(context).push<Condomino>(
       MaterialPageRoute(
-        builder: (_) => RegistryCondominoEditPage(condomino: condomino),
+        builder: (_) => RegistryCondominoEditPage(
+          condomino: condomino,
+          onSave: (updated) =>
+              _saveCondominoUpdate(context: context, ref: ref, updated: updated),
+        ),
       ),
     );
-    if (!context.mounted) {
+    if (!context.mounted || updated == null) {
       return;
-    }
-    if (updated != null) {
-      try {
-        await _saveCondominoUpdate(context: context, ref: ref, updated: updated);
-      } catch (e) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Errore durante la modifica: $e')),
-          );
-        }
-      }
     }
   }
 

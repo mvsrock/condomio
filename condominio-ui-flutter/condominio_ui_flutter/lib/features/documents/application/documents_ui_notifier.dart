@@ -180,3 +180,14 @@ final selectedMorositaItemsProvider = Provider<List<MorositaItemModel>>((ref) {
       .where((item) => item.idCondominio == selectedCondominio.id)
       .toList(growable: false);
 });
+
+/// Storico solleciti indicizzato per condomino (esercizio selezionato).
+final selectedSollecitiByCondominoProvider =
+    Provider<Map<String, List<SollecitoModel>>>((ref) {
+      final condomini = ref.watch(condominiBySelectedCondominioProvider);
+      final out = <String, List<SollecitoModel>>{};
+      for (final item in condomini) {
+        out[item.id] = item.solleciti;
+      }
+      return out;
+    });
