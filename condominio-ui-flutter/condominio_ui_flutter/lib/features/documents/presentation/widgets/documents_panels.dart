@@ -40,6 +40,53 @@ typedef DocumentsTabellaCallback =
       TabellaModel tabella,
     );
 
+class _DocumentsPanelCard extends StatelessWidget {
+  const _DocumentsPanelCard({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: const BorderSide(color: Color(0xFFD9E2EC)),
+      ),
+      child: Padding(padding: const EdgeInsets.all(14), child: child),
+    );
+  }
+}
+
+class _DocumentsPanelHeader extends StatelessWidget {
+  const _DocumentsPanelHeader({
+    required this.icon,
+    required this.title,
+  });
+
+  final IconData icon;
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: const Color(0xFF334E68)),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            title,
+            style: const TextStyle(
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF102A43),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 /// Pannello elenco condomini. Legge in autonomia lista e selezione correnti.
 class DocumentsCondominiPanel extends ConsumerWidget {
   const DocumentsCondominiPanel({
@@ -58,15 +105,13 @@ class DocumentsCondominiPanel extends ConsumerWidget {
       documentsUiProvider.select((state) => state.selectedCondominoId),
     );
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
+    return _DocumentsPanelCard(
+      child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Condomini',
-              style: TextStyle(fontWeight: FontWeight.w700),
+            const _DocumentsPanelHeader(
+              icon: Icons.people_outline,
+              title: 'Condomini',
             ),
             const SizedBox(height: 8),
             if (shrinkListForParentScroll)
@@ -110,7 +155,6 @@ class DocumentsCondominiPanel extends ConsumerWidget {
                 ),
               ),
           ],
-        ),
       ),
     );
   }
@@ -142,15 +186,13 @@ class DocumentsMovimentiPanel extends ConsumerWidget {
     final isAdmin = ref.watch(homeIsAdminProvider);
     final isMutationBlocked = isReadOnly || !isAdmin;
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
+    return _DocumentsPanelCard(
+      child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Movimenti',
-              style: TextStyle(fontWeight: FontWeight.w700),
+            const _DocumentsPanelHeader(
+              icon: Icons.receipt_long_outlined,
+              title: 'Movimenti',
             ),
             const SizedBox(height: 8),
             DocumentsMovimentiSearchField(
@@ -222,7 +264,6 @@ class DocumentsMovimentiPanel extends ConsumerWidget {
                 ),
               ),
           ],
-        ),
       ),
     );
   }
@@ -270,16 +311,14 @@ class DocumentsDetailPanel extends ConsumerWidget {
     final isAdmin = ref.watch(homeIsAdminProvider);
     final isMutationBlocked = isReadOnly || !isAdmin;
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: SingleChildScrollView(
+    return _DocumentsPanelCard(
+      child: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Dettaglio + Tabelle',
-                style: TextStyle(fontWeight: FontWeight.w700),
+              const _DocumentsPanelHeader(
+                icon: Icons.manage_accounts_outlined,
+                title: 'Dettaglio + Tabelle',
               ),
               const SizedBox(height: 10),
               if (selectedCondomino == null)
@@ -311,7 +350,10 @@ class DocumentsDetailPanel extends ConsumerWidget {
                   onEditRata: (rata) => onEditRata(selectedCondomino, rata),
                   onDeleteRata: (rata) => onDeleteRata(selectedCondomino, rata),
                 ),
-              const Text('Tabelle condominio'),
+              const _DocumentsPanelHeader(
+                icon: Icons.table_chart_outlined,
+                title: 'Tabelle condominio',
+              ),
               const SizedBox(height: 6),
               ListView.separated(
                 itemCount: tabelle.length,
@@ -347,7 +389,6 @@ class DocumentsDetailPanel extends ConsumerWidget {
               ),
             ],
           ),
-        ),
       ),
     );
   }

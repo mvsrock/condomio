@@ -47,12 +47,6 @@ final homeDestinationsProvider = Provider<List<HomeNavDestination>>((ref) {
       icon: Icons.receipt_long_outlined,
       selectedIcon: Icons.receipt_long,
     ),
-    const HomeNavDestination(
-      branchIndex: 4,
-      label: 'Documenti',
-      icon: Icons.folder_open_outlined,
-      selectedIcon: Icons.folder_open,
-    ),
   ];
 });
 

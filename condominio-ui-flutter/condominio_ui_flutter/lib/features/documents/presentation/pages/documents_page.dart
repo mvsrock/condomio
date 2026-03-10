@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../app/app_breakpoints.dart';
 import '../../../condominio_selection/application/managed_condominio_notifier.dart';
@@ -35,127 +36,142 @@ class DocumentsPage extends ConsumerWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final isWide = AppBreakpoints.isDocumentsWide(constraints.maxWidth);
+        final isShortHeight = constraints.maxHeight < 520;
 
         if (isLoading && dataset.condomini.isEmpty) {
           return const Center(child: CircularProgressIndicator());
         }
 
+        final mainContent = isWide
+            ? _desktopLayout(
+                context: context,
+                ref: ref,
+                onSelectCondomino: ref
+                    .read(documentsUiProvider.notifier)
+                    .selectCondomino,
+              )
+            : DocumentsMobileLayout(
+                onOpenSelectedCondominoDetail: (selectedCondomino, isSaving) =>
+                    _openCondominoDetailBottomSheet(
+                      context: context,
+                      ref: ref,
+                      condomino: selectedCondomino,
+                      isSaving: isSaving,
+                    ),
+                onOpenMovimentoDetail: (movimento) =>
+                    _openMovimentoDetailDialog(
+                      context: context,
+                      movimento: movimento,
+                    ),
+                onEditMovimento: (movimento) => _openEditMovimentoDialog(
+                  context: context,
+                  ref: ref,
+                  movimento: movimento,
+                ),
+                onDeleteMovimento: (movimento) => _confirmDeleteMovimento(
+                  context: context,
+                  ref: ref,
+                  movimento: movimento,
+                ),
+                onEditTabella: (selectedCondominio, tabelle, tabella) =>
+                    _openEditTabellaDialog(
+                      context: context,
+                      ref: ref,
+                      selectedCondominio: selectedCondominio,
+                      tabelle: tabelle,
+                      tabella: tabella,
+                    ),
+                onDeleteTabella: (selectedCondominio, tabelle, tabella) =>
+                    _confirmDeleteTabella(
+                      context: context,
+                      ref: ref,
+                      selectedCondominio: selectedCondominio,
+                      tabelle: tabelle,
+                      tabella: tabella,
+                    ),
+              );
+
+        final header = <Widget>[
+          const _WorkspaceModuleHeader(isDocumentsModule: true),
+          const SizedBox(height: 12),
+          if (errorMessage != null) ...[
+            Material(
+              color: Colors.red.shade50,
+              borderRadius: BorderRadius.circular(12),
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Row(
+                  children: [
+                    Icon(Icons.error_outline, color: Colors.red.shade900),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        errorMessage,
+                        style: TextStyle(color: Colors.red.shade900),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Chiudi errore',
+                      onPressed: () =>
+                          ref.read(documentsDataProvider.notifier).clearError(),
+                      icon: const Icon(Icons.close),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+          const DocumentsSummaryHeader(),
+          const SizedBox(height: 12),
+          DocumentsActionsBar(
+            onConfigureRiparto: (selectedCondominio, tabelle) =>
+                _openConfigurazioniSpesaDialog(
+                  context: context,
+                  ref: ref,
+                  selectedCondominio: selectedCondominio,
+                  tabelle: tabelle,
+                ),
+            onCreateTabella: () =>
+                _openCreateTabellaDialog(context: context, ref: ref),
+            onCreateMovimento: (selectedCondominio) =>
+                _openCreateMovimentoDialog(
+                  context: context,
+                  ref: ref,
+                  selectedCondominio: selectedCondominio,
+                ),
+            onOpenPreventivo: (selectedCondominio) => _openPreventivoDialog(
+              context: context,
+              ref: ref,
+              selectedCondominio: selectedCondominio,
+            ),
+            onOpenMorosita: (selectedCondominio) => _openMorositaDialog(
+              context: context,
+              ref: ref,
+              selectedCondominio: selectedCondominio,
+            ),
+            onRefresh: dataNotifier.loadForSelectedCondominio,
+          ),
+          const SizedBox(height: 12),
+        ];
+
+        if (isShortHeight) {
+          return ListView(
+            children: [
+              ...header,
+              SizedBox(
+                height: (constraints.maxHeight * 0.92).clamp(320.0, 560.0),
+                child: mainContent,
+              ),
+            ],
+          );
+        }
+
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (errorMessage != null) ...[
-              Material(
-                color: Colors.red.shade50,
-                borderRadius: BorderRadius.circular(12),
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Row(
-                    children: [
-                      Icon(Icons.error_outline, color: Colors.red.shade900),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          errorMessage,
-                          style: TextStyle(color: Colors.red.shade900),
-                        ),
-                      ),
-                      IconButton(
-                        tooltip: 'Chiudi errore',
-                        onPressed: () => ref
-                            .read(documentsDataProvider.notifier)
-                            .clearError(),
-                        icon: const Icon(Icons.close),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-            ],
-            const DocumentsCondominioSelectorBar(),
-            const SizedBox(height: 12),
-            const DocumentsSummaryHeader(),
-            const SizedBox(height: 12),
-            DocumentsActionsBar(
-              onConfigureRiparto: (selectedCondominio, tabelle) =>
-                  _openConfigurazioniSpesaDialog(
-                    context: context,
-                    ref: ref,
-                    selectedCondominio: selectedCondominio,
-                    tabelle: tabelle,
-                  ),
-              onCreateTabella: () =>
-                  _openCreateTabellaDialog(context: context, ref: ref),
-              onCreateMovimento: (selectedCondominio) =>
-                  _openCreateMovimentoDialog(
-                    context: context,
-                    ref: ref,
-                    selectedCondominio: selectedCondominio,
-                  ),
-              onOpenPreventivo: (selectedCondominio) => _openPreventivoDialog(
-                context: context,
-                ref: ref,
-                selectedCondominio: selectedCondominio,
-              ),
-              onOpenMorosita: (selectedCondominio) => _openMorositaDialog(
-                context: context,
-                ref: ref,
-                selectedCondominio: selectedCondominio,
-              ),
-              onRefresh: dataNotifier.loadForSelectedCondominio,
-            ),
-            const SizedBox(height: 12),
-            Expanded(
-              child: isWide
-                  ? _desktopLayout(
-                      context: context,
-                      ref: ref,
-                      onSelectCondomino: ref
-                          .read(documentsUiProvider.notifier)
-                          .selectCondomino,
-                    )
-                  : DocumentsMobileLayout(
-                      onOpenSelectedCondominoDetail:
-                          (selectedCondomino, isSaving) =>
-                              _openCondominoDetailBottomSheet(
-                                context: context,
-                                ref: ref,
-                                condomino: selectedCondomino,
-                                isSaving: isSaving,
-                              ),
-                      onOpenMovimentoDetail: (movimento) =>
-                          _openMovimentoDetailDialog(
-                            context: context,
-                            movimento: movimento,
-                          ),
-                      onEditMovimento: (movimento) => _openEditMovimentoDialog(
-                        context: context,
-                        ref: ref,
-                        movimento: movimento,
-                      ),
-                      onDeleteMovimento: (movimento) => _confirmDeleteMovimento(
-                        context: context,
-                        ref: ref,
-                        movimento: movimento,
-                      ),
-                      onEditTabella: (selectedCondominio, tabelle, tabella) =>
-                          _openEditTabellaDialog(
-                            context: context,
-                            ref: ref,
-                            selectedCondominio: selectedCondominio,
-                            tabelle: tabelle,
-                            tabella: tabella,
-                          ),
-                      onDeleteTabella: (selectedCondominio, tabelle, tabella) =>
-                          _confirmDeleteTabella(
-                            context: context,
-                            ref: ref,
-                            selectedCondominio: selectedCondominio,
-                            tabelle: tabelle,
-                            tabella: tabella,
-                          ),
-                    ),
-            ),
+            ...header,
+            Expanded(child: mainContent),
           ],
         );
       },
@@ -1287,5 +1303,82 @@ class DocumentsPage extends ConsumerWidget {
         ).showSnackBar(SnackBar(content: Text('Errore elimina rata: $e')));
       }
     }
+  }
+}
+
+class _WorkspaceModuleHeader extends StatelessWidget {
+  const _WorkspaceModuleHeader({required this.isDocumentsModule});
+
+  final bool isDocumentsModule;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDocuments = isDocumentsModule;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFD9E2EC)),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final stack = constraints.maxWidth < 780;
+          final switcher = Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              ChoiceChip(
+                selected: !isDocuments,
+                label: const Text('Anagrafica'),
+                onSelected: (_) => context.go('/home/anagrafica'),
+              ),
+              ChoiceChip(
+                selected: isDocuments,
+                label: const Text('Documenti'),
+                onSelected: (_) => context.go('/home/documents'),
+              ),
+            ],
+          );
+
+          final title = const Text(
+            'Workspace Condominio',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+          );
+          final subtitle = Text(
+            isDocuments
+                ? 'Spese, tabelle, preventivo e morosita nel contesto esercizio attivo.'
+                : 'Anagrafica, unita e accessi nel contesto esercizio attivo.',
+            style: const TextStyle(color: Color(0xFF627D98)),
+          );
+
+          if (stack) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                title,
+                const SizedBox(height: 4),
+                subtitle,
+                const SizedBox(height: 10),
+                switcher,
+              ],
+            );
+          }
+
+          return Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [title, const SizedBox(height: 4), subtitle],
+                ),
+              ),
+              switcher,
+            ],
+          );
+        },
+      ),
+    );
   }
 }

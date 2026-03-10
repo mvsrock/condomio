@@ -52,6 +52,7 @@ class ApiError implements Exception {
 
   static String? _extractMessage(String body) {
     if (body.trim().isEmpty) return null;
+    final raw = body.trim();
     try {
       final decoded = jsonDecode(body);
       if (decoded is Map<String, dynamic>) {
@@ -67,6 +68,7 @@ class ApiError implements Exception {
           decoded['error'],
           decoded['detail'],
           decoded['validationMessage'],
+          decoded['error_description'],
         ];
         for (final candidate in direct) {
           if (candidate is String && candidate.trim().isNotEmpty) {
@@ -74,7 +76,15 @@ class ApiError implements Exception {
           }
         }
       }
-    } catch (_) {}
+      if (decoded is String && decoded.trim().isNotEmpty) {
+        return decoded.trim();
+      }
+    } catch (_) {
+      // Fallback su body testuale (tipico di alcuni upstream non JSON).
+      if (raw.isNotEmpty) {
+        return raw;
+      }
+    }
     return null;
   }
 
@@ -128,6 +138,20 @@ class ApiError implements Exception {
     }
     if (code.startsWith('validation.required.riparto.sommaMillesimiIncoerente.')) {
       return 'La somma delle quote non e\' coerente con il denominatore della tabella.';
+    }
+    final lowered = code.toLowerCase();
+    if (lowered.contains('user exists with same username')
+        || lowered.contains('username already exists')
+        || lowered.contains('already exists')) {
+      return 'Nome utente gia\' esistente: scegline uno diverso.';
+    }
+    if (lowered.contains('email already exists')
+        || lowered.contains('user exists with same email')) {
+      return 'Email gia\' associata a un altro utente.';
+    }
+    if (lowered.contains('invalid_grant')
+        || lowered.contains('account is not fully set up')) {
+      return 'Account non configurato correttamente su Keycloak.';
     }
     if (code.startsWith('invalid.percent.')) {
       return 'Le percentuali della configurazione spesa non sono valide (devono sommare a 100).';

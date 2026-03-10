@@ -78,7 +78,6 @@ class DocumentsSummaryHeader extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final selectedCondominio = ref.watch(selectedCondominioProvider);
     final condomini = ref.watch(condominiBySelectedCondominioProvider);
-    final tabelle = ref.watch(tabelleBySelectedCondominioProvider);
     final movimenti = ref.watch(movimentiBySelectedCondominioProvider);
     final preventivo = ref.watch(selectedPreventivoSnapshotProvider);
     final morosita = ref.watch(selectedMorositaItemsProvider);
@@ -98,16 +97,8 @@ class DocumentsSummaryHeader extends ConsumerWidget {
               'Residuo condominio: ${selectedCondominio.residuo.toStringAsFixed(2)}',
         ),
         DocumentsStatChip(
-          icon: Icons.layers_outlined,
-          label: 'Gestione: ${selectedCondominio.gestioneLabel}',
-        ),
-        DocumentsStatChip(
           icon: Icons.people_outline,
           label: 'Posizioni: ${condomini.length}',
-        ),
-        DocumentsStatChip(
-          icon: Icons.table_chart_outlined,
-          label: 'Tabelle: ${tabelle.length}',
         ),
         DocumentsStatChip(
           icon: Icons.receipt_long_outlined,
@@ -173,25 +164,25 @@ class DocumentsActionsBar extends ConsumerWidget {
           label: const Text('Configura riparto'),
         ),
         FilledButton.icon(
-          onPressed: (isSaving || !canManage) ? null : onCreateTabella,
-          icon: const Icon(Icons.table_chart_outlined),
-          label: const Text('Nuova tabella'),
-        ),
-        FilledButton.icon(
           onPressed: (isSaving || !canManage)
               ? null
               : () => onCreateMovimento(selectedCondominio),
           icon: const Icon(Icons.receipt_long_outlined),
           label: const Text('Nuova spesa'),
         ),
-        FilledButton.icon(
+        FilledButton.tonalIcon(
+          onPressed: (isSaving || !canManage) ? null : onCreateTabella,
+          icon: const Icon(Icons.table_chart_outlined),
+          label: const Text('Nuova tabella'),
+        ),
+        OutlinedButton.icon(
           onPressed: (isSaving || selectedCondominio == null)
               ? null
               : () => onOpenPreventivo(selectedCondominio),
           icon: const Icon(Icons.analytics_outlined),
           label: const Text('Preventivo'),
         ),
-        FilledButton.icon(
+        OutlinedButton.icon(
           onPressed: (isSaving || selectedCondominio == null)
               ? null
               : () => onOpenMorosita(selectedCondominio),

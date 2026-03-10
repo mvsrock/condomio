@@ -44,21 +44,24 @@ class DashboardPage extends ConsumerWidget {
               borderRadius: BorderRadius.circular(14),
               border: Border.all(color: const Color(0xFFD9E2EC)),
             ),
-            child: Wrap(
-              spacing: 12,
-              runSpacing: 8,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                Text(
-                  selected == null
-                      ? 'Nessun esercizio selezionato'
-                      : '${selected.label} - ${selected.gestioneLabel} - esercizio ${selected.anno}',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                Chip(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final headerWidth = constraints.maxWidth;
+                final stackActionsBelow = headerWidth < 980;
+                final iconOnlyRefresh = headerWidth < 560;
+
+                Future<void> refreshData() async {
+                  await Future.wait([
+                    ref
+                        .read(condominiProvider.notifier)
+                        .loadForSelectedCondominio(showLoading: false),
+                    ref
+                        .read(documentsDataProvider.notifier)
+                        .loadForSelectedCondominio(showLoading: false),
+                  ]);
+                }
+
+                final statusChip = Chip(
                   label: Text(
                     selected == null
                         ? 'Contesto assente'
@@ -66,68 +69,125 @@ class DashboardPage extends ConsumerWidget {
                               ? 'Esercizio chiuso'
                               : 'Esercizio aperto'),
                   ),
-                ),
-                FilledButton.tonalIcon(
-                  onPressed: () => context.go('/select-condominio'),
-                  icon: const Icon(Icons.swap_horiz),
-                  label: const Text('Cambia esercizio'),
-                ),
-                OutlinedButton.icon(
-                  onPressed: isLoading
-                      ? null
-                      : () async {
-                          await Future.wait([
-                            ref
-                                .read(condominiProvider.notifier)
-                                .loadForSelectedCondominio(showLoading: false),
-                            ref
-                                .read(documentsDataProvider.notifier)
-                                .loadForSelectedCondominio(showLoading: false),
-                          ]);
-                        },
-                  icon: const Icon(Icons.refresh),
-                  label: const Text('Aggiorna dati'),
-                ),
-              ],
+                );
+
+                final controls = Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    statusChip,
+                    FilledButton.tonalIcon(
+                      onPressed: () => context.go('/select-condominio'),
+                      icon: const Icon(Icons.swap_horiz),
+                      label: const Text('Cambia esercizio'),
+                    ),
+                    if (iconOnlyRefresh)
+                      Tooltip(
+                        message: 'Aggiorna dati',
+                        child: OutlinedButton(
+                          onPressed: isLoading ? null : refreshData,
+                          child: const Icon(Icons.refresh),
+                        ),
+                      )
+                    else
+                      OutlinedButton.icon(
+                        onPressed: isLoading ? null : refreshData,
+                        icon: const Icon(Icons.refresh),
+                        label: const Text('Aggiorna dati'),
+                      ),
+                  ],
+                );
+
+                if (stackActionsBelow) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        selected == null
+                            ? 'Nessun esercizio selezionato'
+                            : '${selected.label} - ${selected.gestioneLabel} - esercizio ${selected.anno}',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      controls,
+                    ],
+                  );
+                }
+
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        selected == null
+                            ? 'Nessun esercizio selezionato'
+                            : '${selected.label} - ${selected.gestioneLabel} - esercizio ${selected.anno}',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    controls,
+                  ],
+                );
+              },
             ),
           ),
           const SizedBox(height: 14),
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: [
-              _KpiCard(
-                title: 'Residuo condominio',
-                value: _formatEuro(kpi.residuoCondominio),
-                subtitle: 'Saldo esercizio corrente',
-                color: const Color(0xFF155E75),
-                icon: Icons.account_balance_wallet_outlined,
-              ),
-              _KpiCard(
-                title: 'Budget delta',
-                value: _formatEuro(kpi.deltaBudget),
-                subtitle:
-                    'Preventivo ${_formatEuro(kpi.totalePreventivo)} - Consuntivo ${_formatEuro(kpi.totaleConsuntivo)}',
-                color: const Color(0xFF7C2D12),
-                icon: Icons.analytics_outlined,
-              ),
-              _KpiCard(
-                title: 'Morosita scaduta',
-                value: _formatEuro(kpi.debitoScadutoTotale),
-                subtitle:
-                    '${kpi.morosiTotali} morosi | sollecitati ${kpi.praticheSollecitato} | legale ${kpi.praticheLegale}',
-                color: const Color(0xFF9A3412),
-                icon: Icons.warning_amber_outlined,
-              ),
-              _KpiCard(
-                title: 'Scadenze rate',
-                value:
-                    '7gg ${kpi.rateScadenza7} - 15gg ${kpi.rateScadenza15} - 30gg ${kpi.rateScadenza30}',
-                subtitle: '${kpi.posizioniTotali} posizioni esercizio',
-                color: const Color(0xFF1D4ED8),
-                icon: Icons.event_note_outlined,
-              ),
-            ],
+          LayoutBuilder(
+            builder: (context, constraints) {
+              const spacing = 12.0;
+              final columns = _kpiColumnsForWidth(constraints.maxWidth);
+              final cardWidth =
+                  (constraints.maxWidth - spacing * (columns - 1)) / columns;
+              return Wrap(
+                spacing: spacing,
+                runSpacing: spacing,
+                children: [
+                  _KpiCard(
+                    width: cardWidth,
+                    title: 'Residuo condominio',
+                    value: _formatEuro(kpi.residuoCondominio),
+                    subtitle: 'Saldo esercizio corrente',
+                    color: const Color(0xFF155E75),
+                    icon: Icons.account_balance_wallet_outlined,
+                  ),
+                  _KpiCard(
+                    width: cardWidth,
+                    title: 'Budget delta',
+                    value: _formatEuro(kpi.deltaBudget),
+                    subtitle:
+                        'Preventivo ${_formatEuro(kpi.totalePreventivo)} - Consuntivo ${_formatEuro(kpi.totaleConsuntivo)}',
+                    color: const Color(0xFF7C2D12),
+                    icon: Icons.analytics_outlined,
+                  ),
+                  _KpiCard(
+                    width: cardWidth,
+                    title: 'Morosita scaduta',
+                    value: _formatEuro(kpi.debitoScadutoTotale),
+                    subtitle:
+                        '${kpi.morosiTotali} morosi | sollecitati ${kpi.praticheSollecitato} | legale ${kpi.praticheLegale}',
+                    color: const Color(0xFF9A3412),
+                    icon: Icons.warning_amber_outlined,
+                  ),
+                  _KpiCard(
+                    width: cardWidth,
+                    title: 'Scadenze rate',
+                    value:
+                        '7gg ${kpi.rateScadenza7} - 15gg ${kpi.rateScadenza15} - 30gg ${kpi.rateScadenza30}',
+                    subtitle: '${kpi.posizioniTotali} posizioni esercizio',
+                    color: const Color(0xFF1D4ED8),
+                    icon: Icons.event_note_outlined,
+                  ),
+                ],
+              );
+            },
           ),
           const SizedBox(height: 14),
           if (isWide)
@@ -239,31 +299,52 @@ class DashboardPage extends ConsumerWidget {
           Card(
             child: Padding(
               padding: const EdgeInsets.all(14),
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  FilledButton.icon(
-                    onPressed: () => context.go('/home/documents'),
-                    icon: const Icon(Icons.receipt_long_outlined),
-                    label: const Text('Nuova spesa'),
-                  ),
-                  FilledButton.icon(
-                    onPressed: () => context.go('/home/documents'),
-                    icon: const Icon(Icons.analytics_outlined),
-                    label: const Text('Budget e consuntivo'),
-                  ),
-                  FilledButton.icon(
-                    onPressed: () => context.go('/home/documents'),
-                    icon: const Icon(Icons.warning_amber_outlined),
-                    label: const Text('Morosita e solleciti'),
-                  ),
-                  OutlinedButton.icon(
-                    onPressed: () => context.go('/home/anagrafica'),
-                    icon: const Icon(Icons.badge_outlined),
-                    label: const Text('Anagrafica e subentri'),
-                  ),
-                ],
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  const spacing = 8.0;
+                  final columns = _actionColumnsForWidth(constraints.maxWidth);
+                  final buttonWidth =
+                      (constraints.maxWidth - spacing * (columns - 1)) /
+                          columns;
+                  return Wrap(
+                    spacing: spacing,
+                    runSpacing: spacing,
+                    children: [
+                      SizedBox(
+                        width: buttonWidth,
+                        child: FilledButton.icon(
+                          onPressed: () => context.go('/home/documents'),
+                          icon: const Icon(Icons.receipt_long_outlined),
+                          label: const Text('Nuova spesa'),
+                        ),
+                      ),
+                      SizedBox(
+                        width: buttonWidth,
+                        child: FilledButton.icon(
+                          onPressed: () => context.go('/home/documents'),
+                          icon: const Icon(Icons.analytics_outlined),
+                          label: const Text('Budget e consuntivo'),
+                        ),
+                      ),
+                      SizedBox(
+                        width: buttonWidth,
+                        child: FilledButton.icon(
+                          onPressed: () => context.go('/home/documents'),
+                          icon: const Icon(Icons.warning_amber_outlined),
+                          label: const Text('Morosita e solleciti'),
+                        ),
+                      ),
+                      SizedBox(
+                        width: buttonWidth,
+                        child: OutlinedButton.icon(
+                          onPressed: () => context.go('/home/anagrafica'),
+                          icon: const Icon(Icons.badge_outlined),
+                          label: const Text('Anagrafica e subentri'),
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
             ),
           ),
@@ -276,6 +357,7 @@ class DashboardPage extends ConsumerWidget {
 
 class _KpiCard extends StatelessWidget {
   const _KpiCard({
+    required this.width,
     required this.title,
     required this.value,
     required this.subtitle,
@@ -283,6 +365,7 @@ class _KpiCard extends StatelessWidget {
     required this.icon,
   });
 
+  final double width;
   final String title;
   final String value;
   final String subtitle;
@@ -292,7 +375,7 @@ class _KpiCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 280,
+      width: width,
       child: Card(
         child: Padding(
           padding: const EdgeInsets.all(14),
@@ -341,6 +424,19 @@ class _KpiCard extends StatelessWidget {
       ),
     );
   }
+}
+
+int _kpiColumnsForWidth(double width) {
+  if (width < 620) return 1;
+  if (width < 1080) return 2;
+  if (width < 1440) return 3;
+  return 4;
+}
+
+int _actionColumnsForWidth(double width) {
+  if (width < 760) return 1;
+  if (width < 1180) return 2;
+  return 4;
 }
 
 class _ActivityRow {

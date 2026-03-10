@@ -52,13 +52,33 @@ class _RegistryRowState extends State<RegistryRow> {
                 ? const Color(0xFF155E75)
                 : const Color(0xFFD9E2EC),
           ),
+          boxShadow: _isHovered
+              ? const [
+                  BoxShadow(
+                    color: Color(0x12000000),
+                    blurRadius: 10,
+                    offset: Offset(0, 2),
+                  ),
+                ]
+              : null,
         ),
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               child: Row(
                 children: [
+                  Container(
+                    width: 4,
+                    height: isCompact ? 56 : 42,
+                    margin: const EdgeInsets.only(right: 10),
+                    decoration: BoxDecoration(
+                      color: widget.condomino.isActivePosition
+                          ? const Color(0xFF16A34A)
+                          : const Color(0xFFDC2626),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
                   Expanded(
                     child: InkWell(
                       borderRadius: BorderRadius.circular(10),

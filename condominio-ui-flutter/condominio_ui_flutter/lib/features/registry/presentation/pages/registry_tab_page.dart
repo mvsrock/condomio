@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../admin/presentation/pages/admin_users_page.dart';
 import '../../../auth/application/keycloak_provider.dart';
@@ -57,11 +58,37 @@ class RegistryTabPage extends ConsumerWidget {
       length: tabCount,
       child: Column(
         children: [
-          TabBar(
-            tabs: [
-              const Tab(text: 'Anagrafica'),
-              if (isAdmin) const Tab(text: 'Gestione Accessi'),
-            ],
+          const _WorkspaceModuleHeader(isDocumentsModule: false),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF1F5F9),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: const Color(0xFFD9E2EC)),
+            ),
+            child: TabBar(
+              dividerColor: Colors.transparent,
+              indicatorSize: TabBarIndicatorSize.tab,
+              indicator: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x14000000),
+                    blurRadius: 8,
+                    offset: Offset(0, 2),
+                  ),
+                ],
+              ),
+              labelColor: const Color(0xFF102A43),
+              unselectedLabelColor: const Color(0xFF627D98),
+              labelStyle: const TextStyle(fontWeight: FontWeight.w700),
+              tabs: [
+                const Tab(text: 'Anagrafica'),
+                if (isAdmin) const Tab(text: 'Gestione Accessi'),
+              ],
+            ),
           ),
           const SizedBox(height: 8),
           Expanded(
@@ -384,5 +411,82 @@ class RegistryTabPage extends ConsumerWidget {
     if (isAdmin) return true;
     if (currentUserId == null || currentUserId.isEmpty) return false;
     return condomino.keycloakUserId == currentUserId;
+  }
+}
+
+class _WorkspaceModuleHeader extends StatelessWidget {
+  const _WorkspaceModuleHeader({required this.isDocumentsModule});
+
+  final bool isDocumentsModule;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDocuments = isDocumentsModule;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFD9E2EC)),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final stack = constraints.maxWidth < 780;
+          final switcher = Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              ChoiceChip(
+                selected: !isDocuments,
+                label: const Text('Anagrafica'),
+                onSelected: (_) => context.go('/home/anagrafica'),
+              ),
+              ChoiceChip(
+                selected: isDocuments,
+                label: const Text('Documenti'),
+                onSelected: (_) => context.go('/home/documents'),
+              ),
+            ],
+          );
+
+          final title = const Text(
+            'Workspace Condominio',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+          );
+          final subtitle = Text(
+            isDocuments
+                ? 'Spese, tabelle, preventivo e morosita nel contesto esercizio attivo.'
+                : 'Anagrafica, unita e accessi nel contesto esercizio attivo.',
+            style: const TextStyle(color: Color(0xFF627D98)),
+          );
+
+          if (stack) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                title,
+                const SizedBox(height: 4),
+                subtitle,
+                const SizedBox(height: 10),
+                switcher,
+              ],
+            );
+          }
+
+          return Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [title, const SizedBox(height: 4), subtitle],
+                ),
+              ),
+              switcher,
+            ],
+          );
+        },
+      ),
+    );
   }
 }

@@ -134,15 +134,24 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
         accessError = ref.read(
           adminUsersProvider.select((state) => state.errorMessage),
         );
-        if (accessError == null) {
-          accessEnabled = true;
-          accessUsername = username;
-          await authNotifier.loadUsers();
-          final createdUser = _findUserByUsername(
-            ref.read(adminUsersProvider.select((state) => state.items)),
-            username,
+        if (accessError != null) {
+          throw Exception(
+            'Creazione accesso app non riuscita: $accessError',
           );
-          accessUserId = createdUser?.userId;
+        }
+
+        accessEnabled = true;
+        accessUsername = username;
+        await authNotifier.loadUsers();
+        final createdUser = _findUserByUsername(
+          ref.read(adminUsersProvider.select((state) => state.items)),
+          username,
+        );
+        accessUserId = createdUser?.userId;
+        if (accessUserId == null || accessUserId.trim().isEmpty) {
+          throw Exception(
+            'Creazione accesso app non riuscita: utenza creata ma non recuperabile.',
+          );
         }
       }
 
@@ -195,19 +204,9 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
       );
 
       if (!mounted) return;
-      if (_createAccessNow && accessError != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Condomino creato, ma accesso app non abilitato: $accessError',
-            ),
-          ),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Condomino creato con successo')),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Condomino creato con successo')),
+      );
 
       _formKey.currentState!.reset();
       _nomeCtrl.clear();
@@ -230,8 +229,12 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
     } catch (e) {
       // Qualunque errore (Keycloak/Core) viene notificato e non lascia la UI bloccata.
       if (mounted) {
+        final raw = e.toString();
+        final pretty = raw.startsWith('Exception: ')
+            ? raw.substring('Exception: '.length)
+            : raw;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Errore creazione condomino: $e')),
+          SnackBar(content: Text('Errore creazione condomino: $pretty')),
         );
       }
     } finally {
