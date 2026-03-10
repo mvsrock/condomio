@@ -15,6 +15,8 @@ class CondominoDocumentModel {
     required this.config,
     required this.versamenti,
     required this.residuo,
+    required this.morositaStato,
+    required this.solleciti,
     required this.statoPosizione,
     required this.dataIngresso,
     required this.dataUscita,
@@ -34,13 +36,16 @@ class CondominoDocumentModel {
   final CondominoConfigModel config;
   final List<VersamentoModel> versamenti;
   final double residuo;
+  final String morositaStato;
+  final List<SollecitoModel> solleciti;
   final CondominoDocumentPositionState statoPosizione;
   final DateTime? dataIngresso;
   final DateTime? dataUscita;
 
   String get nominativo => '$cognome $nome';
   bool get hasStableProfile => condominoRootId.trim().isNotEmpty;
-  bool get isActivePosition => statoPosizione == CondominoDocumentPositionState.attivo;
+  bool get isActivePosition =>
+      statoPosizione == CondominoDocumentPositionState.attivo;
 
   factory CondominoDocumentModel.fromJson(Map<String, dynamic> json) {
     return CondominoDocumentModel(
@@ -63,6 +68,11 @@ class CondominoDocumentModel {
           .map((e) => VersamentoModel.fromJson(e as Map<String, dynamic>))
           .toList(growable: false),
       residuo: _asDouble(json['residuo']),
+      morositaStato: (json['morositaStato'] as String? ?? 'IN_BONIS'),
+      solleciti: (json['solleciti'] as List<dynamic>? ?? const [])
+          .whereType<Map<String, dynamic>>()
+          .map(SollecitoModel.fromJson)
+          .toList(growable: false),
       statoPosizione: _positionStateFromJson(json['statoPosizione']),
       dataIngresso: _parseDateTime(json['dataIngresso']),
       dataUscita: _parseDateTime(json['dataUscita']),
@@ -87,10 +97,7 @@ DateTime? _parseDateTime(Object? raw) {
 }
 
 class CondominoConfigModel {
-  const CondominoConfigModel({
-    required this.tabelle,
-    required this.rate,
-  });
+  const CondominoConfigModel({required this.tabelle, required this.rate});
 
   final List<TabellaConfigModel> tabelle;
   final List<RataModel> rate;
@@ -169,10 +176,7 @@ class RataModel {
 }
 
 class ImportoRataModel {
-  const ImportoRataModel({
-    required this.codice,
-    required this.importo,
-  });
+  const ImportoRataModel({required this.codice, required this.importo});
 
   final String codice;
   final double importo;
@@ -208,7 +212,8 @@ class VersamentoModel {
     DateTime parseDate(String key) {
       final raw = json[key];
       if (raw is String && raw.isNotEmpty) {
-        return DateTime.tryParse(raw)?.toUtc() ?? DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
+        return DateTime.tryParse(raw)?.toUtc() ??
+            DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
       }
       return DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
     }
@@ -220,9 +225,39 @@ class VersamentoModel {
       rataId: json['rataId'] as String?,
       date: parseDate('date'),
       insertedAt: parseDate('insertedAt'),
-      ripartizioneTabelle: (json['ripartizioneTabelle'] as List<dynamic>? ?? const [])
-          .map((e) => RipartizioneModel.fromJson(e as Map<String, dynamic>))
-          .toList(growable: false),
+      ripartizioneTabelle:
+          (json['ripartizioneTabelle'] as List<dynamic>? ?? const [])
+              .map((e) => RipartizioneModel.fromJson(e as Map<String, dynamic>))
+              .toList(growable: false),
+    );
+  }
+}
+
+class SollecitoModel {
+  const SollecitoModel({
+    required this.id,
+    required this.createdAt,
+    required this.canale,
+    required this.titolo,
+    required this.note,
+    required this.automatico,
+  });
+
+  final String id;
+  final DateTime? createdAt;
+  final String canale;
+  final String titolo;
+  final String? note;
+  final bool automatico;
+
+  factory SollecitoModel.fromJson(Map<String, dynamic> json) {
+    return SollecitoModel(
+      id: json['id'] as String? ?? '',
+      createdAt: _parseDateTime(json['createdAt']),
+      canale: json['canale'] as String? ?? '',
+      titolo: json['titolo'] as String? ?? '',
+      note: json['note'] as String?,
+      automatico: json['automatico'] == true,
     );
   }
 }

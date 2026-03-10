@@ -19,6 +19,8 @@ typedef DocumentsCreateMovimentoCallback =
     Future<void> Function(CondominioDocumentModel? selectedCondominio);
 typedef DocumentsOpenPreventivoCallback =
     Future<void> Function(CondominioDocumentModel? selectedCondominio);
+typedef DocumentsOpenMorositaCallback =
+    Future<void> Function(CondominioDocumentModel? selectedCondominio);
 typedef DocumentsRefreshDataCallback = Future<void> Function();
 typedef DocumentsOpenSelectedCondominoDetailCallback =
     void Function(CondominoDocumentModel selectedCondomino, bool isSaving);
@@ -78,6 +80,7 @@ class DocumentsSummaryHeader extends ConsumerWidget {
     final tabelle = ref.watch(tabelleBySelectedCondominioProvider);
     final movimenti = ref.watch(movimentiBySelectedCondominioProvider);
     final preventivo = ref.watch(selectedPreventivoSnapshotProvider);
+    final morosita = ref.watch(selectedMorositaItemsProvider);
     final isReadOnly = ref.watch(selectedManagedCondominioIsClosedProvider);
 
     if (selectedCondominio == null) {
@@ -113,6 +116,11 @@ class DocumentsSummaryHeader extends ConsumerWidget {
           icon: Icons.analytics_outlined,
           label: 'Delta budget: ${preventivo.totaleDelta.toStringAsFixed(2)}',
         ),
+        DocumentsStatChip(
+          icon: Icons.warning_amber_outlined,
+          label:
+              'Morosi: ${morosita.where((item) => item.hasDebitoScaduto).length}',
+        ),
         if (isReadOnly)
           const DocumentsStatChip(
             icon: Icons.lock_outline,
@@ -131,6 +139,7 @@ class DocumentsActionsBar extends ConsumerWidget {
     required this.onCreateTabella,
     required this.onCreateMovimento,
     required this.onOpenPreventivo,
+    required this.onOpenMorosita,
     required this.onRefresh,
   });
 
@@ -138,6 +147,7 @@ class DocumentsActionsBar extends ConsumerWidget {
   final Future<void> Function() onCreateTabella;
   final DocumentsCreateMovimentoCallback onCreateMovimento;
   final DocumentsOpenPreventivoCallback onOpenPreventivo;
+  final DocumentsOpenMorositaCallback onOpenMorosita;
   final DocumentsRefreshDataCallback onRefresh;
 
   @override
@@ -177,6 +187,11 @@ class DocumentsActionsBar extends ConsumerWidget {
               : () => onOpenPreventivo(selectedCondominio),
           icon: const Icon(Icons.analytics_outlined),
           label: const Text('Preventivo'),
+        ),
+        FilledButton.icon(
+          onPressed: isSaving ? null : () => onOpenMorosita(selectedCondominio),
+          icon: const Icon(Icons.warning_amber_outlined),
+          label: const Text('Morosita'),
         ),
         OutlinedButton.icon(
           onPressed: isLoading ? null : onRefresh,

@@ -7,6 +7,7 @@ import '../../condominio_selection/application/managed_condominio_notifier.dart'
 import '../../shared/application/exercise_refresh_provider.dart';
 import '../domain/condominio_document_model.dart';
 import '../domain/condomino_document_model.dart';
+import '../domain/morosita_item_model.dart';
 import '../domain/movimento_model.dart';
 import '../domain/preventivo_snapshot_model.dart';
 import '../domain/tabella_model.dart';
@@ -20,6 +21,7 @@ class DocumentsDataset {
     required this.movimenti,
     required this.tabelle,
     required this.preventivoSnapshot,
+    required this.morositaItems,
   });
 
   const DocumentsDataset.empty()
@@ -27,13 +29,15 @@ class DocumentsDataset {
       condominiAnagrafica = const [],
       movimenti = const [],
       tabelle = const [],
-      preventivoSnapshot = const PreventivoSnapshotModel.empty();
+      preventivoSnapshot = const PreventivoSnapshotModel.empty(),
+      morositaItems = const [];
 
   final List<CondominioDocumentModel> condomini;
   final List<CondominoDocumentModel> condominiAnagrafica;
   final List<MovimentoModel> movimenti;
   final List<TabellaModel> tabelle;
   final PreventivoSnapshotModel preventivoSnapshot;
+  final List<MorositaItemModel> morositaItems;
 }
 
 class DocumentsDataState {
@@ -117,6 +121,7 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
     bool includeMovimenti = false,
     bool includeTabelle = false,
     bool includePreventivo = false,
+    bool includeMorosita = false,
   }) async {
     final token = _requireAccessToken();
     final condominioId = _requireSelectedCondominioId();
@@ -142,6 +147,9 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
             condominioId: condominioId,
           )
         : Future<PreventivoSnapshotModel?>.value(null);
+    final morositaFuture = includeMorosita
+        ? _api.fetchMorosita(accessToken: token, condominioId: condominioId)
+        : Future<List<MorositaItemModel>?>.value(null);
 
     final results = await Future.wait<Object?>([
       condominioFuture,
@@ -149,12 +157,14 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
       movimentiFuture,
       tabelleFuture,
       preventivoFuture,
+      morositaFuture,
     ]);
     final condominio = results[0] as CondominioDocumentModel?;
     final condomini = results[1] as List<CondominoDocumentModel>?;
     final movimenti = results[2] as List<MovimentoModel>?;
     final tabelle = results[3] as List<TabellaModel>?;
     final preventivo = results[4] as PreventivoSnapshotModel?;
+    final morosita = results[5] as List<MorositaItemModel>?;
 
     state = state.copyWith(
       dataset: DocumentsDataset(
@@ -163,6 +173,7 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
         movimenti: movimenti ?? state.dataset.movimenti,
         tabelle: tabelle ?? state.dataset.tabelle,
         preventivoSnapshot: preventivo ?? state.dataset.preventivoSnapshot,
+        morositaItems: morosita ?? state.dataset.morositaItems,
       ),
     );
   }
@@ -172,6 +183,7 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
       includeCondominio: true,
       includeMovimenti: true,
       includePreventivo: true,
+      includeMorosita: true,
     );
   }
 
@@ -181,6 +193,7 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
       includeCondomini: true,
       includeMovimenti: true,
       includePreventivo: true,
+      includeMorosita: true,
     );
   }
 
@@ -190,6 +203,7 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
       includeCondomini: true,
       includeTabelle: true,
       includePreventivo: true,
+      includeMorosita: true,
     );
   }
 
@@ -198,6 +212,7 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
       includeCondomini: true,
       includeMovimenti: true,
       includePreventivo: true,
+      includeMorosita: true,
     );
   }
 
@@ -216,6 +231,9 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
           event.hasScope(ExerciseRefreshScope.documentsExercise) ||
           event.hasScope(ExerciseRefreshScope.documentsMovimenti) ||
           event.hasScope(ExerciseRefreshScope.documentsTabelle),
+      includeMorosita:
+          event.hasScope(ExerciseRefreshScope.documentsExercise) ||
+          event.hasScope(ExerciseRefreshScope.documentsCondomini),
     );
   }
 
@@ -230,6 +248,7 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
         includeMovimenti: true,
         includeTabelle: true,
         includePreventivo: true,
+        includeMorosita: true,
       );
       state = state.copyWith(isLoading: false);
     } catch (e, st) {
@@ -498,12 +517,103 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
         rows: rows.map((row) => row.toJson()).toList(growable: false),
       );
       state = state.copyWith(isSaving: false);
-      await _refreshSelectedCondominioData(includePreventivo: true);
+      await _refreshSelectedCondominioData(
+        includePreventivo: true,
+        includeMorosita: true,
+      );
     } catch (e, st) {
       if (e is ApiError) {
         debugPrint('[DOCUMENTS][savePreventivoRows] ${e.technicalMessage}');
       } else {
         debugPrint('[DOCUMENTS][savePreventivoRows] $e');
+      }
+      debugPrint('$st');
+      state = state.copyWith(isSaving: false, errorMessage: '$e');
+      rethrow;
+    }
+  }
+
+  Future<void> updateMorositaStato({
+    required String condominoId,
+    required MorositaStatoUi stato,
+  }) async {
+    state = state.copyWith(isSaving: true, clearErrorMessage: true);
+    try {
+      _ensureSelectedExerciseWritable();
+      final token = _requireAccessToken();
+      await _api.updateMorositaStato(
+        accessToken: token,
+        condominoId: condominoId,
+        stato: morositaStatoToBackend(stato),
+      );
+      state = state.copyWith(isSaving: false);
+      await _refreshSelectedCondominioData(includeMorosita: true);
+    } catch (e, st) {
+      if (e is ApiError) {
+        debugPrint('[DOCUMENTS][updateMorositaStato] ${e.technicalMessage}');
+      } else {
+        debugPrint('[DOCUMENTS][updateMorositaStato] $e');
+      }
+      debugPrint('$st');
+      state = state.copyWith(isSaving: false, errorMessage: '$e');
+      rethrow;
+    }
+  }
+
+  Future<void> addMorositaSollecito({
+    required String condominoId,
+    required String canale,
+    required String titolo,
+    String? note,
+    bool automatico = false,
+  }) async {
+    state = state.copyWith(isSaving: true, clearErrorMessage: true);
+    try {
+      _ensureSelectedExerciseWritable();
+      final token = _requireAccessToken();
+      await _api.addMorositaSollecito(
+        accessToken: token,
+        condominoId: condominoId,
+        canale: canale,
+        titolo: titolo,
+        note: note,
+        automatico: automatico,
+      );
+      state = state.copyWith(isSaving: false);
+      await _refreshSelectedCondominioData(includeMorosita: true);
+    } catch (e, st) {
+      if (e is ApiError) {
+        debugPrint('[DOCUMENTS][addMorositaSollecito] ${e.technicalMessage}');
+      } else {
+        debugPrint('[DOCUMENTS][addMorositaSollecito] $e');
+      }
+      debugPrint('$st');
+      state = state.copyWith(isSaving: false, errorMessage: '$e');
+      rethrow;
+    }
+  }
+
+  Future<int> generateAutomaticSolleciti({required int minDaysOverdue}) async {
+    state = state.copyWith(isSaving: true, clearErrorMessage: true);
+    try {
+      _ensureSelectedExerciseWritable();
+      final token = _requireAccessToken();
+      final condominioId = _requireSelectedCondominioId();
+      final generated = await _api.generateAutomaticSolleciti(
+        accessToken: token,
+        condominioId: condominioId,
+        minDaysOverdue: minDaysOverdue,
+      );
+      state = state.copyWith(isSaving: false);
+      await _refreshSelectedCondominioData(includeMorosita: true);
+      return generated;
+    } catch (e, st) {
+      if (e is ApiError) {
+        debugPrint(
+          '[DOCUMENTS][generateAutomaticSolleciti] ${e.technicalMessage}',
+        );
+      } else {
+        debugPrint('[DOCUMENTS][generateAutomaticSolleciti] $e');
       }
       debugPrint('$st');
       state = state.copyWith(isSaving: false, errorMessage: '$e');

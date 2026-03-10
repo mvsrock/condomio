@@ -156,7 +156,7 @@ Una fase non e' `Production ready` finche' non supera tutte le verifiche:
 - `Fase 1 - Ciclo rate/incassi`: **Production ready**
 - `Fase 2 - Unita' e titolarita'`: **Production ready**
 - `Fase 3`: **Production ready**
-- `Fase 4`: **In sviluppo**
+- `Fase 4`: **Production ready**
 - `Fase 5`: **In sviluppo**
 - `Fase 6`: **In sviluppo**
 - `Fase 7`: **In sviluppo**
@@ -177,11 +177,13 @@ Una fase non e' `Production ready` finche' non supera tutte le verifiche:
 - Verticale preventivo/consuntivo disponibile con API dedicate (`/preventivi/{idCondominio}`)
 - Confronto budget vs consuntivo esposto in UI documenti con editing preventivo per coppia codice/tabella
 - Consuntivo aggregato automaticamente dai movimenti reali dell'esercizio
+- Vista morosita' con aging debito e stato pratica (`in bonis`, `sollecitato`, `legale`)
+- Solleciti manuali e automatici con storico per posizione esercizio
 
 ### Gap per diventare realmente vendibile
 - Hardening error UX ancora incompleto in piu' punti operativi
 - Alcuni flussi admin sono completi funzionalmente ma non ancora rifiniti come UX business-grade
-- Mancano verticali fondamentali per studio amministrativo: morosita', documentale, report
+- Mancano verticali fondamentali per studio amministrativo: documentale, report
 
 ## Principi di rilascio
 
@@ -299,7 +301,7 @@ Gestire l'intero esercizio dall'apertura alla chiusura.
 ## Fase 4 - Morosita', solleciti e recupero crediti
 
 ### Stato
-In sviluppo
+Production ready
 
 ### Obiettivo
 Trasformare il prodotto in strumento operativo quotidiano.
@@ -310,6 +312,21 @@ Trasformare il prodotto in strumento operativo quotidiano.
 - solleciti manuali e automatici
 - cronologia solleciti
 - stato pratica `in bonis / sollecitato / legale`
+
+### Chiusura fase
+- endpoint dedicati morosita':
+  - `GET /morosita?idCondominio=...`
+  - `PATCH /morosita/{condominoId}/stato`
+  - `POST /morosita/{condominoId}/solleciti`
+  - `POST /morosita/solleciti/automatici/{idCondominio}`
+- calcolo aging lato backend su rate scadute/non scadute con bucket `0-30`, `31-60`, `61-90`, `>90`
+- persistenza stato pratica e storico solleciti nel documento posizione `condomino`
+- UI documenti:
+  - azione `Morosita` dedicata
+  - lista operativa con totale scaduto e ritardo massimo
+  - cambio stato pratica inline
+  - inserimento sollecito manuale
+  - generazione solleciti automatici con soglia giorni
 
 ## Fase 5 - Documentale e allegati
 

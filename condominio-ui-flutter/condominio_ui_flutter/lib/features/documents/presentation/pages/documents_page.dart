@@ -12,6 +12,7 @@ import '../../domain/tabella_model.dart';
 import '../dialogs/documents_config_dialogs.dart';
 import '../dialogs/documents_crud_dialogs.dart';
 import '../dialogs/documents_budget_dialogs.dart';
+import '../dialogs/documents_morosita_dialogs.dart';
 import '../widgets/documents_panels.dart';
 import '../widgets/documents_shell_sections.dart';
 
@@ -91,6 +92,11 @@ class DocumentsPage extends ConsumerWidget {
                     selectedCondominio: selectedCondominio,
                   ),
               onOpenPreventivo: (selectedCondominio) => _openPreventivoDialog(
+                context: context,
+                ref: ref,
+                selectedCondominio: selectedCondominio,
+              ),
+              onOpenMorosita: (selectedCondominio) => _openMorositaDialog(
                 context: context,
                 ref: ref,
                 selectedCondominio: selectedCondominio,
@@ -348,6 +354,43 @@ class DocumentsPage extends ConsumerWidget {
         );
       }
     }
+  }
+
+  Future<void> _openMorositaDialog({
+    required BuildContext context,
+    required WidgetRef ref,
+    required CondominioDocumentModel? selectedCondominio,
+  }) async {
+    if (selectedCondominio == null) return;
+    final items = ref.read(selectedMorositaItemsProvider);
+    final isSaving = ref.read(documentsIsSavingProvider);
+    final isReadOnly = ref.read(selectedManagedCondominioIsClosedProvider);
+    await showDocumentsMorositaDialog(
+      context: context,
+      items: items,
+      isSaving: isSaving,
+      isReadOnly: isReadOnly,
+      onUpdateStato: (item, stato) async {
+        await ref
+            .read(documentsDataProvider.notifier)
+            .updateMorositaStato(condominoId: item.condominoId, stato: stato);
+      },
+      onAddSollecito: (item, canale, titolo, note) async {
+        await ref
+            .read(documentsDataProvider.notifier)
+            .addMorositaSollecito(
+              condominoId: item.condominoId,
+              canale: canale,
+              titolo: titolo,
+              note: note,
+            );
+      },
+      onGenerateAutomatic: (minDays) {
+        return ref
+            .read(documentsDataProvider.notifier)
+            .generateAutomaticSolleciti(minDaysOverdue: minDays);
+      },
+    );
   }
 
   Future<void> _openEditMovimentoDialog({

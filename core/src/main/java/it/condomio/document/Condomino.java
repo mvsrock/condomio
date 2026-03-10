@@ -105,6 +105,10 @@ public class Condomino {
     private List<Versamento> versamenti;
     private Double saldoIniziale;
     private Double residuo;
+    /** Stato operativo pratica morosita' per la posizione esercizio. */
+    private MorositaStato morositaStato;
+    /** Storico solleciti inviati sulla posizione. */
+    private List<Sollecito> solleciti;
 
     @Data
     public static class Config {
@@ -189,5 +193,21 @@ public class Condomino {
         PROPRIETARIO,
         INQUILINO,
         DELEGATO
+    }
+
+    public enum MorositaStato {
+        IN_BONIS,
+        SOLLECITATO,
+        LEGALE
+    }
+
+    @Data
+    public static class Sollecito {
+        private String id;
+        private Instant createdAt;
+        private String canale;
+        private String titolo;
+        private String note;
+        private Boolean automatico;
     }
 }

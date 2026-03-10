@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/documents_repository_provider.dart';
 import '../domain/condominio_document_model.dart';
 import '../domain/condomino_document_model.dart';
+import '../domain/morosita_item_model.dart';
 import '../domain/movimento_model.dart';
 import '../domain/preventivo_snapshot_model.dart';
 import '../domain/tabella_model.dart';
@@ -168,4 +169,14 @@ final selectedPreventivoSnapshotProvider = Provider<PreventivoSnapshotModel>((
     return snapshot;
   }
   return const PreventivoSnapshotModel.empty();
+});
+
+/// Vista morosita' dell'esercizio selezionato.
+final selectedMorositaItemsProvider = Provider<List<MorositaItemModel>>((ref) {
+  final dataset = ref.watch(documentsRepositoryProvider);
+  final selectedCondominio = ref.watch(selectedCondominioProvider);
+  if (selectedCondominio == null) return const [];
+  return dataset.morositaItems
+      .where((item) => item.idCondominio == selectedCondominio.id)
+      .toList(growable: false);
 });

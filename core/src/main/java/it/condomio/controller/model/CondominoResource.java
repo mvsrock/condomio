@@ -49,4 +49,6 @@ public class CondominoResource {
     private List<Condomino.Versamento> versamenti;
     private Double saldoIniziale;
     private Double residuo;
+    private Condomino.MorositaStato morositaStato;
+    private List<Condomino.Sollecito> solleciti;
 }

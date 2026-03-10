@@ -7,6 +7,7 @@ import '../../../config/keycloak_config.dart';
 import '../../../utils/api_error.dart';
 import '../domain/condominio_document_model.dart';
 import '../domain/condomino_document_model.dart';
+import '../domain/morosita_item_model.dart';
 import '../domain/movimento_model.dart';
 import '../domain/preventivo_snapshot_model.dart';
 import '../domain/tabella_model.dart';
@@ -111,6 +112,24 @@ class DocumentsApiClient {
         .toList(growable: false);
   }
 
+  Future<List<MorositaItemModel>> fetchMorosita({
+    required String accessToken,
+    required String condominioId,
+  }) async {
+    final response = await http.get(
+      _uriWithQuery('/morosita', {'idCondominio': condominioId}),
+      headers: _headers(accessToken),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      _throwHttpError('fetchMorosita', response);
+    }
+    final raw = (jsonDecode(response.body) as List?) ?? const [];
+    return raw
+        .whereType<Map<String, dynamic>>()
+        .map(MorositaItemModel.fromJson)
+        .toList(growable: false);
+  }
+
   Future<PreventivoSnapshotModel> fetchPreventivoSnapshot({
     required String accessToken,
     required String condominioId,
@@ -141,6 +160,63 @@ class DocumentsApiClient {
     if (response.statusCode < 200 || response.statusCode >= 300) {
       _throwHttpError('savePreventivoSnapshot', response);
     }
+  }
+
+  Future<void> updateMorositaStato({
+    required String accessToken,
+    required String condominoId,
+    required String stato,
+  }) async {
+    final response = await http.patch(
+      _uri('/morosita/$condominoId/stato'),
+      headers: _headers(accessToken),
+      body: jsonEncode({'stato': stato}),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      _throwHttpError('updateMorositaStato', response);
+    }
+  }
+
+  Future<void> addMorositaSollecito({
+    required String accessToken,
+    required String condominoId,
+    required String canale,
+    required String titolo,
+    required String? note,
+    required bool automatico,
+  }) async {
+    final response = await http.post(
+      _uri('/morosita/$condominoId/solleciti'),
+      headers: _headers(accessToken),
+      body: jsonEncode({
+        'canale': canale.trim(),
+        'titolo': titolo.trim(),
+        'note': note?.trim(),
+        'automatico': automatico,
+      }),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      _throwHttpError('addMorositaSollecito', response);
+    }
+  }
+
+  Future<int> generateAutomaticSolleciti({
+    required String accessToken,
+    required String condominioId,
+    required int minDaysOverdue,
+  }) async {
+    final response = await http.post(
+      _uriWithQuery('/morosita/solleciti/automatici/$condominioId', {
+        'minDaysOverdue': '$minDaysOverdue',
+      }),
+      headers: _headers(accessToken),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      _throwHttpError('generateAutomaticSolleciti', response);
+    }
+    final payload = jsonDecode(response.body);
+    if (payload is num) return payload.toInt();
+    return int.tryParse(payload.toString()) ?? 0;
   }
 
   Future<void> createTabella({

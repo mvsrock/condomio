@@ -57,6 +57,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PATCH, "/tabelle/**").hasRole("amministratore")
                         .requestMatchers(HttpMethod.DELETE, "/tabelle/**").hasRole("amministratore")
                         .requestMatchers(HttpMethod.PUT, "/preventivi/**").hasRole("amministratore")
+                        .requestMatchers(HttpMethod.POST, "/morosita/**").hasRole("amministratore")
+                        .requestMatchers(HttpMethod.PATCH, "/morosita/**").hasRole("amministratore")
                         .anyRequest().authenticated()
                 )
                 .oauth2ResourceServer(oauth2 ->

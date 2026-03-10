@@ -655,6 +655,8 @@ public class CondominoService {
         resource.setVersamenti(position.getVersamenti());
         resource.setSaldoIniziale(position.getSaldoIniziale());
         resource.setResiduo(position.getResiduo());
+        resource.setMorositaStato(position.getMorositaStato());
+        resource.setSolleciti(position.getSolleciti());
         return resource;
     }
 
@@ -822,6 +824,8 @@ public class CondominoService {
         position.setVersamenti(resource.getVersamenti() == null ? new ArrayList<>() : resource.getVersamenti());
         position.setSaldoIniziale(resource.getSaldoIniziale());
         position.setResiduo(resource.getResiduo());
+        position.setMorositaStato(resource.getMorositaStato());
+        position.setSolleciti(resource.getSolleciti() == null ? new ArrayList<>() : resource.getSolleciti());
         applySnapshotFields(position, stableRoot);
         return position;
     }
@@ -866,6 +870,10 @@ public class CondominoService {
         position.setVersamenti(resource.getVersamenti() == null ? existing.getVersamenti() : resource.getVersamenti());
         position.setSaldoIniziale(resource.getSaldoIniziale());
         position.setResiduo(resource.getResiduo());
+        position.setMorositaStato(resource.getMorositaStato() == null
+                ? existing.getMorositaStato()
+                : resource.getMorositaStato());
+        position.setSolleciti(resource.getSolleciti() == null ? existing.getSolleciti() : resource.getSolleciti());
         return position;
     }
 
@@ -1211,6 +1219,8 @@ public class CondominoService {
         target.setVersamenti(aggregate.position().getVersamenti());
         target.setSaldoIniziale(aggregate.position().getSaldoIniziale());
         target.setResiduo(aggregate.position().getResiduo());
+        target.setMorositaStato(aggregate.position().getMorositaStato());
+        target.setSolleciti(aggregate.position().getSolleciti());
         target.setAppRole(aggregate.root().getAppRole());
         target.setAppEnabled(aggregate.root().getAppEnabled());
         target.setKeycloakUserId(aggregate.root().getKeycloakUserId());
@@ -1224,8 +1234,14 @@ public class CondominoService {
         if (position.getVersamenti() == null) {
             position.setVersamenti(new ArrayList<>());
         }
+        if (position.getSolleciti() == null) {
+            position.setSolleciti(new ArrayList<>());
+        }
         if (position.getStatoPosizione() == null) {
             position.setStatoPosizione(Condomino.PosizioneStato.ATTIVO);
+        }
+        if (position.getMorositaStato() == null) {
+            position.setMorositaStato(Condomino.MorositaStato.IN_BONIS);
         }
     }
 
@@ -1240,6 +1256,12 @@ public class CondominoService {
 
         if (target.getVersamenti() == null) {
             target.setVersamenti(existing.getVersamenti());
+        }
+        if (target.getSolleciti() == null) {
+            target.setSolleciti(existing.getSolleciti());
+        }
+        if (target.getMorositaStato() == null) {
+            target.setMorositaStato(existing.getMorositaStato());
         }
     }
 

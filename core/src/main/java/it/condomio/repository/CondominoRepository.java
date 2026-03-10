@@ -54,6 +54,16 @@ public interface CondominoRepository extends MongoRepository<Condomino, String>,
     @Query("{ 'unitaImmobiliareId': ?0 }")
     @Update("{ '$set': { 'scala': ?1, 'interno': ?2 } }")
     long syncUnitSnapshotByUnitaImmobiliareId(String unitaImmobiliareId, String scala, String interno);
+
+    /** Update atomico stato pratica morosita'. */
+    @Query("{ '_id': ?0, 'idCondominio': ?1 }")
+    @Update("{ '$set': { 'morositaStato': ?2 } }")
+    long setMorositaStatoByIdAndCondominio(String id, String idCondominio, Condomino.MorositaStato stato);
+
+    /** Add atomica di un sollecito nello storico del condomino target. */
+    @Query("{ '_id': ?0, 'idCondominio': ?1 }")
+    @Update("{ '$push': { 'solleciti': ?2 } }")
+    long addSollecitoByIdAndCondominio(String id, String idCondominio, Condomino.Sollecito sollecito);
 }
 
 interface CondominoRepositoryCustom {

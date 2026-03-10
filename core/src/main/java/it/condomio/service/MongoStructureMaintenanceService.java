@@ -88,6 +88,7 @@ public class MongoStructureMaintenanceService implements ApplicationRunner {
         dropLegacyIndexes();
         backfillCondominoRootsAndPositions();
         normalizeCondominoRootOptionalFields();
+        normalizeCondominoMorositaFields();
         backfillUnitaImmobiliariFromPositions();
         ensureFinalIndexes();
     }
@@ -149,6 +150,25 @@ public class MongoStructureMaintenanceService implements ApplicationRunner {
         ensureMovimentiIndexes();
         ensurePreventivoIndexes();
         ensureTabellaIndexes();
+    }
+
+    /**
+     * Default morosita' sui record legacy:
+     * - `morositaStato`: IN_BONIS se assente
+     * - `solleciti`: array vuoto se assente
+     */
+    private void normalizeCondominoMorositaFields() {
+        Query missingState = Query.query(new Criteria().orOperator(
+                Criteria.where("morositaStato").exists(false),
+                Criteria.where("morositaStato").is(null)));
+        Update setDefaultState = new Update().set("morositaStato", Condomino.MorositaStato.IN_BONIS.name());
+        mongoTemplate.updateMulti(missingState, setDefaultState, Condomino.class);
+
+        Query missingSolleciti = Query.query(new Criteria().orOperator(
+                Criteria.where("solleciti").exists(false),
+                Criteria.where("solleciti").is(null)));
+        Update setDefaultSolleciti = new Update().set("solleciti", List.of());
+        mongoTemplate.updateMulti(missingSolleciti, setDefaultSolleciti, Condomino.class);
     }
 
     /**
@@ -313,6 +333,12 @@ public class MongoStructureMaintenanceService implements ApplicationRunner {
                 .on("dataIngresso", Sort.Direction.ASC)
                 .on("dataUscita", Sort.Direction.ASC)
                 .named("exercise_unita_period_idx"));
+        createIndexIfMissing(ops, "exercise_morosita_idx", new Index()
+                .on("idCondominio", Sort.Direction.ASC)
+                .on("morositaStato", Sort.Direction.ASC)
+                .on("cognome", Sort.Direction.ASC)
+                .on("nome", Sort.Direction.ASC)
+                .named("exercise_morosita_idx"));
     }
 
     private void ensureUnitaImmobiliareIndexes() {
