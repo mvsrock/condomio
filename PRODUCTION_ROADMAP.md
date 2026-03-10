@@ -182,6 +182,7 @@ Una fase non e' `Production ready` finche' non supera tutte le verifiche:
 - Solleciti manuali e automatici con storico per posizione esercizio
 - Dashboard home restylizzata in chiave operativa (contesto, KPI, scadenze, attivita' recenti, azioni rapide)
 - UX workspace unificata Anagrafica/Documenti con switch contestuale e pagina Documenti semplificata (riduzione ridondanze esercizio, riepilogo e azioni meno rumorosi)
+- Documenti riorganizzata in viste operative separate (`Contabilita` / `Condomini`) e Anagrafica senza tab annidate per la gestione accessi
 
 ### Gap per diventare realmente vendibile
 - Hardening error UX ancora incompleto in piu' punti operativi

@@ -40,6 +40,92 @@ typedef DocumentsTabellaCallback =
       TabellaModel tabella,
     );
 
+/// Pannello standalone tabelle, usato nella vista "Contabilita".
+class DocumentsTabellePanel extends ConsumerWidget {
+  const DocumentsTabellePanel({
+    super.key,
+    required this.onEditTabella,
+    required this.onDeleteTabella,
+    this.shrinkListForParentScroll = false,
+  });
+
+  final DocumentsTabellaCallback onEditTabella;
+  final DocumentsTabellaCallback onDeleteTabella;
+  final bool shrinkListForParentScroll;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final selectedCondominio = ref.watch(selectedCondominioProvider);
+    final tabelle = ref.watch(tabelleBySelectedCondominioProvider);
+    final isReadOnly = ref.watch(selectedManagedCondominioIsClosedProvider);
+    final isAdmin = ref.watch(homeIsAdminProvider);
+    final isMutationBlocked = isReadOnly || !isAdmin;
+
+    return _DocumentsPanelCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _DocumentsPanelHeader(
+            icon: Icons.table_chart_outlined,
+            title: 'Tabelle condominio',
+          ),
+          const SizedBox(height: 8),
+          if (shrinkListForParentScroll)
+            ListView.separated(
+              itemCount: tabelle.length,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              separatorBuilder: (_, _) => const Divider(height: 1),
+              itemBuilder: (context, index) {
+                final tabella = tabelle[index];
+                return ListTile(
+                  dense: true,
+                  title: Text(tabella.codice),
+                  subtitle: Text(tabella.descrizione),
+                  trailing: DocumentsListTileActionsMenu(
+                    amountText: '',
+                    showAmount: false,
+                    onEdit: isMutationBlocked
+                        ? null
+                        : () => onEditTabella(selectedCondominio, tabelle, tabella),
+                    onDelete: isMutationBlocked
+                        ? null
+                        : () => onDeleteTabella(selectedCondominio, tabelle, tabella),
+                  ),
+                );
+              },
+            )
+          else
+            Expanded(
+              child: ListView.separated(
+                itemCount: tabelle.length,
+                separatorBuilder: (_, _) => const Divider(height: 1),
+                itemBuilder: (context, index) {
+                  final tabella = tabelle[index];
+                  return ListTile(
+                    dense: true,
+                    title: Text(tabella.codice),
+                    subtitle: Text(tabella.descrizione),
+                    trailing: DocumentsListTileActionsMenu(
+                      amountText: '',
+                      showAmount: false,
+                      onEdit: isMutationBlocked
+                          ? null
+                          : () => onEditTabella(selectedCondominio, tabelle, tabella),
+                      onDelete: isMutationBlocked
+                          ? null
+                          : () => onDeleteTabella(selectedCondominio, tabelle, tabella),
+                    ),
+                  );
+                },
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 class _DocumentsPanelCard extends StatelessWidget {
   const _DocumentsPanelCard({required this.child});
 

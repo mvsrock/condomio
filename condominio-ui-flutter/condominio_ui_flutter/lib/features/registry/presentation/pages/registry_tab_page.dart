@@ -19,11 +19,20 @@ import 'registry_page.dart';
 /// - collega `RegistryPage` allo stato UI condiviso (`homeUiProvider`)
 /// - gestisce apertura dettaglio/modifica tramite `Navigator`
 /// - propaga eventuali update al provider dominio `condominiProvider`
-class RegistryTabPage extends ConsumerWidget {
+class RegistryTabPage extends ConsumerStatefulWidget {
   const RegistryTabPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<RegistryTabPage> createState() => _RegistryTabPageState();
+}
+
+enum _RegistryViewMode { anagrafica, accessi }
+
+class _RegistryTabPageState extends ConsumerState<RegistryTabPage> {
+  _RegistryViewMode _viewMode = _RegistryViewMode.anagrafica;
+
+  @override
+  Widget build(BuildContext context) {
     ref.listen<String?>(
       condominiProvider.select((state) => state.errorMessage),
       (previous, next) {
@@ -49,17 +58,13 @@ class RegistryTabPage extends ConsumerWidget {
         (service) => service.tokenParsed?['sub']?.toString(),
       ),
     );
-    final tabCount = isAdmin ? 2 : 1;
+    final effectiveView = isAdmin ? _viewMode : _RegistryViewMode.anagrafica;
 
-    // La tab anagrafica diventa il punto unico per:
-    // - consultazione/ricerca condomini
-    // - gestione accessi (solo admin)
-    return DefaultTabController(
-      length: tabCount,
-      child: Column(
-        children: [
-          const _WorkspaceModuleHeader(isDocumentsModule: false),
-          const SizedBox(height: 8),
+    return Column(
+      children: [
+        const _WorkspaceModuleHeader(isDocumentsModule: false),
+        const SizedBox(height: 8),
+        if (isAdmin)
           Container(
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
@@ -67,64 +72,44 @@ class RegistryTabPage extends ConsumerWidget {
               borderRadius: BorderRadius.circular(14),
               border: Border.all(color: const Color(0xFFD9E2EC)),
             ),
-            child: TabBar(
-              dividerColor: Colors.transparent,
-              indicatorSize: TabBarIndicatorSize.tab,
-              indicator: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(10),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color(0x14000000),
-                    blurRadius: 8,
-                    offset: Offset(0, 2),
-                  ),
-                ],
-              ),
-              labelColor: const Color(0xFF102A43),
-              unselectedLabelColor: const Color(0xFF627D98),
-              labelStyle: const TextStyle(fontWeight: FontWeight.w700),
-              tabs: [
-                const Tab(text: 'Anagrafica'),
-                if (isAdmin) const Tab(text: 'Gestione Accessi'),
+            child: SegmentedButton<_RegistryViewMode>(
+              showSelectedIcon: false,
+              segments: const [
+                ButtonSegment<_RegistryViewMode>(
+                  value: _RegistryViewMode.anagrafica,
+                  icon: Icon(Icons.badge_outlined),
+                  label: Text('Anagrafica'),
+                ),
+                ButtonSegment<_RegistryViewMode>(
+                  value: _RegistryViewMode.accessi,
+                  icon: Icon(Icons.manage_accounts_outlined),
+                  label: Text('Accessi'),
+                ),
               ],
+              selected: {effectiveView},
+              onSelectionChanged: (value) {
+                setState(() => _viewMode = value.first);
+              },
             ),
           ),
-          const SizedBox(height: 8),
-          Expanded(
-            child: TabBarView(
-              children: [
-                if (isLoading)
-                  if (items.isEmpty)
-                    const Center(child: CircularProgressIndicator())
-                  else
-                    _buildRegistryContent(
-                      context: context,
-                      ref: ref,
-                      uiNotifier: uiNotifier,
-                      isAdmin: isAdmin,
-                      isReadOnly: isReadOnly,
-                      currentUserId: currentUserId,
-                      selectedCondominoId: selectedCondominoId,
-                      error: error,
-                    )
-                else
-                  _buildRegistryContent(
-                    context: context,
-                    ref: ref,
-                    uiNotifier: uiNotifier,
-                    isAdmin: isAdmin,
-                    isReadOnly: isReadOnly,
-                    currentUserId: currentUserId,
-                    selectedCondominoId: selectedCondominoId,
-                    error: error,
-                  ),
-                if (isAdmin) const AdminUsersPage(),
-              ],
-            ),
-          ),
-        ],
-      ),
+        if (isAdmin) const SizedBox(height: 8),
+        Expanded(
+          child: effectiveView == _RegistryViewMode.accessi
+              ? const AdminUsersPage()
+              : (isLoading && items.isEmpty)
+              ? const Center(child: CircularProgressIndicator())
+              : _buildRegistryContent(
+                  context: context,
+                  ref: ref,
+                  uiNotifier: uiNotifier,
+                  isAdmin: isAdmin,
+                  isReadOnly: isReadOnly,
+                  currentUserId: currentUserId,
+                  selectedCondominoId: selectedCondominoId,
+                  error: error,
+                ),
+        ),
+      ],
     );
   }
 

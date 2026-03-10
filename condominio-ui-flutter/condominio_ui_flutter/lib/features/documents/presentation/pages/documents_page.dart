@@ -23,11 +23,20 @@ import '../widgets/documents_shell_sections.dart';
 /// Obiettivo UX:
 /// - mobile: un solo asse di scroll (evita conflitti gesture e aree bloccate)
 /// - desktop: pannelli affiancati per consultazione rapida
-class DocumentsPage extends ConsumerWidget {
+class DocumentsPage extends ConsumerStatefulWidget {
   const DocumentsPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<DocumentsPage> createState() => _DocumentsPageState();
+}
+
+enum _DocumentsViewMode { contabilita, condomini }
+
+class _DocumentsPageState extends ConsumerState<DocumentsPage> {
+  _DocumentsViewMode _viewMode = _DocumentsViewMode.contabilita;
+
+  @override
+  Widget build(BuildContext context) {
     final isLoading = ref.watch(documentsIsLoadingProvider);
     final errorMessage = ref.watch(documentsErrorMessageProvider);
     final dataset = ref.watch(documentsRepositoryProvider);
@@ -42,57 +51,13 @@ class DocumentsPage extends ConsumerWidget {
           return const Center(child: CircularProgressIndicator());
         }
 
-        final mainContent = isWide
-            ? _desktopLayout(
-                context: context,
-                ref: ref,
-                onSelectCondomino: ref
-                    .read(documentsUiProvider.notifier)
-                    .selectCondomino,
-              )
-            : DocumentsMobileLayout(
-                onOpenSelectedCondominoDetail: (selectedCondomino, isSaving) =>
-                    _openCondominoDetailBottomSheet(
-                      context: context,
-                      ref: ref,
-                      condomino: selectedCondomino,
-                      isSaving: isSaving,
-                    ),
-                onOpenMovimentoDetail: (movimento) =>
-                    _openMovimentoDetailDialog(
-                      context: context,
-                      movimento: movimento,
-                    ),
-                onEditMovimento: (movimento) => _openEditMovimentoDialog(
-                  context: context,
-                  ref: ref,
-                  movimento: movimento,
-                ),
-                onDeleteMovimento: (movimento) => _confirmDeleteMovimento(
-                  context: context,
-                  ref: ref,
-                  movimento: movimento,
-                ),
-                onEditTabella: (selectedCondominio, tabelle, tabella) =>
-                    _openEditTabellaDialog(
-                      context: context,
-                      ref: ref,
-                      selectedCondominio: selectedCondominio,
-                      tabelle: tabelle,
-                      tabella: tabella,
-                    ),
-                onDeleteTabella: (selectedCondominio, tabelle, tabella) =>
-                    _confirmDeleteTabella(
-                      context: context,
-                      ref: ref,
-                      selectedCondominio: selectedCondominio,
-                      tabelle: tabelle,
-                      tabella: tabella,
-                    ),
-              );
-
         final header = <Widget>[
           const _WorkspaceModuleHeader(isDocumentsModule: true),
+          const SizedBox(height: 12),
+          _DocumentsViewModeSwitcher(
+            mode: _viewMode,
+            onChanged: (mode) => setState(() => _viewMode = mode),
+          ),
           const SizedBox(height: 12),
           if (errorMessage != null) ...[
             Material(
@@ -124,34 +89,39 @@ class DocumentsPage extends ConsumerWidget {
           ],
           const DocumentsSummaryHeader(),
           const SizedBox(height: 12),
-          DocumentsActionsBar(
-            onConfigureRiparto: (selectedCondominio, tabelle) =>
-                _openConfigurazioniSpesaDialog(
-                  context: context,
-                  ref: ref,
-                  selectedCondominio: selectedCondominio,
-                  tabelle: tabelle,
-                ),
-            onCreateTabella: () =>
-                _openCreateTabellaDialog(context: context, ref: ref),
-            onCreateMovimento: (selectedCondominio) =>
-                _openCreateMovimentoDialog(
-                  context: context,
-                  ref: ref,
-                  selectedCondominio: selectedCondominio,
-                ),
-            onOpenPreventivo: (selectedCondominio) => _openPreventivoDialog(
-              context: context,
-              ref: ref,
-              selectedCondominio: selectedCondominio,
+          if (_viewMode == _DocumentsViewMode.contabilita)
+            DocumentsActionsBar(
+              onConfigureRiparto: (selectedCondominio, tabelle) =>
+                  _openConfigurazioniSpesaDialog(
+                    context: context,
+                    ref: ref,
+                    selectedCondominio: selectedCondominio,
+                    tabelle: tabelle,
+                  ),
+              onCreateTabella: () =>
+                  _openCreateTabellaDialog(context: context, ref: ref),
+              onCreateMovimento: (selectedCondominio) =>
+                  _openCreateMovimentoDialog(
+                    context: context,
+                    ref: ref,
+                    selectedCondominio: selectedCondominio,
+                  ),
+              onOpenPreventivo: (selectedCondominio) => _openPreventivoDialog(
+                context: context,
+                ref: ref,
+                selectedCondominio: selectedCondominio,
+              ),
+              onOpenMorosita: (selectedCondominio) => _openMorositaDialog(
+                context: context,
+                ref: ref,
+                selectedCondominio: selectedCondominio,
+              ),
+              onRefresh: dataNotifier.loadForSelectedCondominio,
+            )
+          else
+            _DocumentsCondominiActionsBar(
+              onRefresh: dataNotifier.loadForSelectedCondominio,
             ),
-            onOpenMorosita: (selectedCondominio) => _openMorositaDialog(
-              context: context,
-              ref: ref,
-              selectedCondominio: selectedCondominio,
-            ),
-            onRefresh: dataNotifier.loadForSelectedCondominio,
-          ),
           const SizedBox(height: 12),
         ];
 
@@ -161,7 +131,9 @@ class DocumentsPage extends ConsumerWidget {
               ...header,
               SizedBox(
                 height: (constraints.maxHeight * 0.92).clamp(320.0, 560.0),
-                child: mainContent,
+                child: _viewMode == _DocumentsViewMode.contabilita
+                    ? _contabilitaLayout(context, ref, isWide)
+                    : _condominiLayout(context, ref, isWide),
               ),
             ],
           );
@@ -171,10 +143,172 @@ class DocumentsPage extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             ...header,
-            Expanded(child: mainContent),
+            Expanded(
+              child: _viewMode == _DocumentsViewMode.contabilita
+                  ? _contabilitaLayout(context, ref, isWide)
+                  : _condominiLayout(context, ref, isWide),
+            ),
           ],
         );
       },
+    );
+  }
+
+  Widget _contabilitaLayout(BuildContext context, WidgetRef ref, bool isWide) {
+    if (!isWide) {
+      return _DocumentsMobileContabilitaLayout(
+        onOpenMovimentoDetail: (movimento) =>
+            _openMovimentoDetailDialog(context: context, movimento: movimento),
+        onEditMovimento: (movimento) =>
+            _openEditMovimentoDialog(context: context, ref: ref, movimento: movimento),
+        onDeleteMovimento: (movimento) =>
+            _confirmDeleteMovimento(context: context, ref: ref, movimento: movimento),
+        onEditTabella: (selectedCondominio, tabelle, tabella) =>
+            _openEditTabellaDialog(
+              context: context,
+              ref: ref,
+              selectedCondominio: selectedCondominio,
+              tabelle: tabelle,
+              tabella: tabella,
+            ),
+        onDeleteTabella: (selectedCondominio, tabelle, tabella) =>
+            _confirmDeleteTabella(
+              context: context,
+              ref: ref,
+              selectedCondominio: selectedCondominio,
+              tabelle: tabelle,
+              tabella: tabella,
+            ),
+      );
+    }
+
+    return Row(
+      children: [
+        Expanded(
+          flex: 7,
+          child: DocumentsMovimentiPanel(
+            onOpenMovimentoDetail: (movimento) =>
+                _openMovimentoDetailDialog(context: context, movimento: movimento),
+            onEditMovimento: (movimento) =>
+                _openEditMovimentoDialog(context: context, ref: ref, movimento: movimento),
+            onDeleteMovimento: (movimento) =>
+                _confirmDeleteMovimento(context: context, ref: ref, movimento: movimento),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          flex: 5,
+          child: DocumentsTabellePanel(
+            onEditTabella: (selectedCondominio, tabelle, tabella) =>
+                _openEditTabellaDialog(
+                  context: context,
+                  ref: ref,
+                  selectedCondominio: selectedCondominio,
+                  tabelle: tabelle,
+                  tabella: tabella,
+                ),
+            onDeleteTabella: (selectedCondominio, tabelle, tabella) =>
+                _confirmDeleteTabella(
+                  context: context,
+                  ref: ref,
+                  selectedCondominio: selectedCondominio,
+                  tabelle: tabelle,
+                  tabella: tabella,
+                ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _condominiLayout(BuildContext context, WidgetRef ref, bool isWide) {
+    if (!isWide) {
+      return _DocumentsMobileCondominiLayout(
+        onOpenSelectedCondominoDetail: (selectedCondomino, isSaving) =>
+            _openCondominoDetailBottomSheet(
+              context: context,
+              ref: ref,
+              condomino: selectedCondomino,
+              isSaving: isSaving,
+            ),
+      );
+    }
+
+    return Row(
+      children: [
+        Expanded(
+          flex: 4,
+          child: DocumentsCondominiPanel(
+            onSelect: ref.read(documentsUiProvider.notifier).selectCondomino,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          flex: 6,
+          child: DocumentsDetailPanel(
+            onOpenQuoteDialog: (selectedCondomino, allCondomini, tabelle) =>
+                _openCondominoQuoteDialog(
+                  context: context,
+                  ref: ref,
+                  selectedCondomino: selectedCondomino,
+                  allCondomini: allCondomini,
+                  tabelle: tabelle,
+                ),
+            onAddVersamento: (selectedCondomino) => _openAddVersamentoDialog(
+              context: context,
+              ref: ref,
+              selectedCondomino: selectedCondomino,
+            ),
+            onEditVersamento: (selectedCondomino, versamento) =>
+                _openEditVersamentoDialog(
+                  context: context,
+                  ref: ref,
+                  selectedCondomino: selectedCondomino,
+                  versamento: versamento,
+                ),
+            onDeleteVersamento: (selectedCondomino, versamento) =>
+                _confirmDeleteVersamento(
+                  context: context,
+                  ref: ref,
+                  selectedCondomino: selectedCondomino,
+                  versamento: versamento,
+                ),
+            onAddRata: (selectedCondomino) => _openAddRataDialog(
+              context: context,
+              ref: ref,
+              selectedCondomino: selectedCondomino,
+            ),
+            onEditRata: (selectedCondomino, rata) => _openEditRataDialog(
+              context: context,
+              ref: ref,
+              selectedCondomino: selectedCondomino,
+              rata: rata,
+            ),
+            onDeleteRata: (selectedCondomino, rata) => _confirmDeleteRata(
+              context: context,
+              ref: ref,
+              selectedCondomino: selectedCondomino,
+              rata: rata,
+            ),
+            onEditTabella: (selectedCondominio, tabelle, tabella) =>
+                _openEditTabellaDialog(
+                  context: context,
+                  ref: ref,
+                  selectedCondominio: selectedCondominio,
+                  tabelle: tabelle,
+                  tabella: tabella,
+                ),
+            onDeleteTabella: (selectedCondominio, tabelle, tabella) =>
+                _confirmDeleteTabella(
+                  context: context,
+                  ref: ref,
+                  selectedCondominio: selectedCondominio,
+                  tabelle: tabelle,
+                  tabella: tabella,
+                ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -660,107 +794,6 @@ class DocumentsPage extends ConsumerWidget {
       }
     }
     return linked;
-  }
-
-  Widget _desktopLayout({
-    required BuildContext context,
-    required WidgetRef ref,
-    required ValueChanged<String?> onSelectCondomino,
-  }) {
-    return Row(
-      children: [
-        Expanded(
-          flex: 3,
-          child: DocumentsCondominiPanel(onSelect: onSelectCondomino),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          flex: 4,
-          child: DocumentsMovimentiPanel(
-            onOpenMovimentoDetail: (movimento) => _openMovimentoDetailDialog(
-              context: context,
-              movimento: movimento,
-            ),
-            onEditMovimento: (movimento) => _openEditMovimentoDialog(
-              context: context,
-              ref: ref,
-              movimento: movimento,
-            ),
-            onDeleteMovimento: (movimento) => _confirmDeleteMovimento(
-              context: context,
-              ref: ref,
-              movimento: movimento,
-            ),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          flex: 3,
-          child: DocumentsDetailPanel(
-            onOpenQuoteDialog: (selectedCondomino, allCondomini, tabelle) =>
-                _openCondominoQuoteDialog(
-                  context: context,
-                  ref: ref,
-                  selectedCondomino: selectedCondomino,
-                  allCondomini: allCondomini,
-                  tabelle: tabelle,
-                ),
-            onAddVersamento: (selectedCondomino) => _openAddVersamentoDialog(
-              context: context,
-              ref: ref,
-              selectedCondomino: selectedCondomino,
-            ),
-            onEditVersamento: (selectedCondomino, versamento) =>
-                _openEditVersamentoDialog(
-                  context: context,
-                  ref: ref,
-                  selectedCondomino: selectedCondomino,
-                  versamento: versamento,
-                ),
-            onDeleteVersamento: (selectedCondomino, versamento) =>
-                _confirmDeleteVersamento(
-                  context: context,
-                  ref: ref,
-                  selectedCondomino: selectedCondomino,
-                  versamento: versamento,
-                ),
-            onAddRata: (selectedCondomino) => _openAddRataDialog(
-              context: context,
-              ref: ref,
-              selectedCondomino: selectedCondomino,
-            ),
-            onEditRata: (selectedCondomino, rata) => _openEditRataDialog(
-              context: context,
-              ref: ref,
-              selectedCondomino: selectedCondomino,
-              rata: rata,
-            ),
-            onDeleteRata: (selectedCondomino, rata) => _confirmDeleteRata(
-              context: context,
-              ref: ref,
-              selectedCondomino: selectedCondomino,
-              rata: rata,
-            ),
-            onEditTabella: (selectedCondominio, tabelle, tabella) =>
-                _openEditTabellaDialog(
-                  context: context,
-                  ref: ref,
-                  selectedCondominio: selectedCondominio,
-                  tabelle: tabelle,
-                  tabella: tabella,
-                ),
-            onDeleteTabella: (selectedCondominio, tabelle, tabella) =>
-                _confirmDeleteTabella(
-                  context: context,
-                  ref: ref,
-                  selectedCondominio: selectedCondominio,
-                  tabelle: tabelle,
-                  tabella: tabella,
-                ),
-          ),
-        ),
-      ],
-    );
   }
 
   void _openCondominoDetailBottomSheet({
@@ -1303,6 +1336,152 @@ class DocumentsPage extends ConsumerWidget {
         ).showSnackBar(SnackBar(content: Text('Errore elimina rata: $e')));
       }
     }
+  }
+}
+
+class _DocumentsViewModeSwitcher extends StatelessWidget {
+  const _DocumentsViewModeSwitcher({
+    required this.mode,
+    required this.onChanged,
+  });
+
+  final _DocumentsViewMode mode;
+  final ValueChanged<_DocumentsViewMode> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF1F5F9),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFD9E2EC)),
+      ),
+      child: SegmentedButton<_DocumentsViewMode>(
+        showSelectedIcon: false,
+        segments: const [
+          ButtonSegment<_DocumentsViewMode>(
+            value: _DocumentsViewMode.contabilita,
+            icon: Icon(Icons.receipt_long_outlined),
+            label: Text('Contabilita'),
+          ),
+          ButtonSegment<_DocumentsViewMode>(
+            value: _DocumentsViewMode.condomini,
+            icon: Icon(Icons.people_outline),
+            label: Text('Condomini'),
+          ),
+        ],
+        selected: {mode},
+        onSelectionChanged: (value) => onChanged(value.first),
+      ),
+    );
+  }
+}
+
+class _DocumentsCondominiActionsBar extends StatelessWidget {
+  const _DocumentsCondominiActionsBar({required this.onRefresh});
+
+  final Future<void> Function() onRefresh;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        const Chip(
+          avatar: Icon(Icons.info_outline, size: 16),
+          label: Text('Vista dedicata alla gestione posizioni condomini'),
+        ),
+        OutlinedButton.icon(
+          onPressed: onRefresh,
+          icon: const Icon(Icons.refresh),
+          label: const Text('Aggiorna'),
+        ),
+      ],
+    );
+  }
+}
+
+class _DocumentsMobileContabilitaLayout extends StatelessWidget {
+  const _DocumentsMobileContabilitaLayout({
+    required this.onOpenMovimentoDetail,
+    required this.onEditMovimento,
+    required this.onDeleteMovimento,
+    required this.onEditTabella,
+    required this.onDeleteTabella,
+  });
+
+  final DocumentsMovimentoCallback onOpenMovimentoDetail;
+  final DocumentsMovimentoCallback onEditMovimento;
+  final DocumentsMovimentoCallback onDeleteMovimento;
+  final DocumentsTabellaCallback onEditTabella;
+  final DocumentsTabellaCallback onDeleteTabella;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      children: [
+        DocumentsMovimentiPanel(
+          onOpenMovimentoDetail: onOpenMovimentoDetail,
+          onEditMovimento: onEditMovimento,
+          onDeleteMovimento: onDeleteMovimento,
+          shrinkListForParentScroll: true,
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          height: 280,
+          child: DocumentsTabellePanel(
+            onEditTabella: onEditTabella,
+            onDeleteTabella: onDeleteTabella,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _DocumentsMobileCondominiLayout extends ConsumerWidget {
+  const _DocumentsMobileCondominiLayout({
+    required this.onOpenSelectedCondominoDetail,
+  });
+
+  final DocumentsOpenSelectedCondominoDetailCallback
+  onOpenSelectedCondominoDetail;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final selectedCondomino = ref.watch(selectedCondominoDocumentProvider);
+    final isSaving = ref.watch(documentsIsSavingProvider);
+    final ui = ref.read(documentsUiProvider.notifier);
+
+    return ListView(
+      children: [
+        DocumentsCondominiPanel(
+          onSelect: ui.selectCondomino,
+          shrinkListForParentScroll: true,
+        ),
+        if (selectedCondomino != null) ...[
+          const SizedBox(height: 10),
+          Card(
+            child: ListTile(
+              title: Text(
+                selectedCondomino.nominativo,
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+              subtitle: Text(
+                'Residuo ${selectedCondomino.residuo.toStringAsFixed(2)}',
+              ),
+              trailing: TextButton(
+                onPressed: () =>
+                    onOpenSelectedCondominoDetail(selectedCondomino, isSaving),
+                child: const Text('Dettaglio'),
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
   }
 }
 
