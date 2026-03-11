@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../platform/file_download.dart';
 import '../../application/documents_ui_notifier.dart';
 import '../../data/documents_repository_provider.dart';
 import '../../domain/morosita_item_model.dart';
 import '../../domain/report_snapshot_model.dart';
+import '../../../jobs/application/async_jobs_notifier.dart';
+import '../../../jobs/domain/async_job_model.dart';
+import '../../../jobs/presentation/dialogs/async_jobs_dialog.dart';
 
 Future<void> showDocumentsReportsDialog({required BuildContext context}) {
   return showDialog<void>(
@@ -23,9 +25,10 @@ class _DocumentsReportsDialog extends ConsumerStatefulWidget {
       _DocumentsReportsDialogState();
 }
 
-class _DocumentsReportsDialogState extends ConsumerState<_DocumentsReportsDialog> {
+class _DocumentsReportsDialogState
+    extends ConsumerState<_DocumentsReportsDialog> {
   bool _isLoading = false;
-  bool _isExporting = false;
+  bool _isQueueingExport = false;
   String? _selectedCondominoId;
   ReportSnapshotModel _snapshot = const ReportSnapshotModel.empty();
 
@@ -61,39 +64,40 @@ class _DocumentsReportsDialogState extends ConsumerState<_DocumentsReportsDialog
     }
   }
 
-  Future<void> _download(ReportExportFormat format) async {
-    if (_isExporting) return;
-    setState(() => _isExporting = true);
+  Future<void> _queueExport(AsyncReportFormat format) async {
+    if (_isQueueingExport) return;
+    setState(() => _isQueueingExport = true);
     try {
-      final payload = await ref
-          .read(documentsDataProvider.notifier)
-          .downloadReportExport(
-            format: format,
-            condominoId: _selectedCondominoId,
-          );
-      final saved = await saveBytesToFile(
-        bytes: payload.bytes,
-        fileName: payload.fileName,
-        contentType: payload.contentType,
-      );
+      final job = await ref
+          .read(asyncJobsProvider.notifier)
+          .queueReportExport(format: format, condominoId: _selectedCondominoId);
       if (!mounted) return;
-      if (!saved) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Download annullato')),
-        );
-        return;
-      }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('File salvato: ${payload.fileName}')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Export accodato (job #${_shortId(job.id)}). Apri "Coda job" per monitorare e scaricare.',
+          ),
+          action: SnackBarAction(
+            label: 'Coda job',
+            onPressed: () {
+              showAsyncJobsDialog(context: context, onlySelectedExercise: true);
+            },
+          ),
+        ),
+      );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Errore export: $e')));
+      ).showSnackBar(SnackBar(content: Text('Errore accodamento export: $e')));
     } finally {
-      if (mounted) setState(() => _isExporting = false);
+      if (mounted) setState(() => _isQueueingExport = false);
     }
+  }
+
+  String _shortId(String value) {
+    if (value.length <= 8) return value;
+    return value.substring(0, 8);
   }
 
   String _money(double value) => 'EUR ${value.toStringAsFixed(2)}';
@@ -110,9 +114,7 @@ class _DocumentsReportsDialogState extends ConsumerState<_DocumentsReportsDialog
   @override
   Widget build(BuildContext context) {
     final condomini = ref.watch(condominiBySelectedCondominioProvider);
-    final quotaGroups = _buildQuotaGroups(
-      _snapshot.quotaCondominoTabelle,
-    );
+    final quotaGroups = _buildQuotaGroups(_snapshot.quotaCondominoTabelle);
     return AlertDialog(
       title: const Text('Report professionali'),
       content: SizedBox(
@@ -160,16 +162,21 @@ class _DocumentsReportsDialogState extends ConsumerState<_DocumentsReportsDialog
                   label: const Text('Aggiorna report'),
                 ),
                 OutlinedButton.icon(
-                  onPressed: _isExporting ? null : () => _download(ReportExportFormat.xlsx),
+                  onPressed: _isQueueingExport
+                      ? null
+                      : () => _queueExport(AsyncReportFormat.xlsx),
                   icon: const Icon(Icons.table_view_outlined),
-                  label: const Text('Export XLSX'),
+                  label: const Text('Accoda XLSX'),
                 ),
                 OutlinedButton.icon(
-                  onPressed: _isExporting ? null : () => _download(ReportExportFormat.pdf),
+                  onPressed: _isQueueingExport
+                      ? null
+                      : () => _queueExport(AsyncReportFormat.pdf),
                   icon: const Icon(Icons.picture_as_pdf_outlined),
-                  label: const Text('Export PDF'),
+                  label: const Text('Accoda PDF'),
                 ),
-                if (_isLoading || _isExporting) const CircularProgressIndicator(),
+                if (_isLoading || _isQueueingExport)
+                  const CircularProgressIndicator(),
               ],
             ),
             const SizedBox(height: 12),
@@ -208,7 +215,9 @@ class _DocumentsReportsDialogState extends ConsumerState<_DocumentsReportsDialog
                                 _MetricChip(
                                   label: 'Residuo condominio',
                                   value: _money(
-                                    _snapshot.situazioneContabile.residuoCondominio,
+                                    _snapshot
+                                        .situazioneContabile
+                                        .residuoCondominio,
                                   ),
                                 ),
                                 _MetricChip(
@@ -266,8 +275,7 @@ class _DocumentsReportsDialogState extends ConsumerState<_DocumentsReportsDialog
                           ),
                           const SizedBox(height: 12),
                           _SectionCard(
-                            title:
-                                'Consuntivo (preventivo vs consuntivo)',
+                            title: 'Consuntivo (preventivo vs consuntivo)',
                             child: _HorizontalTable(
                               columns: const [
                                 'Spesa',
@@ -380,7 +388,8 @@ class _DocumentsReportsDialogState extends ConsumerState<_DocumentsReportsDialog
                             ),
                             const SizedBox(height: 12),
                             _SectionCard(
-                              title: 'Totale per codice spesa (condomino selezionato)',
+                              title:
+                                  'Totale per codice spesa (condomino selezionato)',
                               child: _HorizontalTable(
                                 columns: const ['Codice spesa', 'Totale quota'],
                                 rows: _totaleByCodiceRows(
@@ -398,7 +407,7 @@ class _DocumentsReportsDialogState extends ConsumerState<_DocumentsReportsDialog
       ),
       actions: [
         TextButton(
-          onPressed: _isLoading || _isExporting
+          onPressed: _isLoading || _isQueueingExport
               ? null
               : () => Navigator.of(context).pop(),
           child: const Text('Chiudi'),
@@ -520,91 +529,95 @@ class _QuotaGroupsView extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: groups.asMap().entries.map((entry) {
-        final idx = entry.key;
-        final group = entry.value;
-        final bg = idx.isEven
-            ? const Color(0xFFF8FAFC)
-            : const Color(0xFFFFFFFF);
-        return Container(
-          margin: const EdgeInsets.only(bottom: 10),
-          decoration: BoxDecoration(
-            color: bg,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: const Color(0xFFE2E8F0)),
-          ),
-          padding: const EdgeInsets.all(10),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Wrap(
-                spacing: 8,
-                runSpacing: 6,
-                crossAxisAlignment: WrapCrossAlignment.center,
+      children: groups
+          .asMap()
+          .entries
+          .map((entry) {
+            final idx = entry.key;
+            final group = entry.value;
+            final bg = idx.isEven
+                ? const Color(0xFFF8FAFC)
+                : const Color(0xFFFFFFFF);
+            return Container(
+              margin: const EdgeInsets.only(bottom: 10),
+              decoration: BoxDecoration(
+                color: bg,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              padding: const EdgeInsets.all(10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Chip(
-                    visualDensity: VisualDensity.compact,
-                    label: Text('Rif. spesa ${group.reference}'),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      Chip(
+                        visualDensity: VisualDensity.compact,
+                        label: Text('Rif. spesa ${group.reference}'),
+                      ),
+                      Text(
+                        dateFormatter(group.dataMovimento),
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      SelectableText(
+                        group.codiceSpesa,
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                      if (group.descrizioneMovimento.trim().isNotEmpty)
+                        SelectableText(group.descrizioneMovimento),
+                    ],
                   ),
-                  Text(
-                    dateFormatter(group.dataMovimento),
-                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 14,
+                    runSpacing: 6,
+                    children: [
+                      SelectableText(
+                        'Importo spesa: ${moneyFormatter(group.importoSpesa)}',
+                      ),
+                      SelectableText(
+                        'Quota condomino: ${moneyFormatter(group.quotaCondominoMovimento)}',
+                      ),
+                      SelectableText(
+                        group.isBalanced
+                            ? 'Quadratura: OK'
+                            : 'Quadratura: differenza ${moneyFormatter((group.quotaCondominoTabellaTotale - group.quotaCondominoMovimento).abs())}',
+                        style: TextStyle(
+                          color: group.isBalanced
+                              ? const Color(0xFF15803D)
+                              : const Color(0xFFB91C1C),
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
                   ),
-                  SelectableText(
-                    group.codiceSpesa,
-                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  const SizedBox(height: 8),
+                  _HorizontalTable(
+                    columns: const [
+                      'Tabella',
+                      'Quota tabella',
+                      'Millesimi',
+                      'Quota condomino tabella',
+                    ],
+                    rows: group.rows
+                        .map(
+                          (row) => [
+                            row.codiceTabella,
+                            moneyFormatter(row.importoTabella),
+                            '${row.numeratore.toStringAsFixed(2)}/${row.denominatore.toStringAsFixed(2)}',
+                            moneyFormatter(row.quotaCondominoTabella),
+                          ],
+                        )
+                        .toList(growable: false),
                   ),
-                  if (group.descrizioneMovimento.trim().isNotEmpty)
-                    SelectableText(group.descrizioneMovimento),
                 ],
               ),
-              const SizedBox(height: 6),
-              Wrap(
-                spacing: 14,
-                runSpacing: 6,
-                children: [
-                  SelectableText(
-                    'Importo spesa: ${moneyFormatter(group.importoSpesa)}',
-                  ),
-                  SelectableText(
-                    'Quota condomino: ${moneyFormatter(group.quotaCondominoMovimento)}',
-                  ),
-                  SelectableText(
-                    group.isBalanced
-                        ? 'Quadratura: OK'
-                        : 'Quadratura: differenza ${moneyFormatter((group.quotaCondominoTabellaTotale - group.quotaCondominoMovimento).abs())}',
-                    style: TextStyle(
-                      color: group.isBalanced
-                          ? const Color(0xFF15803D)
-                          : const Color(0xFFB91C1C),
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              _HorizontalTable(
-                columns: const [
-                  'Tabella',
-                  'Quota tabella',
-                  'Millesimi',
-                  'Quota condomino tabella',
-                ],
-                rows: group.rows
-                    .map(
-                      (row) => [
-                        row.codiceTabella,
-                        moneyFormatter(row.importoTabella),
-                        '${row.numeratore.toStringAsFixed(2)}/${row.denominatore.toStringAsFixed(2)}',
-                        moneyFormatter(row.quotaCondominoTabella),
-                      ],
-                    )
-                    .toList(growable: false),
-              ),
-            ],
-          ),
-        );
-      }).toList(growable: false),
+            );
+          })
+          .toList(growable: false),
     );
   }
 }

@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../../../../app/app_breakpoints.dart';
 import '../../../condominio_selection/application/managed_condominio_notifier.dart';
 import '../../../home/application/home_navigation_provider.dart';
+import '../../../jobs/application/async_jobs_notifier.dart';
+import '../../../jobs/presentation/dialogs/async_jobs_dialog.dart';
 import '../../application/documents_ui_notifier.dart';
 import '../../data/documents_repository_provider.dart';
 import '../../domain/condominio_document_model.dart';
@@ -128,6 +130,7 @@ class _DocumentsPageState extends ConsumerState<DocumentsPage> {
                 ref: ref,
                 selectedCondominio: selectedCondominio,
               ),
+              onOpenJobs: () => _openJobsDialog(context: context),
               onRefresh: dataNotifier.loadForSelectedCondominio,
             )
           else
@@ -169,18 +172,23 @@ class _DocumentsPageState extends ConsumerState<DocumentsPage> {
   Widget _contabilitaLayout(BuildContext context, WidgetRef ref, bool isWide) {
     if (!isWide) {
       return _DocumentsMobileContabilitaLayout(
-        onOpenMovimentoDetail: (movimento) =>
-            _openMovimentoDetailDialog(
-              context: context,
-              movimento: movimento,
-              allegatiCount: ref
-                  .read(documentiByMovimentoProvider(movimento.id))
-                  .length,
-            ),
-        onEditMovimento: (movimento) =>
-            _openEditMovimentoDialog(context: context, ref: ref, movimento: movimento),
-        onDeleteMovimento: (movimento) =>
-            _confirmDeleteMovimento(context: context, ref: ref, movimento: movimento),
+        onOpenMovimentoDetail: (movimento) => _openMovimentoDetailDialog(
+          context: context,
+          movimento: movimento,
+          allegatiCount: ref
+              .read(documentiByMovimentoProvider(movimento.id))
+              .length,
+        ),
+        onEditMovimento: (movimento) => _openEditMovimentoDialog(
+          context: context,
+          ref: ref,
+          movimento: movimento,
+        ),
+        onDeleteMovimento: (movimento) => _confirmDeleteMovimento(
+          context: context,
+          ref: ref,
+          movimento: movimento,
+        ),
         onEditTabella: (selectedCondominio, tabelle, tabella) =>
             _openEditTabellaDialog(
               context: context,
@@ -205,18 +213,23 @@ class _DocumentsPageState extends ConsumerState<DocumentsPage> {
         Expanded(
           flex: 7,
           child: DocumentsMovimentiPanel(
-            onOpenMovimentoDetail: (movimento) =>
-                _openMovimentoDetailDialog(
-                  context: context,
-                  movimento: movimento,
-                  allegatiCount: ref
-                      .read(documentiByMovimentoProvider(movimento.id))
-                      .length,
-                ),
-            onEditMovimento: (movimento) =>
-                _openEditMovimentoDialog(context: context, ref: ref, movimento: movimento),
-            onDeleteMovimento: (movimento) =>
-                _confirmDeleteMovimento(context: context, ref: ref, movimento: movimento),
+            onOpenMovimentoDetail: (movimento) => _openMovimentoDetailDialog(
+              context: context,
+              movimento: movimento,
+              allegatiCount: ref
+                  .read(documentiByMovimentoProvider(movimento.id))
+                  .length,
+            ),
+            onEditMovimento: (movimento) => _openEditMovimentoDialog(
+              context: context,
+              ref: ref,
+              movimento: movimento,
+            ),
+            onDeleteMovimento: (movimento) => _confirmDeleteMovimento(
+              context: context,
+              ref: ref,
+              movimento: movimento,
+            ),
           ),
         ),
         const SizedBox(width: 10),
@@ -564,8 +577,12 @@ class _DocumentsPageState extends ConsumerState<DocumentsPage> {
       },
       onGenerateAutomatic: (minDays) {
         return ref
-            .read(documentsDataProvider.notifier)
-            .generateAutomaticSolleciti(minDaysOverdue: minDays);
+            .read(asyncJobsProvider.notifier)
+            .queueAutomaticSolleciti(
+              condominioId: selectedCondominio.id,
+              minDaysOverdue: minDays,
+            )
+            .then((job) => MorositaAutoSollecitiResult.queued(job.id));
       },
       onReloadItems: () {
         return ref.read(documentsDataProvider.notifier).reloadMorositaItems();
@@ -592,6 +609,10 @@ class _DocumentsPageState extends ConsumerState<DocumentsPage> {
   }) async {
     if (selectedCondominio == null) return;
     await showDocumentsReportsDialog(context: context);
+  }
+
+  Future<void> _openJobsDialog({required BuildContext context}) async {
+    await showAsyncJobsDialog(context: context, onlySelectedExercise: true);
   }
 
   Future<void> _openEditMovimentoDialog({

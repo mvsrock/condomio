@@ -12,11 +12,32 @@ typedef MorositaAddSollecitoCallback =
       String titolo,
       String? note,
     );
-typedef MorositaGenerateAutomaticCallback = Future<int> Function(int minDays);
+typedef MorositaGenerateAutomaticCallback =
+    Future<MorositaAutoSollecitiResult> Function(int minDays);
 typedef MorositaReloadItemsCallback =
     Future<List<MorositaItemModel>> Function();
 typedef MorositaSollecitiMapReader =
     Map<String, List<SollecitoModel>> Function();
+
+class MorositaAutoSollecitiResult {
+  const MorositaAutoSollecitiResult({
+    required this.queued,
+    required this.count,
+    this.jobId,
+  });
+
+  factory MorositaAutoSollecitiResult.queued(String jobId) {
+    return MorositaAutoSollecitiResult(queued: true, count: null, jobId: jobId);
+  }
+
+  factory MorositaAutoSollecitiResult.completed(int count) {
+    return MorositaAutoSollecitiResult(queued: false, count: count);
+  }
+
+  final bool queued;
+  final int? count;
+  final String? jobId;
+}
 
 Future<void> showDocumentsMorositaDialog({
   required BuildContext context,
@@ -282,12 +303,17 @@ class _DocumentsMorositaDialogState extends State<_DocumentsMorositaDialog> {
       final minDays = int.tryParse(minDaysCtrl.text.trim()) ?? 0;
       setState(() => _isWorking = true);
       try {
-        final count = await widget.onGenerateAutomatic(minDays);
-        await _reloadRows();
+        final result = await widget.onGenerateAutomatic(minDays);
+        if (!result.queued) {
+          await _reloadRows();
+        }
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Solleciti automatici creati: $count')),
-          );
+          final message = result.queued
+              ? 'Auto-solleciti accodati in background (job #${_shortId(result.jobId)}).'
+              : 'Solleciti automatici creati: ${result.count ?? 0}';
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(message)));
         }
       } finally {
         if (mounted) setState(() => _isWorking = false);
@@ -295,6 +321,13 @@ class _DocumentsMorositaDialogState extends State<_DocumentsMorositaDialog> {
     } finally {
       minDaysCtrl.dispose();
     }
+  }
+
+  String _shortId(String? id) {
+    final value = (id ?? '').trim();
+    if (value.isEmpty) return '-';
+    if (value.length <= 8) return value;
+    return value.substring(0, 8);
   }
 
   @override

@@ -72,6 +72,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PATCH, "/documenti/**").hasRole("amministratore")
                         .requestMatchers(HttpMethod.DELETE, "/documenti/**").hasRole("amministratore")
                         .requestMatchers(HttpMethod.GET, "/reports/**").hasRole("amministratore")
+                        .requestMatchers("/jobs/**").hasRole("amministratore")
                         .requestMatchers("/keycloak-admin/**").hasRole("amministratore")
                         .anyRequest().authenticated()
                 )

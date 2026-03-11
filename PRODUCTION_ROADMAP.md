@@ -155,7 +155,7 @@ Una fase non e' `Production ready` finche' non supera tutte le verifiche:
 - `Fase 5`: **Production ready**
 - `Fase 6`: **Production ready**
 - `Fase 7`: **Production ready**
-- `Fase 8`: **In sviluppo**
+- `Fase 8`: **In sviluppo** (punto 1 chiuso end-to-end)
 
 ### Evidenze consolidate oggi
 - Dominio base multi-esercizio presente (`condominio root + esercizio + condomino root + posizione`)
@@ -227,6 +227,27 @@ Una fase non e' `Production ready` finche' non supera tutte le verifiche:
   - quality gate:
     - `mvnw -DskipTests compile` su core
     - `flutter analyze` su app Flutter
+- Fase 8 punto 1 chiuso end-to-end (job asincroni):
+  - backend core:
+    - nuova collection `async_job` con indici tenant/requester + stato lifecycle (`QUEUED/RUNNING/DONE/FAILED`)
+    - worker asincrono con executor dedicato (`jobExecutor`) e persistenza stato job
+    - API job:
+      - `POST /jobs/report-export`
+      - `POST /jobs/morosita/{idCondominio}/solleciti-automatici`
+      - `GET /jobs`
+      - `GET /jobs/{jobId}`
+      - `GET /jobs/{jobId}/download`
+    - download risultato export su GridFS con metadati e ownership guard
+    - list job ottimizzata con query paginata lato repository (no scan completo utente)
+  - frontend Flutter:
+    - feature `jobs` strutturata in `presentation/application/domain/data`
+    - notifier Riverpod dedicato con provider derivati (rebuild minimizzati via `select`)
+    - dialog `Coda job` con polling leggero, stato operativo, errori e download output
+    - integrazione flussi:
+      - report: export ora accodato in background (`Accoda XLSX/PDF`)
+      - morosita: auto-solleciti accodati in background
+      - accesso rapido a `Coda job` da `Documenti` e `Dashboard`
+    - mapping errori job allineato in `ApiError`
 
 ### Gap per diventare realmente vendibile
 - Hardening error UX ancora incompleto in piu' punti operativi
@@ -490,6 +511,11 @@ Ridurre il lavoro manuale e rendere il prodotto un cockpit operativo.
 - import guidati
 - job asincroni per export e invii
 - reminder e automazioni operative
+
+### Avanzamento implementato (punto 1)
+- job asincroni production-grade disponibili su backend (`async_job` + API + GridFS)
+- coda job disponibile lato Flutter con monitoraggio e download risultato
+- export report e auto-solleciti spostati da flusso bloccante a esecuzione in background
 
 ## Tracce tecniche continue
 

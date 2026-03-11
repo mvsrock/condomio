@@ -4,8 +4,10 @@ import 'package:go_router/go_router.dart';
 
 import '../../../condominio_selection/application/managed_condominio_notifier.dart';
 import '../../../documents/data/documents_repository_provider.dart';
+import '../../../jobs/presentation/dialogs/async_jobs_dialog.dart';
 import '../../../registry/application/condomini_notifier.dart';
 import '../../application/dashboard_view_providers.dart';
+import '../../application/home_navigation_provider.dart';
 
 class DashboardPage extends ConsumerWidget {
   const DashboardPage({super.key});
@@ -30,6 +32,7 @@ class DashboardPage extends ConsumerWidget {
     final recentVersamenti = ref.watch(dashboardRecentVersamentiProvider);
     final recentSolleciti = ref.watch(dashboardRecentSollecitiProvider);
     final isLoading = ref.watch(dashboardDataLoadingProvider);
+    final isAdmin = ref.watch(homeIsAdminProvider);
     final isWide = MediaQuery.of(context).size.width >= 1120;
 
     return SingleChildScrollView(
@@ -305,7 +308,7 @@ class DashboardPage extends ConsumerWidget {
                   final columns = _actionColumnsForWidth(constraints.maxWidth);
                   final buttonWidth =
                       (constraints.maxWidth - spacing * (columns - 1)) /
-                          columns;
+                      columns;
                   return Wrap(
                     spacing: spacing,
                     runSpacing: spacing,
@@ -342,6 +345,18 @@ class DashboardPage extends ConsumerWidget {
                           label: const Text('Anagrafica e subentri'),
                         ),
                       ),
+                      if (isAdmin)
+                        SizedBox(
+                          width: buttonWidth,
+                          child: OutlinedButton.icon(
+                            onPressed: () => showAsyncJobsDialog(
+                              context: context,
+                              onlySelectedExercise: true,
+                            ),
+                            icon: const Icon(Icons.work_history_outlined),
+                            label: const Text('Coda job'),
+                          ),
+                        ),
                     ],
                   );
                 },

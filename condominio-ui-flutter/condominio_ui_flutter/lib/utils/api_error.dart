@@ -153,6 +153,18 @@ class ApiError implements Exception {
           'Impossibile generare il PDF del report. Riprova.',
       'validation.invalid.report.exportXlsx':
           'Impossibile generare il file XLSX del report. Riprova.',
+      'validation.required.job.idCondominio':
+          'Seleziona un esercizio valido prima di avviare il job.',
+      'validation.required.job.format':
+          'Seleziona un formato valido per l\'export (PDF o XLSX).',
+      'validation.invalid.job.format':
+          'Formato job non valido. Usa PDF o XLSX.',
+      'validation.invalid.job.minDaysOverdue':
+          'Valore giorni ritardo non valido per i solleciti automatici.',
+      'validation.invalid.job.downloadNotReady':
+          'Il file non e\' ancora pronto: attendi il completamento del job.',
+      'validation.invalid.job.limit': 'Limite elenco job non valido.',
+      'validation.required.job.id': 'Identificativo job mancante.',
     };
     final directHit = direct[code];
     if (directHit != null) return directHit;
