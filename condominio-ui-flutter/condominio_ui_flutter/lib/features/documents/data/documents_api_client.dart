@@ -10,6 +10,7 @@ import '../domain/condominio_document_model.dart';
 import '../domain/condomino_document_model.dart';
 import '../domain/documento_download_model.dart';
 import '../domain/documento_archivio_model.dart';
+import '../domain/documento_archivio_page_model.dart';
 import '../domain/morosita_item_model.dart';
 import '../domain/movimento_model.dart';
 import '../domain/preventivo_snapshot_model.dart';
@@ -162,6 +163,54 @@ class DocumentsApiClient {
         .toList(growable: false);
   }
 
+  Future<DocumentoArchivioPageModel> fetchDocumentiArchivioPage({
+    required String accessToken,
+    required String condominioId,
+    required int page,
+    required int size,
+    String? categoria,
+    String? movimentoId,
+    String? search,
+    bool includeAllVersions = false,
+  }) async {
+    final query = <String, String>{
+      'idCondominio': condominioId,
+      'includeAllVersions': includeAllVersions.toString(),
+      'page': '$page',
+      'size': '$size',
+    };
+    if (categoria != null && categoria.trim().isNotEmpty) {
+      query['categoria'] = categoria.trim();
+    }
+    if (movimentoId != null && movimentoId.trim().isNotEmpty) {
+      query['movimentoId'] = movimentoId.trim();
+    }
+    if (search != null && search.trim().isNotEmpty) {
+      query['search'] = search.trim();
+    }
+    final response = await http.get(
+      _uriWithQuery('/documenti', query),
+      headers: _headers(accessToken),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      _throwHttpError('fetchDocumentiArchivioPage', response);
+    }
+    final raw = (jsonDecode(response.body) as List?) ?? const [];
+    final rows = raw
+        .whereType<Map<String, dynamic>>()
+        .map(DocumentoArchivioModel.fromJson)
+        .toList(growable: false);
+    return DocumentoArchivioPageModel(
+      items: rows,
+      page: _toIntHeader(response.headers['x-page'], fallback: page),
+      size: _toIntHeader(response.headers['x-size'], fallback: size),
+      totalElements: _toIntHeader(response.headers['x-total-count']),
+      totalPages: _toIntHeader(response.headers['x-total-pages']),
+      hasNext: _toBoolHeader(response.headers['x-has-next']),
+      hasPrevious: _toBoolHeader(response.headers['x-has-previous']),
+    );
+  }
+
   Future<DocumentoArchivioModel> uploadDocumentoArchivio({
     required String accessToken,
     required String condominioId,
@@ -174,10 +223,7 @@ class DocumentsApiClient {
     String? movimentoId,
     String? versionGroupId,
   }) async {
-    final request = http.MultipartRequest(
-      'POST',
-      _uri('/documenti'),
-    );
+    final request = http.MultipartRequest('POST', _uri('/documenti'));
     request.headers['Authorization'] = 'Bearer $accessToken';
     request.fields['idCondominio'] = condominioId;
     request.fields['categoria'] = categoria.trim();
@@ -198,9 +244,7 @@ class DocumentsApiClient {
         'file',
         bytes,
         filename: fileName,
-        contentType: contentType == null
-            ? null
-            : MediaType.parse(contentType),
+        contentType: contentType == null ? null : MediaType.parse(contentType),
       ),
     );
     final response = await _sendMultipart('uploadDocumentoArchivio', request);
@@ -235,9 +279,7 @@ class DocumentsApiClient {
         'file',
         bytes,
         filename: fileName,
-        contentType: contentType == null
-            ? null
-            : MediaType.parse(contentType),
+        contentType: contentType == null ? null : MediaType.parse(contentType),
       ),
     );
     final response = await _sendMultipart(
@@ -277,7 +319,8 @@ class DocumentsApiClient {
     final contentType =
         response.headers['content-type'] ?? 'application/octet-stream';
     final disposition = response.headers['content-disposition'] ?? '';
-    final fileName = _extractFileNameFromDisposition(disposition) ?? 'documento';
+    final fileName =
+        _extractFileNameFromDisposition(disposition) ?? 'documento';
     return DocumentoDownloadModel(
       fileName: fileName,
       contentType: contentType,
@@ -293,6 +336,15 @@ class DocumentsApiClient {
     if (match == null) return null;
     final raw = Uri.decodeComponent(match.group(1) ?? '').trim();
     return raw.isEmpty ? null : raw;
+  }
+
+  int _toIntHeader(String? raw, {int fallback = 0}) {
+    return int.tryParse(raw?.trim() ?? '') ?? fallback;
+  }
+
+  bool _toBoolHeader(String? raw) {
+    final value = raw?.trim().toLowerCase();
+    return value == 'true' || value == '1';
   }
 
   Future<List<MorositaItemModel>> fetchMorosita({

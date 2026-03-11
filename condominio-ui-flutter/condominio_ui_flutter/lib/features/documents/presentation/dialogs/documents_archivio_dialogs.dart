@@ -49,9 +49,26 @@ class _DocumentsArchivioDialog extends ConsumerStatefulWidget {
 
 class _DocumentsArchivioDialogState
     extends ConsumerState<_DocumentsArchivioDialog> {
+  static const List<int> _pageSizeOptions = <int>[25, 50, 100];
+
   final TextEditingController _searchCtrl = TextEditingController();
   DocumentoCategoria? _categoria;
   bool _includeAllVersions = false;
+  int _currentPage = 0;
+  int _pageSize = 25;
+  int _totalElements = 0;
+  int _totalPages = 0;
+  bool _isPageLoading = false;
+  List<DocumentoArchivioModel> _serverRows = const <DocumentoArchivioModel>[];
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _loadServerPage(resetPage: true);
+    });
+  }
 
   @override
   void dispose() {
@@ -60,9 +77,40 @@ class _DocumentsArchivioDialogState
   }
 
   Future<void> _refreshServerSide() async {
-    await ref
-        .read(documentsDataProvider.notifier)
-        .reloadDocumentiArchivio(includeAllVersions: _includeAllVersions);
+    await _loadServerPage(page: _currentPage);
+  }
+
+  Future<void> _loadServerPage({bool resetPage = false, int? page}) async {
+    final nextPage = resetPage ? 0 : (page ?? _currentPage);
+    setState(() => _isPageLoading = true);
+    try {
+      final result = await ref
+          .read(documentsDataProvider.notifier)
+          .fetchDocumentiArchivioPage(
+            page: nextPage,
+            size: _pageSize,
+            includeAllVersions: _includeAllVersions,
+            categoriaBackend: _categoria?.backendValue,
+            movimentoId: widget.movimentoId,
+            search: _searchCtrl.text.trim().isEmpty ? null : _searchCtrl.text,
+          );
+
+      if (!mounted) return;
+      setState(() {
+        _currentPage = result.page;
+        _pageSize = result.size;
+        _totalElements = result.totalElements;
+        _totalPages = result.totalPages;
+        _serverRows = result.items;
+        _isPageLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isPageLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Errore caricamento archivio: $e')),
+      );
+    }
   }
 
   Future<void> _uploadNewDocument() async {
@@ -196,7 +244,6 @@ class _DocumentsArchivioDialogState
 
   @override
   Widget build(BuildContext context) {
-    final allRows = ref.watch(documentiBySelectedCondominioProvider);
     final movimenti = ref.watch(movimentiBySelectedCondominioProvider);
     final isSaving = ref.watch(documentsIsSavingProvider);
     final isAdmin = ref.watch(homeIsAdminProvider);
@@ -206,20 +253,7 @@ class _DocumentsArchivioDialogState
       for (final m in movimenti) m.id: '${m.codiceSpesa} - ${m.descrizione}',
     };
 
-    final rows = allRows
-        .where((item) {
-          if (widget.movimentoId != null &&
-              item.movimentoId != widget.movimentoId) {
-            return false;
-          }
-          if (_categoria != null && item.categoria != _categoria) return false;
-          final q = _searchCtrl.text.trim().toLowerCase();
-          if (q.isEmpty) return true;
-          return item.titolo.toLowerCase().contains(q) ||
-              item.originalFileName.toLowerCase().contains(q) ||
-              (item.descrizione ?? '').toLowerCase().contains(q);
-        })
-        .toList(growable: false);
+    final rows = _serverRows;
 
     return AlertDialog(
       title: Row(
@@ -262,8 +296,7 @@ class _DocumentsArchivioDialogState
                       labelText: 'Cerca per titolo, descrizione, nome file',
                       prefixIcon: Icon(Icons.search),
                     ),
-                    onChanged: (_) => setState(() {}),
-                    onSubmitted: (_) => _refreshServerSide(),
+                    onSubmitted: (_) => _loadServerPage(resetPage: true),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -282,7 +315,10 @@ class _DocumentsArchivioDialogState
                       ),
                     ),
                   ],
-                  onChanged: (value) => setState(() => _categoria = value),
+                  onChanged: (value) async {
+                    setState(() => _categoria = value);
+                    await _loadServerPage(resetPage: true);
+                  },
                 ),
                 const SizedBox(width: 8),
                 FilterChip(
@@ -290,12 +326,14 @@ class _DocumentsArchivioDialogState
                   selected: _includeAllVersions,
                   onSelected: (value) async {
                     setState(() => _includeAllVersions = value);
-                    await _refreshServerSide();
+                    await _loadServerPage(resetPage: true);
                   },
                 ),
                 const SizedBox(width: 8),
                 OutlinedButton.icon(
-                  onPressed: isSaving ? null : _refreshServerSide,
+                  onPressed: (isSaving || _isPageLoading)
+                      ? null
+                      : () => _loadServerPage(resetPage: true),
                   icon: const Icon(Icons.refresh),
                   label: const Text('Aggiorna'),
                 ),
@@ -313,7 +351,9 @@ class _DocumentsArchivioDialogState
               ),
             const SizedBox(height: 10),
             Expanded(
-              child: rows.isEmpty
+              child: _isPageLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : rows.isEmpty
                   ? const Center(
                       child: Text(
                         'Nessun documento disponibile con i filtri attivi.',
@@ -399,6 +439,57 @@ class _DocumentsArchivioDialogState
                         );
                       },
                     ),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Text('Totale: $_totalElements'),
+                const SizedBox(width: 12),
+                Text(
+                  _totalPages == 0
+                      ? 'Pagina 0/0'
+                      : 'Pagina ${_currentPage + 1}/$_totalPages',
+                ),
+                const Spacer(),
+                const Text('Righe'),
+                const SizedBox(width: 8),
+                DropdownButton<int>(
+                  value: _pageSize,
+                  items: _pageSizeOptions
+                      .map(
+                        (size) => DropdownMenuItem<int>(
+                          value: size,
+                          child: Text('$size'),
+                        ),
+                      )
+                      .toList(growable: false),
+                  onChanged: _isPageLoading
+                      ? null
+                      : (value) async {
+                          if (value == null) return;
+                          setState(() => _pageSize = value);
+                          await _loadServerPage(resetPage: true);
+                        },
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  tooltip: 'Pagina precedente',
+                  onPressed: (_isPageLoading || _currentPage <= 0)
+                      ? null
+                      : () => _loadServerPage(page: _currentPage - 1),
+                  icon: const Icon(Icons.chevron_left),
+                ),
+                IconButton(
+                  tooltip: 'Pagina successiva',
+                  onPressed:
+                      (_isPageLoading ||
+                          _totalPages == 0 ||
+                          _currentPage >= (_totalPages - 1))
+                      ? null
+                      : () => _loadServerPage(page: _currentPage + 1),
+                  icon: const Icon(Icons.chevron_right),
+                ),
+              ],
             ),
           ],
         ),

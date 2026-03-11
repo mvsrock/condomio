@@ -9,6 +9,7 @@ import '../domain/condominio_document_model.dart';
 import '../domain/condomino_document_model.dart';
 import '../domain/documento_download_model.dart';
 import '../domain/documento_archivio_model.dart';
+import '../domain/documento_archivio_page_model.dart';
 import '../domain/morosita_item_model.dart';
 import '../domain/movimento_model.dart';
 import '../domain/preventivo_snapshot_model.dart';
@@ -945,7 +946,9 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
       await _refreshSelectedCondominioData(includeDocumenti: true);
     } catch (e, st) {
       if (e is ApiError) {
-        debugPrint('[DOCUMENTS][uploadDocumentoArchivio] ${e.technicalMessage}');
+        debugPrint(
+          '[DOCUMENTS][uploadDocumentoArchivio] ${e.technicalMessage}',
+        );
       } else {
         debugPrint('[DOCUMENTS][uploadDocumentoArchivio] $e');
       }
@@ -1005,7 +1008,9 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
       await _refreshSelectedCondominioData(includeDocumenti: true);
     } catch (e, st) {
       if (e is ApiError) {
-        debugPrint('[DOCUMENTS][deleteDocumentoArchivio] ${e.technicalMessage}');
+        debugPrint(
+          '[DOCUMENTS][deleteDocumentoArchivio] ${e.technicalMessage}',
+        );
       } else {
         debugPrint('[DOCUMENTS][deleteDocumentoArchivio] $e');
       }
@@ -1026,7 +1031,9 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
       );
     } catch (e, st) {
       if (e is ApiError) {
-        debugPrint('[DOCUMENTS][downloadDocumentoArchivio] ${e.technicalMessage}');
+        debugPrint(
+          '[DOCUMENTS][downloadDocumentoArchivio] ${e.technicalMessage}',
+        );
       } else {
         debugPrint('[DOCUMENTS][downloadDocumentoArchivio] $e');
       }
@@ -1068,12 +1075,50 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
       return rows;
     } catch (e, st) {
       if (e is ApiError) {
-        debugPrint('[DOCUMENTS][reloadDocumentiArchivio] ${e.technicalMessage}');
+        debugPrint(
+          '[DOCUMENTS][reloadDocumentiArchivio] ${e.technicalMessage}',
+        );
       } else {
         debugPrint('[DOCUMENTS][reloadDocumentiArchivio] $e');
       }
       debugPrint('$st');
       state = state.copyWith(isSaving: false, errorMessage: '$e');
+      rethrow;
+    }
+  }
+
+  /// Carica una pagina archivio documenti dal backend senza mutare il dataset
+  /// condiviso del modulo. Usato dal dialog archivio per paginazione server-side.
+  Future<DocumentoArchivioPageModel> fetchDocumentiArchivioPage({
+    required int page,
+    required int size,
+    bool includeAllVersions = false,
+    String? categoriaBackend,
+    String? movimentoId,
+    String? search,
+  }) async {
+    try {
+      final token = _requireAccessToken();
+      final condominioId = _requireSelectedCondominioId();
+      return await _api.fetchDocumentiArchivioPage(
+        accessToken: token,
+        condominioId: condominioId,
+        page: page,
+        size: size,
+        categoria: categoriaBackend,
+        movimentoId: movimentoId,
+        search: search,
+        includeAllVersions: includeAllVersions,
+      );
+    } catch (e, st) {
+      if (e is ApiError) {
+        debugPrint(
+          '[DOCUMENTS][fetchDocumentiArchivioPage] ${e.technicalMessage}',
+        );
+      } else {
+        debugPrint('[DOCUMENTS][fetchDocumentiArchivioPage] $e');
+      }
+      debugPrint('$st');
       rethrow;
     }
   }

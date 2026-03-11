@@ -23,6 +23,7 @@ import org.springframework.web.multipart.MultipartFile;
 import it.condomio.controller.model.DocumentoArchivioResource;
 import it.condomio.exception.ApiException;
 import it.condomio.service.DocumentoArchivioService;
+import it.condomio.service.DocumentoArchivioService.DocumentoArchivioPageResult;
 import it.condomio.service.DocumentoArchivioService.DocumentoDownloadPayload;
 
 /**
@@ -49,14 +50,26 @@ public class DocumentoArchivioController {
             @RequestParam(required = false) String search,
             @RequestParam(required = false) String movimentoId,
             @RequestParam(defaultValue = "false") boolean includeAllVersions,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size,
             @AuthenticationPrincipal Jwt jwt) throws ApiException {
-        return ResponseEntity.ok(documentoService.listDocumenti(
+        DocumentoArchivioPageResult result = documentoService.listDocumenti(
                 idCondominio,
                 categoria,
                 search,
                 movimentoId,
                 includeAllVersions,
-                jwt.getSubject()));
+                page,
+                size,
+                jwt.getSubject());
+        return ResponseEntity.ok()
+                .header("X-Page", String.valueOf(result.page()))
+                .header("X-Size", String.valueOf(result.size()))
+                .header("X-Total-Count", String.valueOf(result.totalElements()))
+                .header("X-Total-Pages", String.valueOf(result.totalPages()))
+                .header("X-Has-Next", String.valueOf(result.hasNext()))
+                .header("X-Has-Previous", String.valueOf(result.hasPrevious()))
+                .body(result.items());
     }
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

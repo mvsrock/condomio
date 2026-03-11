@@ -48,6 +48,7 @@ import it.condomio.repository.MovimentiRepository;
 @Service
 public class DocumentoArchivioService {
     private static final String DEFAULT_CONTENT_TYPE = "application/octet-stream";
+    private static final int MAX_PAGE_SIZE = 200;
 
     private final DocumentoArchivioRepository documentoRepository;
     private final CondominioRepository condominioRepository;
@@ -74,12 +75,14 @@ public class DocumentoArchivioService {
         this.gridFsOperations = gridFsOperations;
     }
 
-    public List<DocumentoArchivioResource> listDocumenti(
+    public DocumentoArchivioPageResult listDocumenti(
             String idCondominio,
             String categoriaRaw,
             String search,
             String movimentoId,
             boolean includeAllVersions,
+            Integer page,
+            Integer size,
             String keycloakUserId) throws ApiException {
         final String exerciseId = normalize(idCondominio);
         if (exerciseId == null) {
@@ -109,7 +112,44 @@ public class DocumentoArchivioService {
             rows = keepOnlyLatestByGroup(rows);
         }
 
-        return rows.stream().map(this::toResource).toList();
+        if (page == null && size == null) {
+            List<DocumentoArchivioResource> all = rows.stream().map(this::toResource).toList();
+            return new DocumentoArchivioPageResult(
+                    all,
+                    0,
+                    all.size(),
+                    all.size(),
+                    all.isEmpty() ? 0 : 1,
+                    false,
+                    false);
+        }
+
+        final int pageNumber = page == null ? 0 : page;
+        final int pageSize = size == null ? 50 : size;
+        validatePagination(pageNumber, pageSize);
+
+        final int totalElements = rows.size();
+        final int totalPages = totalElements == 0
+                ? 0
+                : (int) Math.ceil((double) totalElements / pageSize);
+        final int fromIndex = pageNumber * pageSize;
+        final int toIndex = Math.min(fromIndex + pageSize, totalElements);
+
+        final List<DocumentoArchivioResource> pageRows = fromIndex >= totalElements
+                ? List.of()
+                : rows.subList(fromIndex, toIndex).stream().map(this::toResource).toList();
+
+        final boolean hasPrevious = pageNumber > 0 && totalElements > 0;
+        final boolean hasNext = toIndex < totalElements;
+
+        return new DocumentoArchivioPageResult(
+                pageRows,
+                pageNumber,
+                pageSize,
+                totalElements,
+                totalPages,
+                hasNext,
+                hasPrevious);
     }
 
     @Transactional
@@ -355,6 +395,15 @@ public class DocumentoArchivioService {
         return trimmed.isEmpty() ? null : trimmed;
     }
 
+    private void validatePagination(int page, int size) throws ValidationFailedException {
+        if (page < 0) {
+            throw new ValidationFailedException("validation.invalid.documento.page");
+        }
+        if (size <= 0 || size > MAX_PAGE_SIZE) {
+            throw new ValidationFailedException("validation.invalid.documento.size");
+        }
+    }
+
     private String sha256Hex(byte[] bytes) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
@@ -371,5 +420,15 @@ public class DocumentoArchivioService {
     }
 
     public record DocumentoDownloadPayload(String fileName, String contentType, byte[] bytes) {
+    }
+
+    public record DocumentoArchivioPageResult(
+            List<DocumentoArchivioResource> items,
+            int page,
+            int size,
+            int totalElements,
+            int totalPages,
+            boolean hasNext,
+            boolean hasPrevious) {
     }
 }

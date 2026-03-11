@@ -31,12 +31,14 @@ class ApiError implements Exception {
       401 => 'Sessione scaduta. Effettua nuovamente il login.',
       403 => 'Operazione non consentita per il tuo profilo.',
       404 => 'Risorsa non trovata.',
-      409 => mappedBusinessMessage ??
-          parsedMessage ??
-          'Conflitto dati: elemento gia\' presente.',
-      _ => mappedBusinessMessage ??
-          parsedMessage ??
-          'Errore di comunicazione con il server.',
+      409 =>
+        mappedBusinessMessage ??
+            parsedMessage ??
+            'Conflitto dati: elemento gia\' presente.',
+      _ =>
+        mappedBusinessMessage ??
+            parsedMessage ??
+            'Errore di comunicazione con il server.',
     };
     return ApiError(
       operation: operation,
@@ -94,14 +96,21 @@ class ApiError implements Exception {
 
     const direct = <String, String>{
       'validation.required.rata.codice': 'Inserisci il codice rata.',
-      'validation.required.rata.scadenza': 'Inserisci la data di scadenza della rata.',
+      'validation.required.rata.scadenza':
+          'Inserisci la data di scadenza della rata.',
       'validation.invalid.rata.importo': 'L\'importo rata non e\' valido.',
-      'validation.required.versamento.descrizione': 'Inserisci una descrizione del versamento.',
-      'validation.invalid.versamento.importo': 'L\'importo versamento non e\' valido.',
-      'validation.notfound.versamento.rata': 'La rata selezionata non esiste piu\'.',
-      'validation.required.unitaImmobiliare.codice': 'Inserisci il codice dell\'unita immobiliare.',
-      'validation.required.unitaImmobiliare.scala': 'Inserisci la scala dell\'unita immobiliare.',
-      'validation.required.unitaImmobiliare.interno': 'Inserisci l\'interno dell\'unita immobiliare.',
+      'validation.required.versamento.descrizione':
+          'Inserisci una descrizione del versamento.',
+      'validation.invalid.versamento.importo':
+          'L\'importo versamento non e\' valido.',
+      'validation.notfound.versamento.rata':
+          'La rata selezionata non esiste piu\'.',
+      'validation.required.unitaImmobiliare.codice':
+          'Inserisci il codice dell\'unita immobiliare.',
+      'validation.required.unitaImmobiliare.scala':
+          'Inserisci la scala dell\'unita immobiliare.',
+      'validation.required.unitaImmobiliare.interno':
+          'Inserisci l\'interno dell\'unita immobiliare.',
       'validation.duplicate.unitaImmobiliare.scalaInterno':
           'Esiste gia\' un\'unita immobiliare con la stessa scala e interno.',
       'validation.inuse.unitaImmobiliare':
@@ -122,11 +131,27 @@ class ApiError implements Exception {
           'Non puoi eliminare questa posizione: e\' collegata a un subentro.',
       'validation.esercizio.closed':
           'L\'esercizio e\' chiuso: operazione non consentita in sola lettura.',
+      'validation.required.documento.idCondominio':
+          'Seleziona un esercizio valido prima di gestire i documenti.',
+      'validation.required.documento.file': 'Seleziona un file da caricare.',
+      'validation.required.documento.categoria':
+          'Seleziona la categoria del documento.',
+      'validation.invalid.documento.categoria':
+          'Categoria documento non valida.',
+      'validation.notfound.documento.movimento':
+          'Il movimento selezionato non esiste piu\'.',
+      'validation.invalid.documento.movimentoTenant':
+          'Il movimento selezionato non appartiene all\'esercizio corrente.',
+      'validation.invalid.documento.page': 'Numero pagina non valido.',
+      'validation.invalid.documento.size':
+          'Dimensione pagina non valida (valori consentiti fino a 200).',
     };
     final directHit = direct[code];
     if (directHit != null) return directHit;
 
-    if (code.startsWith('validation.invalid.movimento.ripartizioneCondomini.sumMismatch')) {
+    if (code.startsWith(
+      'validation.invalid.movimento.ripartizioneCondomini.sumMismatch',
+    )) {
       return 'La ripartizione individuale non coincide con l\'importo del movimento.';
     }
     if (code.startsWith('validation.required.riparto.quotaTabella.') &&
@@ -136,21 +161,23 @@ class ApiError implements Exception {
     if (code.startsWith('validation.required.riparto.quotaTabella.')) {
       return 'Configurazione quote tabellari non valida per il riparto richiesto.';
     }
-    if (code.startsWith('validation.required.riparto.sommaMillesimiIncoerente.')) {
+    if (code.startsWith(
+      'validation.required.riparto.sommaMillesimiIncoerente.',
+    )) {
       return 'La somma delle quote non e\' coerente con il denominatore della tabella.';
     }
     final lowered = code.toLowerCase();
-    if (lowered.contains('user exists with same username')
-        || lowered.contains('username already exists')
-        || lowered.contains('already exists')) {
+    if (lowered.contains('user exists with same username') ||
+        lowered.contains('username already exists') ||
+        lowered.contains('already exists')) {
       return 'Nome utente gia\' esistente: scegline uno diverso.';
     }
-    if (lowered.contains('email already exists')
-        || lowered.contains('user exists with same email')) {
+    if (lowered.contains('email already exists') ||
+        lowered.contains('user exists with same email')) {
       return 'Email gia\' associata a un altro utente.';
     }
-    if (lowered.contains('invalid_grant')
-        || lowered.contains('account is not fully set up')) {
+    if (lowered.contains('invalid_grant') ||
+        lowered.contains('account is not fully set up')) {
       return 'Account non configurato correttamente su Keycloak.';
     }
     if (code.startsWith('invalid.percent.')) {

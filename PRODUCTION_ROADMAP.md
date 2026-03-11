@@ -157,7 +157,7 @@ Una fase non e' `Production ready` finche' non supera tutte le verifiche:
 - `Fase 2 - Unita' e titolarita'`: **Production ready**
 - `Fase 3`: **Production ready**
 - `Fase 4`: **Production ready**
-- `Fase 5`: **In sviluppo**
+- `Fase 5`: **Production ready**
 - `Fase 6`: **In sviluppo**
 - `Fase 7`: **In sviluppo**
 - `Fase 8`: **In sviluppo**
@@ -193,6 +193,9 @@ Una fase non e' `Production ready` finche' non supera tutte le verifiche:
     - compat mode su `styles.xml` per file `.xlsx` con `numFmtId` non standard (normalizzazione in memoria, file sorgente invariato)
     - error details copiabile da modale (`Copia dettaglio`) per debug veloce
   - modali archivio/preview con testo selezionabile
+  - paginazione server-side archivio documenti (`page`, `size`, metadati pagina in header)
+  - dialog archivio aggiornato su paginazione reale (filtri server-side + controlli pagina)
+  - mapping errori business documentale completato (upload/list/paginazione/movimento tenant)
 
 ### Gap per diventare realmente vendibile
 - Hardening error UX ancora incompleto in piu' punti operativi
@@ -345,7 +348,7 @@ Trasformare il prodotto in strumento operativo quotidiano.
 ## Fase 5 - Documentale e allegati
 
 ### Stato
-In sviluppo
+Production ready
 
 ### Obiettivo
 Collegare contabilita' e documenti reali.
@@ -370,6 +373,20 @@ Collegare contabilita' e documenti reali.
   - azione `Archivio` nella toolbar contabilita'
   - dialog archivio con upload, nuova versione, eliminazione, filtro categoria/testo
   - collegamento rapido `Gestisci allegati` dal dettaglio movimento
+  - paginazione server-side nel dialog (`25/50/100`, precedente/successiva, totale)
+  - preview robusta PDF/immagini/testo/Excel con compatibilita' stile `.xlsx` non standard
+  - dettaglio errore copiabile e testi selezionabili nelle modali archivio/preview
+
+### Chiusura fase
+- backend:
+  - endpoint `GET /documenti` con paginazione opzionale e metadati pagina in response header
+  - guard sicurezza coerenti: write admin-only + tenant guard server-side su list/download
+  - compile core verificata (`mvnw -DskipTests compile`)
+- frontend:
+  - dialog archivio su paginazione server-side senza caricare tutto lato UI
+  - filtri (categoria/search/movimento/versioni) applicati lato API
+  - error mapping documentale allineato in `ApiError`
+  - analyze Flutter su perimetro documentale senza issue
 
 ## Fase 6 - Report professionali
 
