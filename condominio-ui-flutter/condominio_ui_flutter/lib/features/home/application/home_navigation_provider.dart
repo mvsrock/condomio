@@ -7,6 +7,12 @@ import '../presentation/models/home_nav_destination.dart';
 
 /// Ruolo realm usato per abilitare le sezioni amministrative in Home.
 const String kHomeAdminRole = 'amministratore';
+const int kHomeBranchDashboard = 0;
+const int kHomeBranchMap = 1;
+const int kHomeBranchRegistry = 2;
+const int kHomeBranchSession = 3;
+const int kHomeBranchDocuments = 4;
+const int kHomeBranchPortal = 5;
 
 /// True quando l'utente corrente puo' vedere le sezioni admin Home.
 ///
@@ -22,27 +28,44 @@ final homeIsAdminProvider = Provider<bool>((ref) {
 ///
 /// La UI (`presentation`) renderizza questa lista senza conoscere regole ruolo.
 final homeDestinationsProvider = Provider<List<HomeNavDestination>>((ref) {
+  final isAdmin = ref.watch(homeIsAdminProvider);
+  if (!isAdmin) {
+    return <HomeNavDestination>[
+      const HomeNavDestination(
+        branchIndex: kHomeBranchPortal,
+        label: 'Portale',
+        icon: Icons.person_outline,
+        selectedIcon: Icons.person,
+      ),
+      const HomeNavDestination(
+        branchIndex: kHomeBranchSession,
+        label: 'Sessione',
+        icon: Icons.receipt_long_outlined,
+        selectedIcon: Icons.receipt_long,
+      ),
+    ];
+  }
   return <HomeNavDestination>[
     const HomeNavDestination(
-      branchIndex: 0,
+      branchIndex: kHomeBranchDashboard,
       label: 'Dashboard',
       icon: Icons.dashboard_outlined,
       selectedIcon: Icons.dashboard,
     ),
     const HomeNavDestination(
-      branchIndex: 1,
+      branchIndex: kHomeBranchMap,
       label: 'Mappa',
       icon: Icons.map_outlined,
       selectedIcon: Icons.map,
     ),
     const HomeNavDestination(
-      branchIndex: 2,
+      branchIndex: kHomeBranchRegistry,
       label: 'Anagrafica',
       icon: Icons.badge_outlined,
       selectedIcon: Icons.badge,
     ),
     const HomeNavDestination(
-      branchIndex: 3,
+      branchIndex: kHomeBranchSession,
       label: 'Sessione',
       icon: Icons.receipt_long_outlined,
       selectedIcon: Icons.receipt_long,

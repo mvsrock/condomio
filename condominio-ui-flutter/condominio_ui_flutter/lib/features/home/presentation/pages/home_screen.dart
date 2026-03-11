@@ -22,6 +22,7 @@ import '../widgets/home_navigation_rail.dart';
 /// - /home/anagrafica
 /// - /home/session
 /// - /home/documents
+/// - /home/portal
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key, required this.navigationShell});
 

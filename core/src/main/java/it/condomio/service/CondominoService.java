@@ -146,21 +146,26 @@ public class CondominoService {
             if (!tenantAccessService.canViewCondominio(keycloakUserId, idCondominio)) {
                 return List.of();
             }
-            positions = condominoRepository.findByIdCondominioOrderByCognomeAscNomeAsc(idCondominio);
+            final boolean isOwner = tenantAccessService.ownsCondominio(keycloakUserId, idCondominio);
+            // Hardening portale condomino:
+            // - admin owner: vede tutta l'anagrafica esercizio
+            // - non-admin associato: vede solo la propria posizione
+            positions = isOwner
+                    ? condominoRepository.findByIdCondominioOrderByCognomeAscNomeAsc(idCondominio)
+                    : condominoRepository.findByIdCondominioAndKeycloakUserIdOrderByCognomeAscNomeAsc(
+                            idCondominio,
+                            keycloakUserId);
         } else {
             List<String> ownedExerciseIds = tenantAccessService.findOwnedCondominioIds(keycloakUserId);
             if (!ownedExerciseIds.isEmpty()) {
                 positions = condominoRepository.findByIdCondominioIn(ownedExerciseIds);
             } else {
-                List<String> stableRootIds = condominoRootRepository.findByKeycloakUserId(keycloakUserId)
-                        .stream()
-                        .map(CondominoRoot::getId)
-                        .filter(value -> value != null && !value.isBlank())
-                        .toList();
-                if (stableRootIds.isEmpty()) {
+                // Per non-admin senza ownership, lista globale limitata alle sole
+                // posizioni collegate allo stesso userId applicativo.
+                positions = condominoRepository.findByKeycloakUserId(keycloakUserId);
+                if (positions.isEmpty()) {
                     return List.of();
                 }
-                positions = condominoRepository.findByCondominoRootIdIn(stableRootIds);
             }
         }
         return toResources(positions);

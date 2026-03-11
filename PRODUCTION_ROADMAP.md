@@ -124,13 +124,8 @@ Questo non significa che la scalabilita' sia "finita", ma significa che la base 
 Il prodotto oggi e' solido come piattaforma di dominio e base contabile, ma non e' ancora completo per un uso pienamente produttivo da parte di uno studio di amministrazione.
 
 Mancano ancora:
-- ciclo rate e scadenze
-- unita' immobiliari e titolarita'
-- preventivo e consuntivo
-- report professionali
-- documentale e allegati
-- portale condomino
-- dashboard operative e automazioni
+- automazioni operative (job asincroni, reminder, azioni massive)
+- orchestrazione comunicazioni/notifiche su scala produzione
 
 Questi gap non richiedono un cambio radicale del modello appena costruito. La direzione giusta ora non e' rifare il dominio, ma completare i verticali funzionali sopra una base che e' finalmente coerente.
 
@@ -159,7 +154,7 @@ Una fase non e' `Production ready` finche' non supera tutte le verifiche:
 - `Fase 4`: **Production ready**
 - `Fase 5`: **Production ready**
 - `Fase 6`: **Production ready**
-- `Fase 7`: **In sviluppo**
+- `Fase 7`: **Production ready**
 - `Fase 8`: **In sviluppo**
 
 ### Evidenze consolidate oggi
@@ -217,11 +212,26 @@ Una fase non e' `Production ready` finche' non supera tutte le verifiche:
   - dettaglio quota condomino raggruppato per singola spesa/movimento con riferimento leggibile, importo spesa, quota condomino e controllo quadratura
   - export report aggiornati con la stessa logica di raggruppamento (niente piu' righe tabellari isolate senza contesto)
   - hardening download report/documenti su Windows con sanificazione robusta del filename (`Content-Disposition` + caratteri riservati)
+- Fase 7 chiusa end-to-end:
+  - backend:
+    - endpoint self-service `GET /portale/me?idCondominio=...` con snapshot completo del condomino (contesto esercizio, posizione personale, rate, versamenti, quote spese, documenti recenti)
+    - tenant guard applicata server-side su esercizio visibile e pertinenza posizione utente
+    - hardening lettura anagrafica: su `GET /condomino?idCondominio=...` utente non-admin vede solo la propria posizione (admin owner continua a vedere l'intera anagrafica)
+  - frontend Flutter:
+    - nuova feature `portal` strutturata in `presentation/application/domain/data`
+    - pagina portale condomino con KPI personali, rate, versamenti, spese imputate e documenti recenti scaricabili
+    - routing e navigation role-aware:
+      - admin -> area amministrativa
+      - condomino -> area self-service (`/home/portal`)
+    - guard router per impedire l'accesso non-admin ai branch admin
+  - quality gate:
+    - `mvnw -DskipTests compile` su core
+    - `flutter analyze` su app Flutter
 
 ### Gap per diventare realmente vendibile
 - Hardening error UX ancora incompleto in piu' punti operativi
 - Alcuni flussi admin sono completi funzionalmente ma non ancora rifiniti come UX business-grade
-- Mancano verticali fondamentali lato utente finale: portale condomino e automazioni avanzate
+- Mancano verticali fondamentali lato utente finale: automazioni avanzate
 
 ## Principi di rilascio
 
@@ -442,7 +452,7 @@ Produrre output consegnabili senza Excel esterni.
 ## Fase 7 - Portale condomino
 
 ### Stato
-In sviluppo
+Production ready
 
 ### Obiettivo
 Aprire il prodotto agli utenti finali senza esporre la complessita' amministrativa.
@@ -453,6 +463,17 @@ Aprire il prodotto agli utenti finali senza esporre la complessita' amministrati
 - consultazione posizione attiva e storico personale
 - download documenti
 - notifiche e comunicazioni
+
+### Chiusura fase
+- backend:
+  - endpoint dedicato `GET /portale/me?idCondominio=...` (read-model self-service)
+  - enforcement pertinenza tenant su esercizio e posizione del richiedente
+  - hardening anagrafica in lettura: non-admin limitato alla propria posizione
+- frontend:
+  - feature `portal` completa (`presentation/application/domain/data`)
+  - dashboard condomino con rate, versamenti, quote spese e documenti recenti
+  - download documenti dal portale in sola lettura
+  - routing role-aware con home default differenziata admin/condomino
 
 ## Fase 8 - Dashboard e automazioni
 

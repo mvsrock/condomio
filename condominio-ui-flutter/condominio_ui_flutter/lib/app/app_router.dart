@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../features/auth/application/auth_notifier.dart';
+import '../features/auth/application/keycloak_provider.dart';
 import '../features/auth/domain/auth_state.dart';
 import '../features/auth/presentation/pages/login_screen.dart';
 import '../features/condominio_selection/application/managed_condominio_notifier.dart';
@@ -12,6 +13,7 @@ import '../features/home/presentation/pages/dashboard_page.dart';
 import '../features/home/presentation/pages/home_screen.dart';
 import '../features/home/presentation/pages/session_page.dart';
 import '../features/map/presentation/pages/map_page.dart';
+import '../features/portal/presentation/pages/portal_page.dart';
 import '../features/registry/presentation/pages/registry_tab_page.dart';
 
 /// Notifier bridge tra Riverpod e GoRouter.
@@ -62,9 +64,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final isCondominioLoading = location == '/condominio-loading';
       final isCondominioSelection = location == '/select-condominio';
       final isHome = location.startsWith('/home');
+      final isPortal = location == '/home/portal';
       if (authState == AuthState.authenticated) {
         ref.read(managedCondominioProvider.notifier).bootstrap();
         final condominioState = ref.read(managedCondominioProvider);
+        final isAdmin = ref
+            .read(keycloakServiceProvider)
+            .hasRealmRole('amministratore');
+        final defaultHome = isAdmin ? '/home/dashboard' : '/home/portal';
         if (!condominioState.ready || condominioState.isLoading) {
           if (isCondominioSelection || isCondominioLoading) {
             return null;
@@ -74,7 +81,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         if (condominioState.selectedId == null) {
           return isCondominioSelection ? null : '/select-condominio';
         }
-        if (isCondominioLoading) {
+        if (isCondominioLoading || isCondominioSelection) {
+          return defaultHome;
+        }
+        if (!isAdmin &&
+            (location == '/home/dashboard' ||
+                location == '/home/map' ||
+                location == '/home/anagrafica' ||
+                location == '/home/documents')) {
+          return '/home/portal';
+        }
+        if (isAdmin && isPortal) {
           return '/home/dashboard';
         }
       }
@@ -85,7 +102,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         AuthState.unauthenticated => isLogin ? null : '/login',
         AuthState.authenticated => (isHome || isCondominioSelection)
             ? null
-            : '/home/dashboard',
+            : (ref.read(keycloakServiceProvider).hasRealmRole('amministratore')
+                  ? '/home/dashboard'
+                  : '/home/portal'),
       };
     },
     routes: [
@@ -167,6 +186,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                   GoRoute(
                     path: '/home/documents',
                     builder: (context, state) => const DocumentsPage(),
+                  ),
+                ],
+              ),
+              StatefulShellBranch(
+                routes: [
+                  GoRoute(
+                    path: '/home/portal',
+                    builder: (context, state) => const PortalPage(),
                   ),
                 ],
               ),

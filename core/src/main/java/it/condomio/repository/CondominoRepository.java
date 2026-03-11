@@ -14,6 +14,8 @@ import it.condomio.document.Condomino;
 public interface CondominoRepository extends MongoRepository<Condomino, String>, CondominoRepositoryCustom {
     List<Condomino> findByIdCondominio(String idCondominio);
     List<Condomino> findByIdCondominioOrderByCognomeAscNomeAsc(String idCondominio);
+    List<Condomino> findByIdCondominioAndKeycloakUserIdOrderByCognomeAscNomeAsc(String idCondominio, String keycloakUserId);
+    List<Condomino> findByIdCondominioAndKeycloakUserIdOrderByDataIngressoDesc(String idCondominio, String keycloakUserId);
     List<Condomino> findByIdCondominioIn(List<String> condominioIds);
     boolean existsByIdCondominio(String idCondominio);
     Optional<Condomino> findByIdAndIdCondominioIn(String id, List<String> condominioIds);
