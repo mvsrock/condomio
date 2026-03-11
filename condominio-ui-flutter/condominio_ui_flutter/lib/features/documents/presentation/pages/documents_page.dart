@@ -16,6 +16,7 @@ import '../dialogs/documents_crud_dialogs.dart';
 import '../dialogs/documents_budget_dialogs.dart';
 import '../dialogs/documents_archivio_dialogs.dart';
 import '../dialogs/documents_morosita_dialogs.dart';
+import '../dialogs/documents_reports_dialogs.dart';
 import '../widgets/documents_panels.dart';
 import '../widgets/documents_shell_sections.dart';
 
@@ -118,6 +119,11 @@ class _DocumentsPageState extends ConsumerState<DocumentsPage> {
                 selectedCondominio: selectedCondominio,
               ),
               onOpenArchivio: (selectedCondominio) => _openArchivioDialog(
+                context: context,
+                ref: ref,
+                selectedCondominio: selectedCondominio,
+              ),
+              onOpenReport: (selectedCondominio) => _openReportsDialog(
                 context: context,
                 ref: ref,
                 selectedCondominio: selectedCondominio,
@@ -577,6 +583,15 @@ class _DocumentsPageState extends ConsumerState<DocumentsPage> {
   }) async {
     if (selectedCondominio == null) return;
     await showDocumentsArchivioDialog(context: context);
+  }
+
+  Future<void> _openReportsDialog({
+    required BuildContext context,
+    required WidgetRef ref,
+    required CondominioDocumentModel? selectedCondominio,
+  }) async {
+    if (selectedCondominio == null) return;
+    await showDocumentsReportsDialog(context: context);
   }
 
   Future<void> _openEditMovimentoDialog({

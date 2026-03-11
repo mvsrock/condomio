@@ -14,6 +14,7 @@ import '../domain/documento_archivio_page_model.dart';
 import '../domain/morosita_item_model.dart';
 import '../domain/movimento_model.dart';
 import '../domain/preventivo_snapshot_model.dart';
+import '../domain/report_snapshot_model.dart';
 import '../domain/tabella_model.dart';
 
 /// Client HTTP del modulo documenti.
@@ -329,13 +330,55 @@ class DocumentsApiClient {
   }
 
   String? _extractFileNameFromDisposition(String disposition) {
-    final match = RegExp(
-      "filename\\*?=(?:UTF-8'')?\"?([^\";]+)\"?",
+    if (disposition.trim().isEmpty) return null;
+
+    // RFC5987: preferire sempre filename* (es. UTF-8''report.xlsx)
+    final starMatch = RegExp(
+      r'filename\*\s*=\s*([^;]+)',
       caseSensitive: false,
     ).firstMatch(disposition);
-    if (match == null) return null;
-    final raw = Uri.decodeComponent(match.group(1) ?? '').trim();
-    return raw.isEmpty ? null : raw;
+    if (starMatch != null) {
+      var raw = (starMatch.group(1) ?? '').trim().replaceAll('"', '');
+      final lower = raw.toLowerCase();
+      if (lower.startsWith("utf-8''")) {
+        raw = raw.substring(7);
+      }
+      final decoded = Uri.decodeComponent(raw).trim();
+      final sanitized = _sanitizeFileName(decoded);
+      if (sanitized != null) return sanitized;
+    }
+
+    // Fallback filename classico.
+    final plainQuoted = RegExp(
+      r'filename\s*=\s*"([^"]+)"',
+      caseSensitive: false,
+    ).firstMatch(disposition);
+    if (plainQuoted != null) {
+      final sanitized = _sanitizeFileName((plainQuoted.group(1) ?? '').trim());
+      if (sanitized != null) return sanitized;
+    }
+    final plainRaw = RegExp(
+      r'filename\s*=\s*([^;]+)',
+      caseSensitive: false,
+    ).firstMatch(disposition);
+    if (plainRaw != null) {
+      final sanitized = _sanitizeFileName(
+        (plainRaw.group(1) ?? '').trim().replaceAll('"', ''),
+      );
+      if (sanitized != null) return sanitized;
+    }
+    return null;
+  }
+
+  String? _sanitizeFileName(String raw) {
+    if (raw.isEmpty) return null;
+    var value = raw;
+    // Caratteri non validi su Windows.
+    value = value.replaceAll(RegExp(r'[<>:"/\\|?*\x00-\x1F]'), '_');
+    // Evita nome vuoto/solo spazi e trim di punti/spazi finali.
+    value = value.trim().replaceAll(RegExp(r'[. ]+$'), '');
+    if (value.isEmpty) return null;
+    return value;
   }
 
   int _toIntHeader(String? raw, {int fallback = 0}) {
@@ -380,6 +423,58 @@ class DocumentsApiClient {
         (jsonDecode(response.body) as Map?)?.cast<String, dynamic>() ??
         const <String, dynamic>{};
     return PreventivoSnapshotModel.fromJson(raw);
+  }
+
+  Future<ReportSnapshotModel> fetchReportSnapshot({
+    required String accessToken,
+    required String condominioId,
+    String? condominoId,
+  }) async {
+    final query = <String, String>{};
+    if (condominoId != null && condominoId.trim().isNotEmpty) {
+      query['condominoId'] = condominoId.trim();
+    }
+    final response = await http.get(
+      _uriWithQuery('/reports/$condominioId', query),
+      headers: _headers(accessToken),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      _throwHttpError('fetchReportSnapshot', response);
+    }
+    final raw =
+        (jsonDecode(response.body) as Map?)?.cast<String, dynamic>() ??
+        const <String, dynamic>{};
+    return ReportSnapshotModel.fromJson(raw);
+  }
+
+  Future<DocumentoDownloadModel> downloadReportExport({
+    required String accessToken,
+    required String condominioId,
+    required ReportExportFormat format,
+    String? condominoId,
+  }) async {
+    final query = <String, String>{'format': format.backendValue};
+    if (condominoId != null && condominoId.trim().isNotEmpty) {
+      query['condominoId'] = condominoId.trim();
+    }
+    final response = await http.get(
+      _uriWithQuery('/reports/$condominioId/export', query),
+      headers: _headers(accessToken),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      _throwHttpError('downloadReportExport', response);
+    }
+    final contentType =
+        response.headers['content-type'] ?? 'application/octet-stream';
+    final disposition = response.headers['content-disposition'] ?? '';
+    final fileName =
+        _extractFileNameFromDisposition(disposition) ??
+        'report_$condominioId.${format.fileExtension}';
+    return DocumentoDownloadModel(
+      fileName: fileName,
+      contentType: contentType,
+      bytes: response.bodyBytes,
+    );
   }
 
   Future<void> savePreventivoSnapshot({

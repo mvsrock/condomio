@@ -145,6 +145,14 @@ class ApiError implements Exception {
       'validation.invalid.documento.page': 'Numero pagina non valido.',
       'validation.invalid.documento.size':
           'Dimensione pagina non valida (valori consentiti fino a 200).',
+      'validation.required.report.idCondominio':
+          'Seleziona un esercizio valido prima di generare il report.',
+      'validation.invalid.report.format':
+          'Formato export non valido. Usa PDF o XLSX.',
+      'validation.invalid.report.exportPdf':
+          'Impossibile generare il PDF del report. Riprova.',
+      'validation.invalid.report.exportXlsx':
+          'Impossibile generare il file XLSX del report. Riprova.',
     };
     final directHit = direct[code];
     if (directHit != null) return directHit;

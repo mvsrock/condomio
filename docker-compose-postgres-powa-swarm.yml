@@ -33,6 +33,24 @@ services:
         condition: any
       placement:
         constraints: [node.role == manager]
+  powa-web:
+    image: mypowaweb
+   # volumes:
+   #   - ./powa-web.conf:/etc/powa-web.conf:ro
+    depends_on:
+      - postgres
+    networks:
+      - postgres-net
+    ports:
+      - target: 8888
+        published: 8888
+        mode: host
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+      placement:
+        constraints: [ node.role == manager ]
 networks:
   postgres-net:
     driver: overlay

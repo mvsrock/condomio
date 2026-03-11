@@ -24,6 +24,8 @@ typedef DocumentsOpenMorositaCallback =
     Future<void> Function(CondominioDocumentModel? selectedCondominio);
 typedef DocumentsOpenArchivioCallback =
     Future<void> Function(CondominioDocumentModel? selectedCondominio);
+typedef DocumentsOpenReportCallback =
+    Future<void> Function(CondominioDocumentModel? selectedCondominio);
 typedef DocumentsRefreshDataCallback = Future<void> Function();
 typedef DocumentsOpenSelectedCondominoDetailCallback =
     void Function(CondominoDocumentModel selectedCondomino, bool isSaving);
@@ -140,6 +142,7 @@ class DocumentsActionsBar extends ConsumerWidget {
     required this.onOpenPreventivo,
     required this.onOpenMorosita,
     required this.onOpenArchivio,
+    required this.onOpenReport,
     required this.onRefresh,
   });
 
@@ -149,6 +152,7 @@ class DocumentsActionsBar extends ConsumerWidget {
   final DocumentsOpenPreventivoCallback onOpenPreventivo;
   final DocumentsOpenMorositaCallback onOpenMorosita;
   final DocumentsOpenArchivioCallback onOpenArchivio;
+  final DocumentsOpenReportCallback onOpenReport;
   final DocumentsRefreshDataCallback onRefresh;
 
   @override
@@ -204,6 +208,13 @@ class DocumentsActionsBar extends ConsumerWidget {
               : () => onOpenArchivio(selectedCondominio),
           icon: const Icon(Icons.folder_outlined),
           label: const Text('Archivio'),
+        ),
+        OutlinedButton.icon(
+          onPressed: (isSaving || selectedCondominio == null)
+              ? null
+              : () => onOpenReport(selectedCondominio),
+          icon: const Icon(Icons.assessment_outlined),
+          label: const Text('Report'),
         ),
         OutlinedButton.icon(
           onPressed: isLoading ? null : onRefresh,

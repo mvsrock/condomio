@@ -158,7 +158,7 @@ Una fase non e' `Production ready` finche' non supera tutte le verifiche:
 - `Fase 3`: **Production ready**
 - `Fase 4`: **Production ready**
 - `Fase 5`: **Production ready**
-- `Fase 6`: **In sviluppo**
+- `Fase 6`: **Production ready**
 - `Fase 7`: **In sviluppo**
 - `Fase 8`: **In sviluppo**
 
@@ -196,11 +196,32 @@ Una fase non e' `Production ready` finche' non supera tutte le verifiche:
   - paginazione server-side archivio documenti (`page`, `size`, metadati pagina in header)
   - dialog archivio aggiornato su paginazione reale (filtri server-side + controlli pagina)
   - mapping errori business documentale completato (upload/list/paginazione/movimento tenant)
+- Fase 6 chiusa end-to-end:
+  - backend reportistica con API dedicate:
+    - `GET /reports/{idCondominio}` snapshot aggregato (situazione, consuntivo, riparto, morosita, estratti)
+    - `GET /reports/{idCondominio}/export?format=pdf|xlsx` export professionale
+  - sicurezza BE allineata admin-only su `/reports/**` + guard ownership esercizio lato service
+  - export nativo server-side:
+    - XLSX multi-sheet (`Situazione`, `Consuntivo`, `Riparto Tabelle`, `Morosita`, `Estratti`)
+    - PDF con sezioni tabellari omogenee alle viste operative
+  - UI documenti:
+    - nuova azione `Report` nella toolbar contabilita'
+    - dialog report con filtro posizione, preview sezioni e download PDF/XLSX
+    - download cross-platform (web + IO) centralizzato con helper dedicato
+  - analyze Flutter su perimetro report senza issue
+  - compile core verificata (`mvnw -DskipTests compile`)
+  - allineamento numerico tra:
+    - dettaglio spesa UI (`Dettaglio + Tabelle`)
+    - dialog report
+    - export PDF/XLSX
+  - dettaglio quota condomino raggruppato per singola spesa/movimento con riferimento leggibile, importo spesa, quota condomino e controllo quadratura
+  - export report aggiornati con la stessa logica di raggruppamento (niente piu' righe tabellari isolate senza contesto)
+  - hardening download report/documenti su Windows con sanificazione robusta del filename (`Content-Disposition` + caratteri riservati)
 
 ### Gap per diventare realmente vendibile
 - Hardening error UX ancora incompleto in piu' punti operativi
 - Alcuni flussi admin sono completi funzionalmente ma non ancora rifiniti come UX business-grade
-- Mancano verticali fondamentali per studio amministrativo: documentale, report
+- Mancano verticali fondamentali lato utente finale: portale condomino e automazioni avanzate
 
 ## Principi di rilascio
 
@@ -391,7 +412,7 @@ Collegare contabilita' e documenti reali.
 ## Fase 6 - Report professionali
 
 ### Stato
-In sviluppo
+Production ready
 
 ### Obiettivo
 Produrre output consegnabili senza Excel esterni.
@@ -403,6 +424,20 @@ Produrre output consegnabili senza Excel esterni.
 - situazione morosita'
 - consuntivo
 - export PDF/Excel
+
+### Chiusura fase
+- backend:
+  - API snapshot report aggregato (`GET /reports/{idCondominio}`)
+  - API export (`GET /reports/{idCondominio}/export?format=pdf|xlsx`)
+  - hardening sicurezza: admin-only + ownership esercizio server-side
+  - export XLSX/PDF generato lato core senza strumenti esterni
+- frontend:
+  - azione `Report` nel modulo documenti
+  - dialog report con filtro condomino e viste coerenti per tutte le sezioni
+  - dettaglio quote presentato a blocchi per spesa (evidenza chiara delle righe tabella appartenenti allo stesso movimento)
+  - download file esportati su web/desktop tramite helper platform-aware
+  - gestione robusta filename da header `Content-Disposition` (RFC5987 + fallback) per evitare blocchi di salvataggio su Windows
+  - mapping errori report in `ApiError`
 
 ## Fase 7 - Portale condomino
 

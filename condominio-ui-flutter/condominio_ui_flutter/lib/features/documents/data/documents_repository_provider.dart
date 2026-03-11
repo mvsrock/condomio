@@ -13,6 +13,7 @@ import '../domain/documento_archivio_page_model.dart';
 import '../domain/morosita_item_model.dart';
 import '../domain/movimento_model.dart';
 import '../domain/preventivo_snapshot_model.dart';
+import '../domain/report_snapshot_model.dart';
 import '../domain/tabella_model.dart';
 import 'documents_api_client.dart';
 
@@ -1036,6 +1037,55 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
         );
       } else {
         debugPrint('[DOCUMENTS][downloadDocumentoArchivio] $e');
+      }
+      debugPrint('$st');
+      rethrow;
+    }
+  }
+
+  /// Carica lo snapshot report professionale dell'esercizio selezionato.
+  ///
+  /// `condominoId` opzionale: se valorizzato restringe estratto/morosita al
+  /// condomino target mantenendo invariati i KPI di esercizio.
+  Future<ReportSnapshotModel> fetchReportSnapshot({String? condominoId}) async {
+    try {
+      final token = _requireAccessToken();
+      final condominioId = _requireSelectedCondominioId();
+      return await _api.fetchReportSnapshot(
+        accessToken: token,
+        condominioId: condominioId,
+        condominoId: condominoId,
+      );
+    } catch (e, st) {
+      if (e is ApiError) {
+        debugPrint('[DOCUMENTS][fetchReportSnapshot] ${e.technicalMessage}');
+      } else {
+        debugPrint('[DOCUMENTS][fetchReportSnapshot] $e');
+      }
+      debugPrint('$st');
+      rethrow;
+    }
+  }
+
+  /// Scarica export report PDF/XLSX per l'esercizio selezionato.
+  Future<DocumentoDownloadModel> downloadReportExport({
+    required ReportExportFormat format,
+    String? condominoId,
+  }) async {
+    try {
+      final token = _requireAccessToken();
+      final condominioId = _requireSelectedCondominioId();
+      return await _api.downloadReportExport(
+        accessToken: token,
+        condominioId: condominioId,
+        format: format,
+        condominoId: condominoId,
+      );
+    } catch (e, st) {
+      if (e is ApiError) {
+        debugPrint('[DOCUMENTS][downloadReportExport] ${e.technicalMessage}');
+      } else {
+        debugPrint('[DOCUMENTS][downloadReportExport] $e');
       }
       debugPrint('$st');
       rethrow;
