@@ -14,6 +14,7 @@ import '../../domain/tabella_model.dart';
 import '../dialogs/documents_config_dialogs.dart';
 import '../dialogs/documents_crud_dialogs.dart';
 import '../dialogs/documents_budget_dialogs.dart';
+import '../dialogs/documents_archivio_dialogs.dart';
 import '../dialogs/documents_morosita_dialogs.dart';
 import '../widgets/documents_panels.dart';
 import '../widgets/documents_shell_sections.dart';
@@ -116,6 +117,11 @@ class _DocumentsPageState extends ConsumerState<DocumentsPage> {
                 ref: ref,
                 selectedCondominio: selectedCondominio,
               ),
+              onOpenArchivio: (selectedCondominio) => _openArchivioDialog(
+                context: context,
+                ref: ref,
+                selectedCondominio: selectedCondominio,
+              ),
               onRefresh: dataNotifier.loadForSelectedCondominio,
             )
           else
@@ -158,7 +164,13 @@ class _DocumentsPageState extends ConsumerState<DocumentsPage> {
     if (!isWide) {
       return _DocumentsMobileContabilitaLayout(
         onOpenMovimentoDetail: (movimento) =>
-            _openMovimentoDetailDialog(context: context, movimento: movimento),
+            _openMovimentoDetailDialog(
+              context: context,
+              movimento: movimento,
+              allegatiCount: ref
+                  .read(documentiByMovimentoProvider(movimento.id))
+                  .length,
+            ),
         onEditMovimento: (movimento) =>
             _openEditMovimentoDialog(context: context, ref: ref, movimento: movimento),
         onDeleteMovimento: (movimento) =>
@@ -188,7 +200,13 @@ class _DocumentsPageState extends ConsumerState<DocumentsPage> {
           flex: 7,
           child: DocumentsMovimentiPanel(
             onOpenMovimentoDetail: (movimento) =>
-                _openMovimentoDetailDialog(context: context, movimento: movimento),
+                _openMovimentoDetailDialog(
+                  context: context,
+                  movimento: movimento,
+                  allegatiCount: ref
+                      .read(documentiByMovimentoProvider(movimento.id))
+                      .length,
+                ),
             onEditMovimento: (movimento) =>
                 _openEditMovimentoDialog(context: context, ref: ref, movimento: movimento),
             onDeleteMovimento: (movimento) =>
@@ -550,6 +568,15 @@ class _DocumentsPageState extends ConsumerState<DocumentsPage> {
         return ref.read(selectedSollecitiByCondominoProvider);
       },
     );
+  }
+
+  Future<void> _openArchivioDialog({
+    required BuildContext context,
+    required WidgetRef ref,
+    required CondominioDocumentModel? selectedCondominio,
+  }) async {
+    if (selectedCondominio == null) return;
+    await showDocumentsArchivioDialog(context: context);
   }
 
   Future<void> _openEditMovimentoDialog({
@@ -1070,6 +1097,7 @@ class _DocumentsPageState extends ConsumerState<DocumentsPage> {
   Future<void> _openMovimentoDetailDialog({
     required BuildContext context,
     required MovimentoModel movimento,
+    required int allegatiCount,
   }) async {
     await showDialog<void>(
       context: context,
@@ -1127,6 +1155,24 @@ class _DocumentsPageState extends ConsumerState<DocumentsPage> {
                             'Assegnata a: ${movimento.ripartizioneCondomini.first.nominativo}',
                           ),
                         ),
+                      const SizedBox(height: 8),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: OutlinedButton.icon(
+                          onPressed: () => showDocumentsArchivioDialog(
+                            context: context,
+                            movimentoId: movimento.id,
+                            movimentoLabel:
+                                '${movimento.codiceSpesa} - ${movimento.descrizione}',
+                          ),
+                          icon: const Icon(Icons.folder_outlined),
+                          label: Text(
+                            allegatiCount > 0
+                                ? 'Gestisci allegati ($allegatiCount)'
+                                : 'Gestisci allegati',
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),

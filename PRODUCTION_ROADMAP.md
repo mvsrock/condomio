@@ -149,7 +149,7 @@ Una fase non e' `Production ready` finche' non supera tutte le verifiche:
 - migrazione/compatibilita' dati verificata
 - test minimi automatici sul perimetro fase
 
-## Audit stato reale (2026-03-10)
+## Audit stato reale (2026-03-11)
 
 ### Quadro sintetico
 - `Fase 0 - Hardening`: **Production ready**
@@ -183,6 +183,16 @@ Una fase non e' `Production ready` finche' non supera tutte le verifiche:
 - Dashboard home restylizzata in chiave operativa (contesto, KPI, scadenze, attivita' recenti, azioni rapide)
 - UX workspace unificata Anagrafica/Documenti con switch contestuale e pagina Documenti semplificata (riduzione ridondanze esercizio, riepilogo e azioni meno rumorosi)
 - Documenti riorganizzata in viste operative separate (`Contabilita` / `Condomini`) e Anagrafica senza tab annidate per la gestione accessi
+- Fase 5 avviata end-to-end:
+  - backend `documenti` con archivio per esercizio, allegati a movimento, categorie e versioning minimo (`documentGroupId` + `versionNumber`)
+  - storage binario su GridFS con metadati tenant-aware
+  - frontend Riverpod con provider derivati e dialog archivio operativo (upload, nuova versione, delete, filtri)
+  - preview documenti in UI:
+    - PDF, immagini, testo e Excel
+    - preview Excel con selector foglio, griglia scrollabile e formattazione tipi cella
+    - compat mode su `styles.xml` per file `.xlsx` con `numFmtId` non standard (normalizzazione in memoria, file sorgente invariato)
+    - error details copiabile da modale (`Copia dettaglio`) per debug veloce
+  - modali archivio/preview con testo selezionabile
 
 ### Gap per diventare realmente vendibile
 - Hardening error UX ancora incompleto in piu' punti operativi
@@ -347,6 +357,20 @@ Collegare contabilita' e documenti reali.
 - ricerca e filtri
 - versionamento minimo
 
+### Avanzamento implementato
+- API `documenti` su core:
+  - `GET /documenti`
+  - `POST /documenti` (multipart upload)
+  - `POST /documenti/{idDocumento}/versioni`
+  - `GET /documenti/{idDocumento}/download`
+  - `DELETE /documenti/{idDocumento}`
+- Sicurezza BE allineata: write admin-only + tenant guard server-side
+- Indici Mongo dedicati per query archivio/versioni
+- UI documenti:
+  - azione `Archivio` nella toolbar contabilita'
+  - dialog archivio con upload, nuova versione, eliminazione, filtro categoria/testo
+  - collegamento rapido `Gestisci allegati` dal dettaglio movimento
+
 ## Fase 6 - Report professionali
 
 ### Stato
@@ -420,6 +444,12 @@ Queste non vivono in una singola fase: devono avanzare sempre.
 - distinzione chiara tra profilo condiviso e posizione esercizio
 - mobile realmente operativo
 - profiling e tuning della selezione testo globale (`SelectionArea`) su web/desktop per bilanciare usabilita' e costo rendering
+
+## Documentazione tecnica di riferimento
+
+Per mantenere coerenza implementativa tra sprint:
+- usare `ENGINEERING_PATTERNS.md` come fonte primaria per pattern FE/BE/Mongo/Riverpod/UX
+- mantenere `condominio-ui-flutter/condominio_ui_flutter/ARCHITECTURE.md` allineato ai soli dettagli Flutter specifici
 
 ## Ordine di priorita' consigliato
 

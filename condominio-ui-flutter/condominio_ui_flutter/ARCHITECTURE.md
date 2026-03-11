@@ -2,6 +2,9 @@
 
 Questo progetto sta adottando una struttura **feature-first** per ridurre coupling, migliorare i rebuild mirati e separare chiaramente UI/logica/dati.
 
+Riferimento cross-progetto:
+- vedere anche `ENGINEERING_PATTERNS.md` in root repository per regole condivise FE/BE/Mongo/UX.
+
 ## Struttura target
 
 ```text

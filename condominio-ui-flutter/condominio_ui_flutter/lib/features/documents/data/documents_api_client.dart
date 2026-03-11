@@ -2,11 +2,14 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 
 import '../../../config/keycloak_config.dart';
 import '../../../utils/api_error.dart';
 import '../domain/condominio_document_model.dart';
 import '../domain/condomino_document_model.dart';
+import '../domain/documento_download_model.dart';
+import '../domain/documento_archivio_model.dart';
 import '../domain/morosita_item_model.dart';
 import '../domain/movimento_model.dart';
 import '../domain/preventivo_snapshot_model.dart';
@@ -39,6 +42,18 @@ class DocumentsApiClient {
 
   Never _throwHttpError(String op, http.Response response) {
     throw ApiError.fromHttp(operation: op, response: response);
+  }
+
+  Future<http.Response> _sendMultipart(
+    String operation,
+    http.MultipartRequest request,
+  ) async {
+    final streamed = await request.send();
+    final response = await http.Response.fromStream(streamed);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      _throwHttpError(operation, response);
+    }
+    return response;
   }
 
   Future<CondominioDocumentModel> fetchCondominioById({
@@ -110,6 +125,174 @@ class DocumentsApiClient {
         .whereType<Map<String, dynamic>>()
         .map(MovimentoModel.fromJson)
         .toList(growable: false);
+  }
+
+  Future<List<DocumentoArchivioModel>> fetchDocumentiArchivio({
+    required String accessToken,
+    required String condominioId,
+    String? categoria,
+    String? movimentoId,
+    String? search,
+    bool includeAllVersions = false,
+  }) async {
+    final query = <String, String>{
+      'idCondominio': condominioId,
+      'includeAllVersions': includeAllVersions.toString(),
+    };
+    if (categoria != null && categoria.trim().isNotEmpty) {
+      query['categoria'] = categoria.trim();
+    }
+    if (movimentoId != null && movimentoId.trim().isNotEmpty) {
+      query['movimentoId'] = movimentoId.trim();
+    }
+    if (search != null && search.trim().isNotEmpty) {
+      query['search'] = search.trim();
+    }
+    final response = await http.get(
+      _uriWithQuery('/documenti', query),
+      headers: _headers(accessToken),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      _throwHttpError('fetchDocumentiArchivio', response);
+    }
+    final raw = (jsonDecode(response.body) as List?) ?? const [];
+    return raw
+        .whereType<Map<String, dynamic>>()
+        .map(DocumentoArchivioModel.fromJson)
+        .toList(growable: false);
+  }
+
+  Future<DocumentoArchivioModel> uploadDocumentoArchivio({
+    required String accessToken,
+    required String condominioId,
+    required String categoria,
+    required String fileName,
+    required Uint8List bytes,
+    String? contentType,
+    String? titolo,
+    String? descrizione,
+    String? movimentoId,
+    String? versionGroupId,
+  }) async {
+    final request = http.MultipartRequest(
+      'POST',
+      _uri('/documenti'),
+    );
+    request.headers['Authorization'] = 'Bearer $accessToken';
+    request.fields['idCondominio'] = condominioId;
+    request.fields['categoria'] = categoria.trim();
+    if (titolo != null && titolo.trim().isNotEmpty) {
+      request.fields['titolo'] = titolo.trim();
+    }
+    if (descrizione != null && descrizione.trim().isNotEmpty) {
+      request.fields['descrizione'] = descrizione.trim();
+    }
+    if (movimentoId != null && movimentoId.trim().isNotEmpty) {
+      request.fields['movimentoId'] = movimentoId.trim();
+    }
+    if (versionGroupId != null && versionGroupId.trim().isNotEmpty) {
+      request.fields['versionGroupId'] = versionGroupId.trim();
+    }
+    request.files.add(
+      http.MultipartFile.fromBytes(
+        'file',
+        bytes,
+        filename: fileName,
+        contentType: contentType == null
+            ? null
+            : MediaType.parse(contentType),
+      ),
+    );
+    final response = await _sendMultipart('uploadDocumentoArchivio', request);
+    final raw =
+        (jsonDecode(response.body) as Map?)?.cast<String, dynamic>() ??
+        const <String, dynamic>{};
+    return DocumentoArchivioModel.fromJson(raw);
+  }
+
+  Future<DocumentoArchivioModel> uploadNuovaVersioneDocumento({
+    required String accessToken,
+    required String documentoId,
+    required String fileName,
+    required Uint8List bytes,
+    String? contentType,
+    String? titolo,
+    String? descrizione,
+  }) async {
+    final request = http.MultipartRequest(
+      'POST',
+      _uri('/documenti/$documentoId/versioni'),
+    );
+    request.headers['Authorization'] = 'Bearer $accessToken';
+    if (titolo != null && titolo.trim().isNotEmpty) {
+      request.fields['titolo'] = titolo.trim();
+    }
+    if (descrizione != null && descrizione.trim().isNotEmpty) {
+      request.fields['descrizione'] = descrizione.trim();
+    }
+    request.files.add(
+      http.MultipartFile.fromBytes(
+        'file',
+        bytes,
+        filename: fileName,
+        contentType: contentType == null
+            ? null
+            : MediaType.parse(contentType),
+      ),
+    );
+    final response = await _sendMultipart(
+      'uploadNuovaVersioneDocumento',
+      request,
+    );
+    final raw =
+        (jsonDecode(response.body) as Map?)?.cast<String, dynamic>() ??
+        const <String, dynamic>{};
+    return DocumentoArchivioModel.fromJson(raw);
+  }
+
+  Future<void> deleteDocumentoArchivio({
+    required String accessToken,
+    required String documentoId,
+  }) async {
+    final response = await http.delete(
+      _uri('/documenti/$documentoId'),
+      headers: _headers(accessToken),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      _throwHttpError('deleteDocumentoArchivio', response);
+    }
+  }
+
+  Future<DocumentoDownloadModel> downloadDocumentoArchivio({
+    required String accessToken,
+    required String documentoId,
+  }) async {
+    final response = await http.get(
+      _uri('/documenti/$documentoId/download'),
+      headers: _headers(accessToken),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      _throwHttpError('downloadDocumentoArchivio', response);
+    }
+    final contentType =
+        response.headers['content-type'] ?? 'application/octet-stream';
+    final disposition = response.headers['content-disposition'] ?? '';
+    final fileName = _extractFileNameFromDisposition(disposition) ?? 'documento';
+    return DocumentoDownloadModel(
+      fileName: fileName,
+      contentType: contentType,
+      bytes: response.bodyBytes,
+    );
+  }
+
+  String? _extractFileNameFromDisposition(String disposition) {
+    final match = RegExp(
+      "filename\\*?=(?:UTF-8'')?\"?([^\";]+)\"?",
+      caseSensitive: false,
+    ).firstMatch(disposition);
+    if (match == null) return null;
+    final raw = Uri.decodeComponent(match.group(1) ?? '').trim();
+    return raw.isEmpty ? null : raw;
   }
 
   Future<List<MorositaItemModel>> fetchMorosita({

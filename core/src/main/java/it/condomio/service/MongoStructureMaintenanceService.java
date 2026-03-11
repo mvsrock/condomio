@@ -36,6 +36,7 @@ import it.condomio.document.Condominio;
 import it.condomio.document.CondominioRoot;
 import it.condomio.document.Condomino;
 import it.condomio.document.CondominoRoot;
+import it.condomio.document.DocumentoArchivio;
 import it.condomio.document.Movimenti;
 import it.condomio.document.Preventivo;
 import it.condomio.document.Tabella;
@@ -150,6 +151,7 @@ public class MongoStructureMaintenanceService implements ApplicationRunner {
         ensureMovimentiIndexes();
         ensurePreventivoIndexes();
         ensureTabellaIndexes();
+        ensureDocumentoIndexes();
     }
 
     /**
@@ -382,6 +384,35 @@ public class MongoStructureMaintenanceService implements ApplicationRunner {
                 .on("codice", Sort.Direction.ASC)
                 .unique()
                 .named("condominio_codice_idx"));
+    }
+
+    private void ensureDocumentoIndexes() {
+        IndexOperations ops = mongoTemplate.indexOps(DocumentoArchivio.class);
+        createIndexIfMissing(ops, "exercise_created_idx", new Index()
+                .on("idCondominio", Sort.Direction.ASC)
+                .on("createdAt", Sort.Direction.DESC)
+                .named("exercise_created_idx"));
+        createIndexIfMissing(ops, "exercise_categoria_created_idx", new Index()
+                .on("idCondominio", Sort.Direction.ASC)
+                .on("categoria", Sort.Direction.ASC)
+                .on("createdAt", Sort.Direction.DESC)
+                .named("exercise_categoria_created_idx"));
+        createIndexIfMissing(ops, "exercise_movimento_created_idx", new Index()
+                .on("idCondominio", Sort.Direction.ASC)
+                .on("movimentoId", Sort.Direction.ASC)
+                .on("createdAt", Sort.Direction.DESC)
+                .partial(PartialIndexFilter.of(Criteria.where("movimentoId").exists(true)))
+                .named("exercise_movimento_created_idx"));
+        createIndexIfMissing(ops, "group_version_uidx", new Index()
+                .on("documentGroupId", Sort.Direction.ASC)
+                .on("versionNumber", Sort.Direction.ASC)
+                .unique()
+                .named("group_version_uidx"));
+        createIndexIfMissing(ops, "exercise_group_version_idx", new Index()
+                .on("idCondominio", Sort.Direction.ASC)
+                .on("documentGroupId", Sort.Direction.ASC)
+                .on("versionNumber", Sort.Direction.DESC)
+                .named("exercise_group_version_idx"));
     }
 
     private void dropIndexIfExists(String collectionName, String indexName) {

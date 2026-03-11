@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/documents_repository_provider.dart';
 import '../domain/condominio_document_model.dart';
 import '../domain/condomino_document_model.dart';
+import '../domain/documento_archivio_model.dart';
 import '../domain/morosita_item_model.dart';
 import '../domain/movimento_model.dart';
 import '../domain/preventivo_snapshot_model.dart';
@@ -190,4 +191,26 @@ final selectedSollecitiByCondominoProvider =
         out[item.id] = item.solleciti;
       }
       return out;
+    });
+
+/// Archivio documentale dell'esercizio selezionato.
+final documentiBySelectedCondominioProvider =
+    Provider<List<DocumentoArchivioModel>>((ref) {
+      final dataset = ref.watch(documentsRepositoryProvider);
+      final selectedCondominio = ref.watch(selectedCondominioProvider);
+      if (selectedCondominio == null) return const [];
+      final rows = dataset.documentiArchivio
+          .where((item) => item.idCondominio == selectedCondominio.id)
+          .toList(growable: false);
+      rows.sort((left, right) => right.createdAt.compareTo(left.createdAt));
+      return rows;
+    });
+
+/// Documenti archivio legati a un movimento specifico.
+final documentiByMovimentoProvider =
+    Provider.family<List<DocumentoArchivioModel>, String>((ref, movimentoId) {
+      final all = ref.watch(documentiBySelectedCondominioProvider);
+      return all
+          .where((item) => item.movimentoId == movimentoId)
+          .toList(growable: false);
     });

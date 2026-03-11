@@ -22,6 +22,8 @@ typedef DocumentsOpenPreventivoCallback =
     Future<void> Function(CondominioDocumentModel? selectedCondominio);
 typedef DocumentsOpenMorositaCallback =
     Future<void> Function(CondominioDocumentModel? selectedCondominio);
+typedef DocumentsOpenArchivioCallback =
+    Future<void> Function(CondominioDocumentModel? selectedCondominio);
 typedef DocumentsRefreshDataCallback = Future<void> Function();
 typedef DocumentsOpenSelectedCondominoDetailCallback =
     void Function(CondominoDocumentModel selectedCondomino, bool isSaving);
@@ -79,6 +81,7 @@ class DocumentsSummaryHeader extends ConsumerWidget {
     final selectedCondominio = ref.watch(selectedCondominioProvider);
     final condomini = ref.watch(condominiBySelectedCondominioProvider);
     final movimenti = ref.watch(movimentiBySelectedCondominioProvider);
+    final documenti = ref.watch(documentiBySelectedCondominioProvider);
     final preventivo = ref.watch(selectedPreventivoSnapshotProvider);
     final morosita = ref.watch(selectedMorositaItemsProvider);
     final isReadOnly = ref.watch(selectedManagedCondominioIsClosedProvider);
@@ -103,6 +106,10 @@ class DocumentsSummaryHeader extends ConsumerWidget {
         DocumentsStatChip(
           icon: Icons.receipt_long_outlined,
           label: 'Movimenti: ${movimenti.length}',
+        ),
+        DocumentsStatChip(
+          icon: Icons.folder_open_outlined,
+          label: 'Documenti: ${documenti.length}',
         ),
         DocumentsStatChip(
           icon: Icons.analytics_outlined,
@@ -132,6 +139,7 @@ class DocumentsActionsBar extends ConsumerWidget {
     required this.onCreateMovimento,
     required this.onOpenPreventivo,
     required this.onOpenMorosita,
+    required this.onOpenArchivio,
     required this.onRefresh,
   });
 
@@ -140,6 +148,7 @@ class DocumentsActionsBar extends ConsumerWidget {
   final DocumentsCreateMovimentoCallback onCreateMovimento;
   final DocumentsOpenPreventivoCallback onOpenPreventivo;
   final DocumentsOpenMorositaCallback onOpenMorosita;
+  final DocumentsOpenArchivioCallback onOpenArchivio;
   final DocumentsRefreshDataCallback onRefresh;
 
   @override
@@ -188,6 +197,13 @@ class DocumentsActionsBar extends ConsumerWidget {
               : () => onOpenMorosita(selectedCondominio),
           icon: const Icon(Icons.warning_amber_outlined),
           label: const Text('Morosita'),
+        ),
+        OutlinedButton.icon(
+          onPressed: (isSaving || selectedCondominio == null)
+              ? null
+              : () => onOpenArchivio(selectedCondominio),
+          icon: const Icon(Icons.folder_outlined),
+          label: const Text('Archivio'),
         ),
         OutlinedButton.icon(
           onPressed: isLoading ? null : onRefresh,

@@ -7,6 +7,8 @@ import '../../condominio_selection/application/managed_condominio_notifier.dart'
 import '../../shared/application/exercise_refresh_provider.dart';
 import '../domain/condominio_document_model.dart';
 import '../domain/condomino_document_model.dart';
+import '../domain/documento_download_model.dart';
+import '../domain/documento_archivio_model.dart';
 import '../domain/morosita_item_model.dart';
 import '../domain/movimento_model.dart';
 import '../domain/preventivo_snapshot_model.dart';
@@ -22,6 +24,7 @@ class DocumentsDataset {
     required this.tabelle,
     required this.preventivoSnapshot,
     required this.morositaItems,
+    required this.documentiArchivio,
   });
 
   const DocumentsDataset.empty()
@@ -30,7 +33,8 @@ class DocumentsDataset {
       movimenti = const [],
       tabelle = const [],
       preventivoSnapshot = const PreventivoSnapshotModel.empty(),
-      morositaItems = const [];
+      morositaItems = const [],
+      documentiArchivio = const [];
 
   final List<CondominioDocumentModel> condomini;
   final List<CondominoDocumentModel> condominiAnagrafica;
@@ -38,6 +42,7 @@ class DocumentsDataset {
   final List<TabellaModel> tabelle;
   final PreventivoSnapshotModel preventivoSnapshot;
   final List<MorositaItemModel> morositaItems;
+  final List<DocumentoArchivioModel> documentiArchivio;
 }
 
 class DocumentsDataState {
@@ -126,6 +131,7 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
     bool includeTabelle = false,
     bool includePreventivo = false,
     bool includeMorosita = false,
+    bool includeDocumenti = false,
   }) async {
     final token = _requireAccessToken();
     final condominioId = _requireSelectedCondominioId();
@@ -154,6 +160,12 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
     final morositaFuture = includeMorosita
         ? _api.fetchMorosita(accessToken: token, condominioId: condominioId)
         : Future<List<MorositaItemModel>?>.value(null);
+    final documentiFuture = includeDocumenti
+        ? _api.fetchDocumentiArchivio(
+            accessToken: token,
+            condominioId: condominioId,
+          )
+        : Future<List<DocumentoArchivioModel>?>.value(null);
 
     final results = await Future.wait<Object?>([
       condominioFuture,
@@ -162,6 +174,7 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
       tabelleFuture,
       preventivoFuture,
       morositaFuture,
+      documentiFuture,
     ]);
     final condominio = results[0] as CondominioDocumentModel?;
     final condomini = results[1] as List<CondominoDocumentModel>?;
@@ -169,6 +182,7 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
     final tabelle = results[3] as List<TabellaModel>?;
     final preventivo = results[4] as PreventivoSnapshotModel?;
     final morosita = results[5] as List<MorositaItemModel>?;
+    final documenti = results[6] as List<DocumentoArchivioModel>?;
 
     state = state.copyWith(
       dataset: DocumentsDataset(
@@ -178,6 +192,7 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
         tabelle: tabelle ?? state.dataset.tabelle,
         preventivoSnapshot: preventivo ?? state.dataset.preventivoSnapshot,
         morositaItems: morosita ?? state.dataset.morositaItems,
+        documentiArchivio: documenti ?? state.dataset.documentiArchivio,
       ),
     );
   }
@@ -188,6 +203,7 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
       includeMovimenti: true,
       includePreventivo: true,
       includeMorosita: true,
+      includeDocumenti: true,
     );
   }
 
@@ -198,6 +214,7 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
       includeMovimenti: true,
       includePreventivo: true,
       includeMorosita: true,
+      includeDocumenti: true,
     );
   }
 
@@ -208,6 +225,7 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
       includeTabelle: true,
       includePreventivo: true,
       includeMorosita: true,
+      includeDocumenti: true,
     );
   }
 
@@ -217,6 +235,7 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
       includeMovimenti: true,
       includePreventivo: true,
       includeMorosita: true,
+      includeDocumenti: true,
     );
   }
 
@@ -238,6 +257,9 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
       includeMorosita:
           event.hasScope(ExerciseRefreshScope.documentsExercise) ||
           event.hasScope(ExerciseRefreshScope.documentsCondomini),
+      includeDocumenti:
+          event.hasScope(ExerciseRefreshScope.documentsExercise) ||
+          event.hasScope(ExerciseRefreshScope.documentsMovimenti),
     );
   }
 
@@ -253,6 +275,7 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
         includeTabelle: true,
         includePreventivo: true,
         includeMorosita: true,
+        includeDocumenti: true,
       );
       state = state.copyWith(isLoading: false);
     } catch (e, st) {
@@ -898,6 +921,163 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
     }
   }
 
+  Future<void> uploadDocumentoArchivio({
+    required DocumentoArchivioUploadDraft draft,
+  }) async {
+    state = state.copyWith(isSaving: true, clearErrorMessage: true);
+    try {
+      _ensureSelectedExerciseWritable();
+      final token = _requireAccessToken();
+      final condominioId = _requireSelectedCondominioId();
+      await _api.uploadDocumentoArchivio(
+        accessToken: token,
+        condominioId: condominioId,
+        categoria: draft.categoria.backendValue,
+        fileName: draft.fileName,
+        bytes: draft.bytes,
+        contentType: draft.contentType,
+        titolo: draft.titolo,
+        descrizione: draft.descrizione,
+        movimentoId: draft.movimentoId,
+        versionGroupId: draft.versionGroupId,
+      );
+      state = state.copyWith(isSaving: false);
+      await _refreshSelectedCondominioData(includeDocumenti: true);
+    } catch (e, st) {
+      if (e is ApiError) {
+        debugPrint('[DOCUMENTS][uploadDocumentoArchivio] ${e.technicalMessage}');
+      } else {
+        debugPrint('[DOCUMENTS][uploadDocumentoArchivio] $e');
+      }
+      debugPrint('$st');
+      state = state.copyWith(isSaving: false, errorMessage: '$e');
+      rethrow;
+    }
+  }
+
+  Future<void> uploadNuovaVersioneDocumento({
+    required String documentoId,
+    required String fileName,
+    required Uint8List bytes,
+    String? contentType,
+    String? titolo,
+    String? descrizione,
+  }) async {
+    state = state.copyWith(isSaving: true, clearErrorMessage: true);
+    try {
+      _ensureSelectedExerciseWritable();
+      final token = _requireAccessToken();
+      await _api.uploadNuovaVersioneDocumento(
+        accessToken: token,
+        documentoId: documentoId,
+        fileName: fileName,
+        bytes: bytes,
+        contentType: contentType,
+        titolo: titolo,
+        descrizione: descrizione,
+      );
+      state = state.copyWith(isSaving: false);
+      await _refreshSelectedCondominioData(includeDocumenti: true);
+    } catch (e, st) {
+      if (e is ApiError) {
+        debugPrint(
+          '[DOCUMENTS][uploadNuovaVersioneDocumento] ${e.technicalMessage}',
+        );
+      } else {
+        debugPrint('[DOCUMENTS][uploadNuovaVersioneDocumento] $e');
+      }
+      debugPrint('$st');
+      state = state.copyWith(isSaving: false, errorMessage: '$e');
+      rethrow;
+    }
+  }
+
+  Future<void> deleteDocumentoArchivio({required String documentoId}) async {
+    state = state.copyWith(isSaving: true, clearErrorMessage: true);
+    try {
+      _ensureSelectedExerciseWritable();
+      final token = _requireAccessToken();
+      await _api.deleteDocumentoArchivio(
+        accessToken: token,
+        documentoId: documentoId,
+      );
+      state = state.copyWith(isSaving: false);
+      await _refreshSelectedCondominioData(includeDocumenti: true);
+    } catch (e, st) {
+      if (e is ApiError) {
+        debugPrint('[DOCUMENTS][deleteDocumentoArchivio] ${e.technicalMessage}');
+      } else {
+        debugPrint('[DOCUMENTS][deleteDocumentoArchivio] $e');
+      }
+      debugPrint('$st');
+      state = state.copyWith(isSaving: false, errorMessage: '$e');
+      rethrow;
+    }
+  }
+
+  Future<DocumentoDownloadModel> downloadDocumentoArchivio({
+    required String documentoId,
+  }) async {
+    try {
+      final token = _requireAccessToken();
+      return await _api.downloadDocumentoArchivio(
+        accessToken: token,
+        documentoId: documentoId,
+      );
+    } catch (e, st) {
+      if (e is ApiError) {
+        debugPrint('[DOCUMENTS][downloadDocumentoArchivio] ${e.technicalMessage}');
+      } else {
+        debugPrint('[DOCUMENTS][downloadDocumentoArchivio] $e');
+      }
+      debugPrint('$st');
+      rethrow;
+    }
+  }
+
+  Future<List<DocumentoArchivioModel>> reloadDocumentiArchivio({
+    bool includeAllVersions = false,
+    String? categoriaBackend,
+    String? movimentoId,
+    String? search,
+  }) async {
+    state = state.copyWith(isSaving: true, clearErrorMessage: true);
+    try {
+      final token = _requireAccessToken();
+      final condominioId = _requireSelectedCondominioId();
+      final rows = await _api.fetchDocumentiArchivio(
+        accessToken: token,
+        condominioId: condominioId,
+        categoria: categoriaBackend,
+        movimentoId: movimentoId,
+        search: search,
+        includeAllVersions: includeAllVersions,
+      );
+      state = state.copyWith(
+        isSaving: false,
+        dataset: DocumentsDataset(
+          condomini: state.dataset.condomini,
+          condominiAnagrafica: state.dataset.condominiAnagrafica,
+          movimenti: state.dataset.movimenti,
+          tabelle: state.dataset.tabelle,
+          preventivoSnapshot: state.dataset.preventivoSnapshot,
+          morositaItems: state.dataset.morositaItems,
+          documentiArchivio: rows,
+        ),
+      );
+      return rows;
+    } catch (e, st) {
+      if (e is ApiError) {
+        debugPrint('[DOCUMENTS][reloadDocumentiArchivio] ${e.technicalMessage}');
+      } else {
+        debugPrint('[DOCUMENTS][reloadDocumentiArchivio] $e');
+      }
+      debugPrint('$st');
+      state = state.copyWith(isSaving: false, errorMessage: '$e');
+      rethrow;
+    }
+  }
+
   void clear() {
     state = DocumentsDataState.initial();
   }
@@ -1104,6 +1284,28 @@ class MovimentoRipartoCondominoDraft {
       'importo': importo,
     };
   }
+}
+
+class DocumentoArchivioUploadDraft {
+  const DocumentoArchivioUploadDraft({
+    required this.categoria,
+    required this.fileName,
+    required this.bytes,
+    this.contentType,
+    this.titolo,
+    this.descrizione,
+    this.movimentoId,
+    this.versionGroupId,
+  });
+
+  final DocumentoCategoria categoria;
+  final String fileName;
+  final Uint8List bytes;
+  final String? contentType;
+  final String? titolo;
+  final String? descrizione;
+  final String? movimentoId;
+  final String? versionGroupId;
 }
 
 /// Riga preventivo inviata al backend.
