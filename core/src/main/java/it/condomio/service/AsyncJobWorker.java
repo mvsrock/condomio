@@ -1,5 +1,6 @@
 package it.condomio.service;
 
+import org.springframework.context.annotation.Lazy;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 
@@ -11,7 +12,7 @@ public class AsyncJobWorker {
 
     private final AsyncJobService asyncJobService;
 
-    public AsyncJobWorker(AsyncJobService asyncJobService) {
+    public AsyncJobWorker(@Lazy AsyncJobService asyncJobService) {
         this.asyncJobService = asyncJobService;
     }
 
@@ -20,4 +21,3 @@ public class AsyncJobWorker {
         asyncJobService.executeJob(jobId);
     }
 }
-
