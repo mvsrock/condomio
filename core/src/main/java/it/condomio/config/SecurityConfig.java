@@ -40,7 +40,8 @@ public class SecurityConfig {
                                 "/swagger-resources/**",
                                 "/webjars/**",
                                 "/public/**",
-                                "/actuator/**"
+                                "/actuator/**",
+                                "/internal/operations/**"
                         ).permitAll()
                         .requestMatchers(HttpMethod.GET, "/condomini/**").hasRole("amministratore")
                         .requestMatchers(HttpMethod.POST, "/condomini/**").hasRole("amministratore")

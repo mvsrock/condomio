@@ -1,14 +1,9 @@
 package it.condomio.controller;
 
-import java.nio.charset.StandardCharsets;
-import java.util.List;
-
-import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -16,91 +11,122 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import it.condomio.controller.model.AsyncJobResource;
-import it.condomio.exception.ApiException;
-import it.condomio.service.AsyncJobService;
-import it.condomio.service.AsyncJobService.JobDownloadPayload;
+import feign.FeignException;
+import it.condomio.client.operations.OperationsJobClient;
+import it.condomio.service.RequestBearerTokenResolver;
 
 /**
- * API job asincroni (Fase 8 - punto 1).
+ * Facade job su core.
  *
- * Contratto:
- * - queue operazioni pesanti
- * - monitor stato job
- * - download risultato quando disponibile
+ * Frontend -> core -> operations-service:
+ * la UI continua a chiamare core, ma l'esecuzione job e' demandata al
+ * microservizio operations.
  */
 @RestController
 @RequestMapping("/jobs")
 public class AsyncJobController {
 
-    private final AsyncJobService asyncJobService;
+    private final OperationsJobClient operationsJobClient;
+    private final RequestBearerTokenResolver bearerTokenResolver;
 
-    public AsyncJobController(AsyncJobService asyncJobService) {
-        this.asyncJobService = asyncJobService;
+    public AsyncJobController(
+            OperationsJobClient operationsJobClient,
+            RequestBearerTokenResolver bearerTokenResolver) {
+        this.operationsJobClient = operationsJobClient;
+        this.bearerTokenResolver = bearerTokenResolver;
     }
 
     @PostMapping("/report-export")
-    public ResponseEntity<AsyncJobResource> queueReportExport(
+    public ResponseEntity<?> queueReportExport(
             @RequestParam String idCondominio,
             @RequestParam String format,
-            @RequestParam(required = false) String condominoId,
-            @AuthenticationPrincipal Jwt jwt) throws ApiException {
-        return ResponseEntity.ok(asyncJobService.queueReportExport(
-                idCondominio,
-                format,
-                condominoId,
-                jwt.getSubject()));
+            @RequestParam(required = false) String condominoId) {
+        try {
+            return operationsJobClient.queueReportExport(
+                    bearerTokenResolver.resolveBearerToken(),
+                    idCondominio,
+                    format,
+                    condominoId);
+        } catch (FeignException ex) {
+            return mapFeignException(ex);
+        }
     }
 
     @PostMapping("/morosita/{idCondominio}/solleciti-automatici")
-    public ResponseEntity<AsyncJobResource> queueAutomaticSolleciti(
+    public ResponseEntity<?> queueAutomaticSolleciti(
             @PathVariable String idCondominio,
-            @RequestParam(required = false) Integer minDaysOverdue,
-            @AuthenticationPrincipal Jwt jwt) throws ApiException {
-        return ResponseEntity.ok(asyncJobService.queueAutomaticSolleciti(
-                idCondominio,
-                minDaysOverdue,
-                jwt.getSubject()));
+            @RequestParam(required = false) Integer minDaysOverdue) {
+        try {
+            return operationsJobClient.queueAutomaticSolleciti(
+                    bearerTokenResolver.resolveBearerToken(),
+                    idCondominio,
+                    minDaysOverdue);
+        } catch (FeignException ex) {
+            return mapFeignException(ex);
+        }
     }
 
     @PostMapping("/morosita/{idCondominio}/reminder-scadenze")
-    public ResponseEntity<AsyncJobResource> queueUpcomingReminder(
+    public ResponseEntity<?> queueUpcomingReminder(
             @PathVariable String idCondominio,
-            @RequestParam(required = false) Integer maxDaysAhead,
-            @AuthenticationPrincipal Jwt jwt) throws ApiException {
-        return ResponseEntity.ok(asyncJobService.queueUpcomingReminder(
-                idCondominio,
-                maxDaysAhead,
-                jwt.getSubject()));
+            @RequestParam(required = false) Integer maxDaysAhead) {
+        try {
+            return operationsJobClient.queueUpcomingReminder(
+                    bearerTokenResolver.resolveBearerToken(),
+                    idCondominio,
+                    maxDaysAhead);
+        } catch (FeignException ex) {
+            return mapFeignException(ex);
+        }
     }
 
     @GetMapping("/{jobId}")
-    public ResponseEntity<AsyncJobResource> getJob(
-            @PathVariable String jobId,
-            @AuthenticationPrincipal Jwt jwt) throws ApiException {
-        return ResponseEntity.ok(asyncJobService.getJob(jobId, jwt.getSubject()));
+    public ResponseEntity<?> getJob(@PathVariable String jobId) {
+        try {
+            return operationsJobClient.getJob(
+                    bearerTokenResolver.resolveBearerToken(),
+                    jobId);
+        } catch (FeignException ex) {
+            return mapFeignException(ex);
+        }
     }
 
     @GetMapping
-    public ResponseEntity<List<AsyncJobResource>> listMyJobs(
-            @RequestParam(required = false) Integer limit,
-            @AuthenticationPrincipal Jwt jwt) throws ApiException {
-        return ResponseEntity.ok(asyncJobService.listMyJobs(jwt.getSubject(), limit));
+    public ResponseEntity<?> listMyJobs(@RequestParam(required = false) Integer limit) {
+        try {
+            return operationsJobClient.listMyJobs(
+                    bearerTokenResolver.resolveBearerToken(),
+                    limit);
+        } catch (FeignException ex) {
+            return mapFeignException(ex);
+        }
     }
 
     @GetMapping("/{jobId}/download")
-    public ResponseEntity<byte[]> downloadJobResult(
-            @PathVariable String jobId,
-            @AuthenticationPrincipal Jwt jwt) throws Exception {
-        JobDownloadPayload payload = asyncJobService.downloadJobResult(jobId, jwt.getSubject());
-        return ResponseEntity.ok()
-                .header(
-                        HttpHeaders.CONTENT_DISPOSITION,
-                        ContentDisposition.attachment()
-                                .filename(payload.fileName(), StandardCharsets.UTF_8)
-                                .build()
-                                .toString())
-                .contentType(MediaType.parseMediaType(payload.contentType()))
-                .body(payload.bytes());
+    public ResponseEntity<?> downloadJobResult(@PathVariable String jobId) {
+        try {
+            ResponseEntity<byte[]> upstream = operationsJobClient.downloadJobResult(
+                    bearerTokenResolver.resolveBearerToken(),
+                    jobId);
+            return ResponseEntity.status(upstream.getStatusCode())
+                    .headers(upstream.getHeaders())
+                    .body(upstream.getBody());
+        } catch (FeignException ex) {
+            return mapFeignException(ex);
+        }
+    }
+
+    private ResponseEntity<String> mapFeignException(FeignException ex) {
+        HttpStatus status = HttpStatus.resolve(ex.status());
+        if (status == null) {
+            status = HttpStatus.BAD_GATEWAY;
+        }
+        String body = ex.contentUTF8();
+        if (body == null || body.isBlank()) {
+            body = "{\"errorCodes\":[\"server.upstream.operations\"],\"timestamp\":null}";
+        }
+        return ResponseEntity.status(status)
+                .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                .body(body);
     }
 }

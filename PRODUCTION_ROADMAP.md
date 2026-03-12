@@ -168,6 +168,10 @@ Una fase non e' `Production ready` finche' non supera tutte le verifiche:
 - Disassociazione unita' da posizione disponibile in modifica anagrafica
 - `interno` alfanumerico supportato end-to-end (core + flutter + parser documenti)
 - Flusso admin allineato a sicurezza service-to-service: Flutter chiama solo `core`, e `core` inoltra a `keycloak-service` via OpenFeign + discovery
+- Split microservizi avviato su perimetro operativo:
+  - nuovo `operations-service` come owner dei job asincroni (`/jobs`)
+  - `core` mantiene `/jobs` come facade/proxy verso `operations-service` (nessun impatto su Flutter)
+  - `operations-service` delega la business logic a `core` tramite endpoint interni signed (`/internal/operations/**`)
 - Riparto condominiale reso coerente con partecipazione opzionale per tabella
 - Error mapping FE aggiornato sui nuovi codici business (`unita in uso`, `noPartecipanti`)
 - Verticale preventivo/consuntivo disponibile con API dedicate (`/preventivi/{idCondominio}`)
@@ -249,6 +253,10 @@ Una fase non e' `Production ready` finche' non supera tutte le verifiche:
       - accesso rapido a `Coda job` da `Documenti` e `Dashboard`
     - mapping errori job allineato in `ApiError`
 - Fase 8 completata end-to-end:
+  - perimetro job estratto in microservizio dedicato:
+    - `operations-service` owner runtime job
+    - `core` facade `/jobs` + proxy OpenFeign verso `operations-service`
+    - bridge interno signed `operations -> core` per esecuzione report/solleciti/reminder
   - dashboard amministratore con pannello alert operativo dedicato (scadenze, morosita, pratiche legali) e action hint
   - reminder scadenze rate in background:
     - nuovo job `MOROSITA_REMINDER_SCADENZE`

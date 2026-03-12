@@ -23,6 +23,7 @@ LIBRARIES=(
   "mim-dto"
   "cache"
   "mim-data"
+  "operations"
   "keycloak"
   "Discovery"
   "Gateway"

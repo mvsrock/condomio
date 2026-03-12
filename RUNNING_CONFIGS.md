@@ -6,7 +6,28 @@ Questo file e' il riferimento unico per avvio locale su web, desktop e Android.
 
 - Keycloak: `http://localhost:8082` (oppure IP LAN se usi telefono fisico)
 - Core API: `http://localhost:8090` (oppure IP LAN se usi telefono fisico)
+- Operations API (job async): `http://localhost:8094`
 - Flutter app path: `condominio-ui-flutter/condominio_ui_flutter`
+
+## Backend locale (core + operations)
+
+Avvia `core`:
+
+```powershell
+cd C:\Users\marco.simone\Desktop\smartmetering\regenesy\Condomio\core
+.\mvnw.cmd spring-boot:run
+```
+
+Avvia `operations-service`:
+
+```powershell
+cd C:\Users\marco.simone\Desktop\smartmetering\regenesy\Condomio\operations
+.\mvnw.cmd spring-boot:run
+```
+
+Nota:
+- `core` espone ancora `/jobs` al Flutter, ma ora fa proxy verso `operations-service`.
+- quindi per usare job/report async devono essere attivi entrambi.
 
 ## Dove andare
 

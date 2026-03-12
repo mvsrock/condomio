@@ -1,36 +1,19 @@
 server:
-  port: 8090
+  port: 8094
 
 spring:
-  servlet:
-    multipart:
-      max-file-size: 25MB
-      max-request-size: 25MB
-  devtools:
-    restart:
-      enabled: true
- # config:
- #   import: optional:file:///C:/ciro/daje.yml
-  application:
-    name: core
   main:
     banner-mode: off
+  application:
+    name: operations-service
   security:
     oauth2:
       resource-server:
         jwt:
-       #   issuer-uri: ${keycloak.auth-server-url}/realms/${keycloak.realm}
           jwk-set-uri: ${keycloak.auth-server-url}/realms/${keycloak.realm}/protocol/openid-connect/certs
   mongodb:
     uri: ${SPRING_MONGODB_URI:${SPRING_DATA_MONGODB_URI:mongodb://localhost:27017/condomio}}
     database: ${SPRING_MONGODB_DATABASE:${SPRING_DATA_MONGODB_DATABASE:condomio}}
-  data:
-    redis:
-      host: localhost
-      port: 6379
-  cache:
-    type: redis
-
   cloud:
     discovery:
       enabled: true
@@ -45,36 +28,18 @@ eureka:
     instance-id: ${spring.application.name}
     prefer-ip-address: true
     hostname: ${spring.application.name}
-    nonSecurePort: 8090
-    app-group-name: ${spring.application.name} #quando sta in yml del ide legge questo
-
+    nonSecurePort: 8094
+    app-group-name: ${spring.application.name}
 
 keycloak:
   auth-server-url: http://localhost:8082
   realm: condominio
-  resource: admin-cli
-  credentials:
-    username: ${KEYCLOAK_USER:admin}
-    password: ${KEYCLOAK_PASS:admin}
 
 app:
-  cors:
-    allowed-origins: "*"
-  internal:
-    operations:
+  # Shared key usata per chiamare gli endpoint interni signed di core.
+  core:
+    internal:
       shared-key: ${APP_INTERNAL_OPERATIONS_SHARED_KEY:change-me-ops-key}
-  http-logging:
-    enabled: true
-    max-payload-length: 12000
-    exclude-path-prefixes: /actuator,/v3/api-docs,/swagger-ui,/favicon.ico
-  cache:
-    enabled: false
-    prefetch-pages: 5
-    default-ttl: PT1H
-  properties:
-    enabled: true
-  # Fase 8: automazioni dashboard/job asincroni completamente configurabili.
-  # Evita costanti hardcoded nel codice business.
   jobs:
     executor:
       core-pool-size: 2
@@ -103,14 +68,6 @@ app:
       nearest-due-date-pattern: ", prima scadenza %s"
       deduplicate-per-day: true
 
-
 logging:
   level:
-    "[org.springframework.security]": INFO
     "[it.condomio]": DEBUG
-    "[org.springframework.security.oauth2]": INFO
-    "[jboss.resteasy.client]": INFO
-    "[org.springframework.cache]": TRACE
-    "[org.springframework.data.redis.cache]": DEBUG
-    "[org.springframework.data.redis.core]": DEBUG
-    "[org.springframework.boot.context.config]": DEBUG
