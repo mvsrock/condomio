@@ -7,11 +7,13 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import it.condomio.config.properties.JobAutomationProperties;
 import it.condomio.controller.model.MorositaItemResource;
 import it.condomio.controller.model.MorositaSollecitoRequest;
 import it.condomio.document.Condomino;
@@ -33,14 +35,17 @@ public class MorositaService {
     private final CondominoRepository condominoRepository;
     private final TenantAccessService tenantAccessService;
     private final EsercizioGuardService esercizioGuardService;
+    private final JobAutomationProperties jobAutomationProperties;
 
     public MorositaService(
             CondominoRepository condominoRepository,
             TenantAccessService tenantAccessService,
-            EsercizioGuardService esercizioGuardService) {
+            EsercizioGuardService esercizioGuardService,
+            JobAutomationProperties jobAutomationProperties) {
         this.condominoRepository = condominoRepository;
         this.tenantAccessService = tenantAccessService;
         this.esercizioGuardService = esercizioGuardService;
+        this.jobAutomationProperties = jobAutomationProperties;
     }
 
     public List<MorositaItemResource> listByExercise(String idCondominio, String keycloakUserId) throws ApiException {
@@ -124,6 +129,20 @@ public class MorositaService {
             String idCondominio,
             int minDaysOverdue,
             String keycloakUserId) throws ApiException {
+        final JobAutomationProperties.Solleciti cfg = jobAutomationProperties.getSolleciti();
+        final String configuredChannel = normalizeBlank(cfg.getChannel());
+        final String configuredTitle = normalizeBlank(cfg.getTitle());
+        final String configuredNote = normalizeBlank(cfg.getNote());
+        final String channel = configuredChannel == null
+                ? JobAutomationProperties.DEFAULT_CHANNEL
+                : configuredChannel;
+        final String title = configuredTitle == null
+                ? JobAutomationProperties.DEFAULT_SOLLECITO_TITLE
+                : configuredTitle;
+        final String note = configuredNote == null
+                ? JobAutomationProperties.DEFAULT_SOLLECITO_NOTE
+                : configuredNote;
+
         esercizioGuardService.requireOwnedOpenExercise(idCondominio, keycloakUserId);
         List<Condomino> positions = condominoRepository.findByIdCondominio(idCondominio);
         int generated = 0;
@@ -135,21 +154,21 @@ public class MorositaService {
             if (debt.debitoScaduto <= 0d || debt.maxRitardoGiorni < Math.max(0, minDaysOverdue)) {
                 continue;
             }
-            if (alreadyAutoSollecitatoToday(position.getSolleciti())) {
+            if (cfg.isDeduplicatePerDay() && alreadyAutoSollecitatoToday(position.getSolleciti())) {
                 continue;
             }
             Condomino.Sollecito auto = new Condomino.Sollecito();
             auto.setId(UUID.randomUUID().toString());
             auto.setCreatedAt(Instant.now());
-            auto.setCanale("email");
-            auto.setTitolo("Sollecito automatico");
-            auto.setNote("Generato automaticamente per debito scaduto");
+            auto.setCanale(channel);
+            auto.setTitolo(title);
+            auto.setNote(note);
             auto.setAutomatico(Boolean.TRUE);
             condominoRepository.addSollecitoByIdAndCondominio(position.getId(), idCondominio, auto);
             Condomino.MorositaStato current = position.getMorositaStato() == null
                     ? Condomino.MorositaStato.IN_BONIS
                     : position.getMorositaStato();
-            if (current == Condomino.MorositaStato.IN_BONIS) {
+            if (cfg.isPromoteInBonisToSollecitato() && current == Condomino.MorositaStato.IN_BONIS) {
                 condominoRepository.setMorositaStatoByIdAndCondominio(
                         position.getId(),
                         idCondominio,
@@ -171,6 +190,18 @@ public class MorositaService {
             String idCondominio,
             int maxDaysAhead,
             String keycloakUserId) throws ApiException {
+        final JobAutomationProperties.Reminder cfg = jobAutomationProperties.getReminder();
+        final String configuredChannel = normalizeBlank(cfg.getChannel());
+        final String configuredTitle = normalizeBlank(cfg.getTitle());
+        final String channel = configuredChannel == null
+                ? JobAutomationProperties.DEFAULT_CHANNEL
+                : configuredChannel;
+        final String title = configuredTitle == null
+                ? JobAutomationProperties.DEFAULT_REMINDER_TITLE
+                : configuredTitle;
+        final String notePattern = normalizeBlank(cfg.getNotePattern());
+        final String nearestDueDatePattern = normalizeBlank(cfg.getNearestDueDatePattern());
+
         esercizioGuardService.requireOwnedOpenExercise(idCondominio, keycloakUserId);
         final int normalizedMaxDays = Math.max(0, maxDaysAhead);
         final LocalDate today = LocalDate.now(ZoneOffset.UTC);
@@ -182,7 +213,7 @@ public class MorositaService {
             if (position == null || position.getStatoPosizione() != Condomino.PosizioneStato.ATTIVO) {
                 continue;
             }
-            if (alreadyAutoReminderToday(position.getSolleciti())) {
+            if (cfg.isDeduplicatePerDay() && alreadyAutoReminderToday(position.getSolleciti(), title)) {
                 continue;
             }
 
@@ -221,13 +252,15 @@ public class MorositaService {
             Condomino.Sollecito reminder = new Condomino.Sollecito();
             reminder.setId(UUID.randomUUID().toString());
             reminder.setCreatedAt(Instant.now());
-            reminder.setCanale("email");
-            reminder.setTitolo("Promemoria scadenza rata");
-            reminder.setNote(
-                    "Rate in scadenza entro " + normalizedMaxDays + " giorni: "
-                            + dueSoonCount
-                            + ", scoperto totale " + round2(dueSoonAmount)
-                            + (nearestDueDate == null ? "" : ", prima scadenza " + nearestDueDate));
+            reminder.setCanale(channel);
+            reminder.setTitolo(title);
+            reminder.setNote(buildReminderNote(
+                    normalizedMaxDays,
+                    dueSoonCount,
+                    round2(dueSoonAmount),
+                    nearestDueDate,
+                    notePattern,
+                    nearestDueDatePattern));
             reminder.setAutomatico(Boolean.TRUE);
             condominoRepository.addSollecitoByIdAndCondominio(position.getId(), idCondominio, reminder);
             generated++;
@@ -360,17 +393,18 @@ public class MorositaService {
         return false;
     }
 
-    private boolean alreadyAutoReminderToday(List<Condomino.Sollecito> solleciti) {
+    private boolean alreadyAutoReminderToday(List<Condomino.Sollecito> solleciti, String reminderTitle) {
         if (solleciti == null || solleciti.isEmpty()) {
             return false;
         }
         final LocalDate today = LocalDate.now(ZoneOffset.UTC);
+        final String expectedTitle = normalizeBlank(reminderTitle);
         for (Condomino.Sollecito row : solleciti) {
             if (row == null || row.getCreatedAt() == null || !Boolean.TRUE.equals(row.getAutomatico())) {
                 continue;
             }
             final String titolo = normalizeBlank(row.getTitolo());
-            if (titolo == null || !"promemoria scadenza rata".equalsIgnoreCase(titolo)) {
+            if (titolo == null || expectedTitle == null || !expectedTitle.equalsIgnoreCase(titolo)) {
                 continue;
             }
             final LocalDate day = row.getCreatedAt().atOffset(ZoneOffset.UTC).toLocalDate();
@@ -379,6 +413,43 @@ public class MorositaService {
             }
         }
         return false;
+    }
+
+    private String buildReminderNote(
+            int maxDaysAhead,
+            int dueSoonCount,
+            double dueSoonAmount,
+            LocalDate nearestDueDate,
+            String notePattern,
+            String nearestDueDatePattern) {
+        final String basePattern = notePattern == null
+                ? JobAutomationProperties.DEFAULT_REMINDER_NOTE_PATTERN
+                : notePattern;
+        String base;
+        try {
+            base = String.format(Locale.ROOT, basePattern, maxDaysAhead, dueSoonCount, dueSoonAmount);
+        } catch (Exception ex) {
+            base = String.format(
+                    Locale.ROOT,
+                    JobAutomationProperties.DEFAULT_REMINDER_NOTE_PATTERN,
+                    maxDaysAhead,
+                    dueSoonCount,
+                    dueSoonAmount);
+        }
+        if (nearestDueDate == null) {
+            return base;
+        }
+        final String suffixPattern = nearestDueDatePattern == null
+                ? JobAutomationProperties.DEFAULT_REMINDER_NEAREST_DUE_DATE_PATTERN
+                : nearestDueDatePattern;
+        try {
+            return base + String.format(Locale.ROOT, suffixPattern, nearestDueDate);
+        } catch (Exception ex) {
+            return base + String.format(
+                    Locale.ROOT,
+                    JobAutomationProperties.DEFAULT_REMINDER_NEAREST_DUE_DATE_PATTERN,
+                    nearestDueDate);
+        }
     }
 
     private Instant lastSollecitoAt(List<Condomino.Sollecito> solleciti) {

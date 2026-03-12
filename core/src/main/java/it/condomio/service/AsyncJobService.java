@@ -19,6 +19,7 @@ import org.springframework.stereotype.Service;
 
 import com.mongodb.client.gridfs.model.GridFSFile;
 
+import it.condomio.config.properties.JobAutomationProperties;
 import it.condomio.controller.model.AsyncJobResource;
 import it.condomio.document.AsyncJob;
 import it.condomio.exception.ApiException;
@@ -43,7 +44,6 @@ public class AsyncJobService {
     private static final String CONTENT_TYPE_XLSX =
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
     private static final String CONTENT_TYPE_PDF = "application/pdf";
-    private static final int MAX_LIST_LIMIT = 200;
 
     private final AsyncJobRepository asyncJobRepository;
     private final EsercizioGuardService esercizioGuardService;
@@ -52,6 +52,7 @@ public class AsyncJobService {
     private final GridFsTemplate gridFsTemplate;
     private final GridFsOperations gridFsOperations;
     private final AsyncJobWorker asyncJobWorker;
+    private final JobAutomationProperties jobAutomationProperties;
 
     public AsyncJobService(
             AsyncJobRepository asyncJobRepository,
@@ -60,7 +61,8 @@ public class AsyncJobService {
             MorositaService morositaService,
             GridFsTemplate gridFsTemplate,
             GridFsOperations gridFsOperations,
-            AsyncJobWorker asyncJobWorker) {
+            AsyncJobWorker asyncJobWorker,
+            JobAutomationProperties jobAutomationProperties) {
         this.asyncJobRepository = asyncJobRepository;
         this.esercizioGuardService = esercizioGuardService;
         this.reportService = reportService;
@@ -68,6 +70,7 @@ public class AsyncJobService {
         this.gridFsTemplate = gridFsTemplate;
         this.gridFsOperations = gridFsOperations;
         this.asyncJobWorker = asyncJobWorker;
+        this.jobAutomationProperties = jobAutomationProperties;
     }
 
     /**
@@ -381,33 +384,48 @@ public class AsyncJobService {
     }
 
     private int normalizeMinDays(Integer minDaysOverdue) throws ValidationFailedException {
+        final JobAutomationProperties.Solleciti cfg = jobAutomationProperties.getSolleciti();
+        final int min = Math.max(0, cfg.getMinDaysOverdueMin());
+        final int max = Math.max(min, cfg.getMinDaysOverdueMax());
+        final int fallback = clamp(cfg.getDefaultMinDaysOverdue(), min, max);
         if (minDaysOverdue == null) {
-            return 1;
+            return fallback;
         }
-        if (minDaysOverdue < 0 || minDaysOverdue > 3650) {
+        if (minDaysOverdue < min || minDaysOverdue > max) {
             throw new ValidationFailedException("validation.invalid.job.minDaysOverdue");
         }
         return minDaysOverdue;
     }
 
     private int normalizeMaxDaysAhead(Integer maxDaysAhead) throws ValidationFailedException {
+        final JobAutomationProperties.Reminder cfg = jobAutomationProperties.getReminder();
+        final int min = Math.max(0, cfg.getMaxDaysAheadMin());
+        final int max = Math.max(min, cfg.getMaxDaysAheadMax());
+        final int fallback = clamp(cfg.getDefaultMaxDaysAhead(), min, max);
         if (maxDaysAhead == null) {
-            return 7;
+            return fallback;
         }
-        if (maxDaysAhead < 0 || maxDaysAhead > 365) {
+        if (maxDaysAhead < min || maxDaysAhead > max) {
             throw new ValidationFailedException("validation.invalid.job.maxDaysAhead");
         }
         return maxDaysAhead;
     }
 
     private int normalizeLimit(Integer limit) throws ValidationFailedException {
+        final JobAutomationProperties.ListConfig cfg = jobAutomationProperties.getList();
+        final int maxLimit = Math.max(1, cfg.getMaxLimit());
+        final int fallback = clamp(cfg.getDefaultLimit(), 1, maxLimit);
         if (limit == null) {
-            return 30;
+            return fallback;
         }
-        if (limit <= 0 || limit > MAX_LIST_LIMIT) {
+        if (limit <= 0 || limit > maxLimit) {
             throw new ValidationFailedException("validation.invalid.job.limit");
         }
         return limit;
+    }
+
+    private int clamp(int value, int min, int max) {
+        return Math.max(min, Math.min(max, value));
     }
 
     public record JobDownloadPayload(String fileName, String contentType, byte[] bytes) {

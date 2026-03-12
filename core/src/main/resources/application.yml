@@ -70,6 +70,35 @@ app:
     default-ttl: PT1H
   properties:
     enabled: true
+  # Fase 8: automazioni dashboard/job asincroni completamente configurabili.
+  # Evita costanti hardcoded nel codice business.
+  jobs:
+    executor:
+      core-pool-size: 2
+      max-pool-size: 8
+      queue-capacity: 200
+      await-termination-seconds: 30
+    list:
+      default-limit: 30
+      max-limit: 200
+    solleciti:
+      default-min-days-overdue: 1
+      min-days-overdue-min: 0
+      min-days-overdue-max: 3650
+      channel: email
+      title: "Sollecito automatico"
+      note: "Generato automaticamente per debito scaduto"
+      promote-in-bonis-to-sollecitato: true
+      deduplicate-per-day: true
+    reminder:
+      default-max-days-ahead: 7
+      max-days-ahead-min: 0
+      max-days-ahead-max: 365
+      channel: email
+      title: "Promemoria scadenza rata"
+      note-pattern: "Rate in scadenza entro %d giorni: %d, scoperto totale %.2f"
+      nearest-due-date-pattern: ", prima scadenza %s"
+      deduplicate-per-day: true
 
 
 logging:
