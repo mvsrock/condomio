@@ -4,10 +4,12 @@ import 'package:go_router/go_router.dart';
 
 import '../../../condominio_selection/application/managed_condominio_notifier.dart';
 import '../../../documents/data/documents_repository_provider.dart';
+import '../../../jobs/application/async_jobs_notifier.dart';
 import '../../../jobs/presentation/dialogs/async_jobs_dialog.dart';
 import '../../../registry/application/condomini_notifier.dart';
 import '../../application/dashboard_view_providers.dart';
 import '../../application/home_navigation_provider.dart';
+import '../dialogs/dashboard_automation_dialog.dart';
 
 class DashboardPage extends ConsumerWidget {
   const DashboardPage({super.key});
@@ -31,6 +33,7 @@ class DashboardPage extends ConsumerWidget {
     final recentMovimenti = ref.watch(dashboardRecentMovimentiProvider);
     final recentVersamenti = ref.watch(dashboardRecentVersamentiProvider);
     final recentSolleciti = ref.watch(dashboardRecentSollecitiProvider);
+    final alerts = ref.watch(dashboardAlertsProvider);
     final isLoading = ref.watch(dashboardDataLoadingProvider);
     final isAdmin = ref.watch(homeIsAdminProvider);
     final isWide = MediaQuery.of(context).size.width >= 1120;
@@ -193,6 +196,8 @@ class DashboardPage extends ConsumerWidget {
             },
           ),
           const SizedBox(height: 14),
+          _AlertsPanel(alerts: alerts),
+          const SizedBox(height: 14),
           if (isWide)
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -348,6 +353,46 @@ class DashboardPage extends ConsumerWidget {
                       if (isAdmin)
                         SizedBox(
                           width: buttonWidth,
+                          child: FilledButton.tonalIcon(
+                            onPressed: selected == null || selected.isClosed
+                                ? null
+                                : () => showDashboardAutomationDialog(
+                                    context: context,
+                                    onQueueAutomaticSolleciti: (minDays) {
+                                      return ref
+                                          .read(asyncJobsProvider.notifier)
+                                          .queueAutomaticSolleciti(
+                                            condominioId: selected.id,
+                                            minDaysOverdue: minDays,
+                                          );
+                                    },
+                                    onQueueReminderScadenze: (maxDaysAhead) {
+                                      return ref
+                                          .read(asyncJobsProvider.notifier)
+                                          .queueUpcomingReminders(
+                                            condominioId: selected.id,
+                                            maxDaysAhead: maxDaysAhead,
+                                          );
+                                    },
+                                    onApplyRatePlan: (templates) {
+                                      return ref
+                                          .read(documentsDataProvider.notifier)
+                                          .applyRatePlan(templates: templates);
+                                    },
+                                    onOpenJobs: () {
+                                      showAsyncJobsDialog(
+                                        context: context,
+                                        onlySelectedExercise: true,
+                                      );
+                                    },
+                                  ),
+                            icon: const Icon(Icons.auto_awesome_outlined),
+                            label: const Text('Automazioni'),
+                          ),
+                        ),
+                      if (isAdmin)
+                        SizedBox(
+                          width: buttonWidth,
                           child: OutlinedButton.icon(
                             onPressed: () => showAsyncJobsDialog(
                               context: context,
@@ -446,6 +491,99 @@ int _kpiColumnsForWidth(double width) {
   if (width < 1080) return 2;
   if (width < 1440) return 3;
   return 4;
+}
+
+class _AlertsPanel extends StatelessWidget {
+  const _AlertsPanel({required this.alerts});
+
+  final List<DashboardAlertItem> alerts;
+
+  Color _severityColor(DashboardAlertSeverity severity) {
+    switch (severity) {
+      case DashboardAlertSeverity.critical:
+        return const Color(0xFFB91C1C);
+      case DashboardAlertSeverity.warning:
+        return const Color(0xFF9A3412);
+      case DashboardAlertSeverity.info:
+        return const Color(0xFF1D4ED8);
+    }
+  }
+
+  IconData _severityIcon(DashboardAlertSeverity severity) {
+    switch (severity) {
+      case DashboardAlertSeverity.critical:
+        return Icons.error_outline;
+      case DashboardAlertSeverity.warning:
+        return Icons.warning_amber_outlined;
+      case DashboardAlertSeverity.info:
+        return Icons.info_outline;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.notification_important_outlined, size: 18),
+                SizedBox(width: 8),
+                Text(
+                  'Alert scadenze e morosita',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            ...alerts.map((alert) {
+              final color = _severityColor(alert.severity);
+              return Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: color.withValues(alpha: 0.24)),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(_severityIcon(alert.severity), size: 18, color: color),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            alert.title,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              color: color,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(alert.message),
+                          const SizedBox(height: 2),
+                          Text(
+                            alert.actionHint,
+                            style: const TextStyle(fontStyle: FontStyle.italic),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 int _actionColumnsForWidth(double width) {

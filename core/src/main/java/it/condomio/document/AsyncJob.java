@@ -31,7 +31,8 @@ public class AsyncJob {
 
     public enum Type {
         REPORT_EXPORT,
-        MOROSITA_AUTO_SOLLECITI
+        MOROSITA_AUTO_SOLLECITI,
+        MOROSITA_REMINDER_SCADENZE
     }
 
     public enum Status {
@@ -62,6 +63,7 @@ public class AsyncJob {
     private String inputFormat;
     private String inputCondominoId;
     private Integer inputMinDaysOverdue;
+    private Integer inputMaxDaysAhead;
 
     private String resultFileObjectId;
     private String resultFileName;
@@ -72,4 +74,3 @@ public class AsyncJob {
     private String message;
     private String errorCode;
 }
-

@@ -130,6 +130,8 @@ class _AsyncJobsDialogState extends ConsumerState<AsyncJobsDialog> {
         return 'Export report';
       case AsyncJobType.morositaAutoSolleciti:
         return 'Auto-solleciti';
+      case AsyncJobType.morositaReminderScadenze:
+        return 'Reminder scadenze';
       case AsyncJobType.unknown:
         return 'Tipo sconosciuto';
     }
@@ -141,6 +143,8 @@ class _AsyncJobsDialogState extends ConsumerState<AsyncJobsDialog> {
         return Icons.assessment_outlined;
       case AsyncJobType.morositaAutoSolleciti:
         return Icons.auto_fix_high_outlined;
+      case AsyncJobType.morositaReminderScadenze:
+        return Icons.notifications_active_outlined;
       case AsyncJobType.unknown:
         return Icons.help_outline;
     }
@@ -382,6 +386,18 @@ class _AsyncJobsDialogState extends ConsumerState<AsyncJobsDialog> {
                                     ),
                                 ],
                               ),
+                              if (job.inputMinDaysOverdue != null) ...[
+                                const SizedBox(height: 6),
+                                SelectableText(
+                                  'Soglia ritardo: ${job.inputMinDaysOverdue} giorni',
+                                ),
+                              ],
+                              if (job.inputMaxDaysAhead != null) ...[
+                                const SizedBox(height: 6),
+                                SelectableText(
+                                  'Finestra reminder: ${job.inputMaxDaysAhead} giorni',
+                                ),
+                              ],
                               if ((job.message ?? '').trim().isNotEmpty) ...[
                                 const SizedBox(height: 6),
                                 SelectableText(
@@ -412,6 +428,14 @@ class _AsyncJobsDialogState extends ConsumerState<AsyncJobsDialog> {
                                 const SizedBox(height: 6),
                                 SelectableText(
                                   'Solleciti creati: ${job.resultCount}',
+                                ),
+                              ],
+                              if (job.type ==
+                                      AsyncJobType.morositaReminderScadenze &&
+                                  job.resultCount != null) ...[
+                                const SizedBox(height: 6),
+                                SelectableText(
+                                  'Reminder creati: ${job.resultCount}',
                                 ),
                               ],
                             ],

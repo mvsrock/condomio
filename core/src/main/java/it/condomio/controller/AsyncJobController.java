@@ -63,6 +63,17 @@ public class AsyncJobController {
                 jwt.getSubject()));
     }
 
+    @PostMapping("/morosita/{idCondominio}/reminder-scadenze")
+    public ResponseEntity<AsyncJobResource> queueUpcomingReminder(
+            @PathVariable String idCondominio,
+            @RequestParam(required = false) Integer maxDaysAhead,
+            @AuthenticationPrincipal Jwt jwt) throws ApiException {
+        return ResponseEntity.ok(asyncJobService.queueUpcomingReminder(
+                idCondominio,
+                maxDaysAhead,
+                jwt.getSubject()));
+    }
+
     @GetMapping("/{jobId}")
     public ResponseEntity<AsyncJobResource> getJob(
             @PathVariable String jobId,
@@ -93,4 +104,3 @@ public class AsyncJobController {
                 .body(payload.bytes());
     }
 }
-

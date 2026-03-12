@@ -165,6 +165,20 @@ class ApiError implements Exception {
           'Il file non e\' ancora pronto: attendi il completamento del job.',
       'validation.invalid.job.limit': 'Limite elenco job non valido.',
       'validation.required.job.id': 'Identificativo job mancante.',
+      'validation.invalid.job.maxDaysAhead':
+          'Intervallo reminder non valido: usa un numero di giorni corretto.',
+      'validation.required.ratePlan.rate':
+          'Inserisci almeno una riga nel piano rate da applicare.',
+      'validation.required.ratePlan.activePositions':
+          'Nessuna posizione attiva trovata nell\'esercizio selezionato.',
+      'validation.required.ratePlan.template':
+          'Template rata non valido nel piano importato.',
+      'validation.required.ratePlan.template.codice':
+          'Ogni riga del piano rate deve avere un codice.',
+      'validation.invalid.ratePlan.template.importoTotale':
+          'Importo totale rata non valido in una delle righe importate.',
+      'validation.required.ratePlan.template.scadenza':
+          'Data scadenza mancante in una delle righe importate.',
     };
     final directHit = direct[code];
     if (directHit != null) return directHit;

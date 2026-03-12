@@ -1,4 +1,9 @@
-enum AsyncJobType { reportExport, morositaAutoSolleciti, unknown }
+enum AsyncJobType {
+  reportExport,
+  morositaAutoSolleciti,
+  morositaReminderScadenze,
+  unknown,
+}
 
 enum AsyncJobStatus { queued, running, done, failed, unknown }
 
@@ -14,6 +19,7 @@ class AsyncJobModel {
     required this.inputFormat,
     required this.inputCondominoId,
     required this.inputMinDaysOverdue,
+    required this.inputMaxDaysAhead,
     required this.resultFileName,
     required this.resultContentType,
     required this.resultSizeBytes,
@@ -33,6 +39,7 @@ class AsyncJobModel {
   final String? inputFormat;
   final String? inputCondominoId;
   final int? inputMinDaysOverdue;
+  final int? inputMaxDaysAhead;
   final String? resultFileName;
   final String? resultContentType;
   final int? resultSizeBytes;
@@ -56,6 +63,7 @@ class AsyncJobModel {
       inputFormat: json['inputFormat'] as String?,
       inputCondominoId: json['inputCondominoId'] as String?,
       inputMinDaysOverdue: (json['inputMinDaysOverdue'] as num?)?.toInt(),
+      inputMaxDaysAhead: (json['inputMaxDaysAhead'] as num?)?.toInt(),
       resultFileName: json['resultFileName'] as String?,
       resultContentType: json['resultContentType'] as String?,
       resultSizeBytes: (json['resultSizeBytes'] as num?)?.toInt(),
@@ -72,6 +80,8 @@ class AsyncJobModel {
         return AsyncJobType.reportExport;
       case 'MOROSITA_AUTO_SOLLECITI':
         return AsyncJobType.morositaAutoSolleciti;
+      case 'MOROSITA_REMINDER_SCADENZE':
+        return AsyncJobType.morositaReminderScadenze;
       default:
         return AsyncJobType.unknown;
     }

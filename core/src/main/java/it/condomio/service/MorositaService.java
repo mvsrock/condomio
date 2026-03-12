@@ -160,6 +160,81 @@ public class MorositaService {
         return generated;
     }
 
+    /**
+     * Crea reminder automatici per rate prossime alla scadenza.
+     *
+     * Obiettivo operativo: dare all'amministratore uno strumento proattivo
+     * (non solo reattivo su scaduto) per ridurre insoluti.
+     */
+    @Transactional
+    public int generateUpcomingReminders(
+            String idCondominio,
+            int maxDaysAhead,
+            String keycloakUserId) throws ApiException {
+        esercizioGuardService.requireOwnedOpenExercise(idCondominio, keycloakUserId);
+        final int normalizedMaxDays = Math.max(0, maxDaysAhead);
+        final LocalDate today = LocalDate.now(ZoneOffset.UTC);
+        final LocalDate until = today.plusDays(normalizedMaxDays);
+
+        List<Condomino> positions = condominoRepository.findByIdCondominio(idCondominio);
+        int generated = 0;
+        for (Condomino position : positions) {
+            if (position == null || position.getStatoPosizione() != Condomino.PosizioneStato.ATTIVO) {
+                continue;
+            }
+            if (alreadyAutoReminderToday(position.getSolleciti())) {
+                continue;
+            }
+
+            final List<Condomino.Config.Rata> rates = position.getConfig() == null
+                    ? null
+                    : position.getConfig().getRate();
+            if (rates == null || rates.isEmpty()) {
+                continue;
+            }
+
+            int dueSoonCount = 0;
+            double dueSoonAmount = 0d;
+            LocalDate nearestDueDate = null;
+            for (Condomino.Config.Rata rata : rates) {
+                if (rata == null || rata.getScadenza() == null) {
+                    continue;
+                }
+                final double scoperto = round2(safe(rata.getImporto()) - safe(rata.getIncassato()));
+                if (scoperto <= 0d) {
+                    continue;
+                }
+                final LocalDate dueDate = rata.getScadenza().atOffset(ZoneOffset.UTC).toLocalDate();
+                if (dueDate.isBefore(today) || dueDate.isAfter(until)) {
+                    continue;
+                }
+                dueSoonCount++;
+                dueSoonAmount += scoperto;
+                if (nearestDueDate == null || dueDate.isBefore(nearestDueDate)) {
+                    nearestDueDate = dueDate;
+                }
+            }
+            if (dueSoonCount <= 0) {
+                continue;
+            }
+
+            Condomino.Sollecito reminder = new Condomino.Sollecito();
+            reminder.setId(UUID.randomUUID().toString());
+            reminder.setCreatedAt(Instant.now());
+            reminder.setCanale("email");
+            reminder.setTitolo("Promemoria scadenza rata");
+            reminder.setNote(
+                    "Rate in scadenza entro " + normalizedMaxDays + " giorni: "
+                            + dueSoonCount
+                            + ", scoperto totale " + round2(dueSoonAmount)
+                            + (nearestDueDate == null ? "" : ", prima scadenza " + nearestDueDate));
+            reminder.setAutomatico(Boolean.TRUE);
+            condominoRepository.addSollecitoByIdAndCondominio(position.getId(), idCondominio, reminder);
+            generated++;
+        }
+        return generated;
+    }
+
     private MorositaItemResource toMorositaRow(Condomino position) {
         DebtSnapshot debt = computeDebt(position);
         MorositaItemResource row = new MorositaItemResource();
@@ -285,6 +360,27 @@ public class MorositaService {
         return false;
     }
 
+    private boolean alreadyAutoReminderToday(List<Condomino.Sollecito> solleciti) {
+        if (solleciti == null || solleciti.isEmpty()) {
+            return false;
+        }
+        final LocalDate today = LocalDate.now(ZoneOffset.UTC);
+        for (Condomino.Sollecito row : solleciti) {
+            if (row == null || row.getCreatedAt() == null || !Boolean.TRUE.equals(row.getAutomatico())) {
+                continue;
+            }
+            final String titolo = normalizeBlank(row.getTitolo());
+            if (titolo == null || !"promemoria scadenza rata".equalsIgnoreCase(titolo)) {
+                continue;
+            }
+            final LocalDate day = row.getCreatedAt().atOffset(ZoneOffset.UTC).toLocalDate();
+            if (today.equals(day)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private Instant lastSollecitoAt(List<Condomino.Sollecito> solleciti) {
         if (solleciti == null || solleciti.isEmpty()) {
             return null;
@@ -328,4 +424,3 @@ public class MorositaService {
             int maxRitardoGiorni) {
     }
 }
-

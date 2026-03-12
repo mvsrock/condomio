@@ -21,6 +21,7 @@ public class AsyncJobResource {
     private String inputFormat;
     private String inputCondominoId;
     private Integer inputMinDaysOverdue;
+    private Integer inputMaxDaysAhead;
 
     private String resultFileName;
     private String resultContentType;
@@ -31,4 +32,3 @@ public class AsyncJobResource {
     private String errorCode;
     private boolean resultDownloadAvailable;
 }
-

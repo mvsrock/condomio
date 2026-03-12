@@ -144,7 +144,7 @@ Una fase non e' `Production ready` finche' non supera tutte le verifiche:
 - migrazione/compatibilita' dati verificata
 - test minimi automatici sul perimetro fase
 
-## Audit stato reale (2026-03-11)
+## Audit stato reale (2026-03-12)
 
 ### Quadro sintetico
 - `Fase 0 - Hardening`: **Production ready**
@@ -155,7 +155,7 @@ Una fase non e' `Production ready` finche' non supera tutte le verifiche:
 - `Fase 5`: **Production ready**
 - `Fase 6`: **Production ready**
 - `Fase 7`: **Production ready**
-- `Fase 8`: **In sviluppo** (punto 1 chiuso end-to-end)
+- `Fase 8`: **Production ready**
 
 ### Evidenze consolidate oggi
 - Dominio base multi-esercizio presente (`condominio root + esercizio + condomino root + posizione`)
@@ -248,11 +248,26 @@ Una fase non e' `Production ready` finche' non supera tutte le verifiche:
       - morosita: auto-solleciti accodati in background
       - accesso rapido a `Coda job` da `Documenti` e `Dashboard`
     - mapping errori job allineato in `ApiError`
+- Fase 8 completata end-to-end:
+  - dashboard amministratore con pannello alert operativo dedicato (scadenze, morosita, pratiche legali) e action hint
+  - reminder scadenze rate in background:
+    - nuovo job `MOROSITA_REMINDER_SCADENZE`
+    - endpoint `POST /jobs/morosita/{idCondominio}/reminder-scadenze`
+    - output tracciato in coda job (count reminder creati)
+  - azioni massive operative:
+    - applicazione piano rate in blocco su tutte le posizioni attive dell'esercizio (`POST /condomino/rate-plan/{idCondominio}`)
+  - import guidato:
+    - dialog automazioni in dashboard con parser CSV guidato, anteprima e validazione righe
+    - applicazione piano rate dal CSV con refresh dataset e sync cross-modulo
+  - UX operativa:
+    - bottone `Automazioni` in dashboard (admin, esercizio aperto)
+    - reminder/auto-solleciti accodabili direttamente da dashboard
+    - accesso rapido alla coda job dalla stessa modale
 
 ### Gap per diventare realmente vendibile
 - Hardening error UX ancora incompleto in piu' punti operativi
 - Alcuni flussi admin sono completi funzionalmente ma non ancora rifiniti come UX business-grade
-- Mancano verticali fondamentali lato utente finale: automazioni avanzate
+- Mancano verticali avanzati oltre fase 8 (workflow multi-step studio, notifiche multi-canale reali, metriche SLA)
 
 ## Principi di rilascio
 
@@ -499,7 +514,7 @@ Aprire il prodotto agli utenti finali senza esporre la complessita' amministrati
 ## Fase 8 - Dashboard e automazioni
 
 ### Stato
-In sviluppo
+Production ready
 
 ### Obiettivo
 Ridurre il lavoro manuale e rendere il prodotto un cockpit operativo.
@@ -516,6 +531,21 @@ Ridurre il lavoro manuale e rendere il prodotto un cockpit operativo.
 - job asincroni production-grade disponibili su backend (`async_job` + API + GridFS)
 - coda job disponibile lato Flutter con monitoraggio e download risultato
 - export report e auto-solleciti spostati da flusso bloccante a esecuzione in background
+
+### Chiusura fase
+- dashboard amministratore completata con:
+  - KPI esercizio
+  - timeline attivita'
+  - pannello alert scadenze/morosita con severity
+  - quick actions contestuali
+- automazioni operative completate:
+  - auto-solleciti in background
+  - reminder scadenze in background
+  - coda job monitorabile con esito e download output
+- azioni massive e import guidato completati:
+  - import CSV guidato piano rate (preview + validazione)
+  - applicazione bulk piano rate su posizioni attive esercizio
+  - refresh coerente su documenti/anagrafica/dashboard
 
 ## Tracce tecniche continue
 

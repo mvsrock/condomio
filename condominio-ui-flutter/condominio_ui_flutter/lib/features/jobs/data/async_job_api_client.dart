@@ -90,6 +90,26 @@ class AsyncJobApiClient {
     return AsyncJobModel.fromJson(raw);
   }
 
+  Future<AsyncJobModel> queueUpcomingReminders({
+    required String accessToken,
+    required String condominioId,
+    required int maxDaysAhead,
+  }) async {
+    final response = await http.post(
+      _uriWithQuery('/jobs/morosita/$condominioId/reminder-scadenze', {
+        'maxDaysAhead': '$maxDaysAhead',
+      }),
+      headers: _headers(accessToken),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      _throwHttpError('queueUpcomingReminderJob', response);
+    }
+    final raw =
+        (jsonDecode(response.body) as Map?)?.cast<String, dynamic>() ??
+        const <String, dynamic>{};
+    return AsyncJobModel.fromJson(raw);
+  }
+
   Future<DocumentoDownloadModel> downloadResult({
     required String accessToken,
     required String jobId,

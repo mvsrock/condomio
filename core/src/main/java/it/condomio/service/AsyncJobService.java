@@ -127,6 +127,33 @@ public class AsyncJobService {
         return toResource(saved);
     }
 
+    /**
+     * Accoda reminder scadenze rate asincrono.
+     */
+    public AsyncJobResource queueUpcomingReminder(
+            String idCondominio,
+            Integer maxDaysAhead,
+            String requesterKeycloakUserId) throws ApiException {
+        final String exerciseId = requireNonBlank(idCondominio, "validation.required.job.idCondominio");
+        final int normalizedMaxDaysAhead = normalizeMaxDaysAhead(maxDaysAhead);
+
+        // Operazione mutativa: consentita solo su esercizio owned e aperto.
+        esercizioGuardService.requireOwnedOpenExercise(exerciseId, requesterKeycloakUserId);
+
+        AsyncJob payload = new AsyncJob();
+        payload.setRequesterKeycloakUserId(requesterKeycloakUserId);
+        payload.setIdCondominio(exerciseId);
+        payload.setType(AsyncJob.Type.MOROSITA_REMINDER_SCADENZE);
+        payload.setStatus(AsyncJob.Status.QUEUED);
+        payload.setCreatedAt(Instant.now());
+        payload.setInputMaxDaysAhead(normalizedMaxDaysAhead);
+        payload.setMessage("Job accodato");
+
+        AsyncJob saved = asyncJobRepository.save(payload);
+        asyncJobWorker.process(saved.getId());
+        return toResource(saved);
+    }
+
     public AsyncJobResource getJob(String jobId, String requesterKeycloakUserId) throws ApiException {
         return toResource(loadOwnedJob(jobId, requesterKeycloakUserId));
     }
@@ -177,6 +204,8 @@ public class AsyncJobService {
                 executeReportExport(job);
             } else if (job.getType() == AsyncJob.Type.MOROSITA_AUTO_SOLLECITI) {
                 executeAutomaticSolleciti(job);
+            } else if (job.getType() == AsyncJob.Type.MOROSITA_REMINDER_SCADENZE) {
+                executeReminderScadenze(job);
             } else {
                 fail(job, "validation.invalid.job.type", "Tipo job non supportato");
                 return;
@@ -237,6 +266,21 @@ public class AsyncJobService {
         job.setErrorCode(null);
     }
 
+    private void executeReminderScadenze(AsyncJob job) throws ApiException {
+        final int maxDaysAhead = normalizeMaxDaysAhead(job.getInputMaxDaysAhead());
+        final int created = morositaService.generateUpcomingReminders(
+                job.getIdCondominio(),
+                maxDaysAhead,
+                job.getRequesterKeycloakUserId());
+        job.setResultCount(created);
+        job.setResultFileObjectId(null);
+        job.setResultFileName(null);
+        job.setResultContentType(null);
+        job.setResultSizeBytes(null);
+        job.setMessage("Reminder creati: " + created);
+        job.setErrorCode(null);
+    }
+
     private String storeJobResult(AsyncJob job, String fileName, String contentType, byte[] bytes) throws IOException {
         try (InputStream stream = new ByteArrayInputStream(bytes)) {
             Document metadata = new Document();
@@ -289,6 +333,7 @@ public class AsyncJobService {
         out.setInputFormat(job.getInputFormat());
         out.setInputCondominoId(job.getInputCondominoId());
         out.setInputMinDaysOverdue(job.getInputMinDaysOverdue());
+        out.setInputMaxDaysAhead(job.getInputMaxDaysAhead());
         out.setResultFileName(job.getResultFileName());
         out.setResultContentType(job.getResultContentType());
         out.setResultSizeBytes(job.getResultSizeBytes());
@@ -343,6 +388,16 @@ public class AsyncJobService {
             throw new ValidationFailedException("validation.invalid.job.minDaysOverdue");
         }
         return minDaysOverdue;
+    }
+
+    private int normalizeMaxDaysAhead(Integer maxDaysAhead) throws ValidationFailedException {
+        if (maxDaysAhead == null) {
+            return 7;
+        }
+        if (maxDaysAhead < 0 || maxDaysAhead > 365) {
+            throw new ValidationFailedException("validation.invalid.job.maxDaysAhead");
+        }
+        return maxDaysAhead;
     }
 
     private int normalizeLimit(Integer limit) throws ValidationFailedException {

@@ -650,6 +650,44 @@ class DocumentsDataNotifier extends StateNotifier<DocumentsDataState> {
     }
   }
 
+  /// Applica un piano rate in blocco su tutte le posizioni attive
+  /// dell'esercizio selezionato.
+  Future<void> applyRatePlan({
+    required List<RatePlanTemplateDraft> templates,
+  }) async {
+    state = state.copyWith(isSaving: true, clearErrorMessage: true);
+    try {
+      _ensureSelectedExerciseWritable();
+      final token = _requireAccessToken();
+      final condominioId = _requireSelectedCondominioId();
+      await _api.applyRatePlan(
+        accessToken: token,
+        condominioId: condominioId,
+        templates: templates.map((row) => row.toJson()).toList(growable: false),
+      );
+      state = state.copyWith(isSaving: false);
+      await _refreshSelectedCondominioData(
+        includeCondomini: true,
+        includeMorosita: true,
+      );
+      _ref
+          .read(exerciseRefreshProvider.notifier)
+          .publish(
+            exerciseId: condominioId,
+            scopes: const {ExerciseRefreshScope.registryItems},
+          );
+    } catch (e, st) {
+      if (e is ApiError) {
+        debugPrint('[DOCUMENTS][applyRatePlan] ${e.technicalMessage}');
+      } else {
+        debugPrint('[DOCUMENTS][applyRatePlan] $e');
+      }
+      debugPrint('$st');
+      state = state.copyWith(isSaving: false, errorMessage: '$e');
+      rethrow;
+    }
+  }
+
   /// Ricarica solo la vista morosita' per l'esercizio selezionato.
   ///
   /// Usato dal dialog morosita' per riflettere subito gli aggiornamenti
@@ -1423,6 +1461,33 @@ class PreventivoRowDraft {
       'codiceTabella': codiceTabella.trim(),
       'descrizioneTabella': descrizioneTabella.trim(),
       'preventivo': preventivo,
+    };
+  }
+}
+
+/// Template rata usato per import guidato / azioni massive esercizio.
+class RatePlanTemplateDraft {
+  const RatePlanTemplateDraft({
+    required this.codice,
+    required this.descrizione,
+    required this.tipo,
+    required this.scadenza,
+    required this.importoTotale,
+  });
+
+  final String codice;
+  final String descrizione;
+  final String tipo;
+  final DateTime scadenza;
+  final double importoTotale;
+
+  Map<String, dynamic> toJson() {
+    return {
+      'codice': codice.trim(),
+      'descrizione': descrizione.trim(),
+      'tipo': tipo.trim().isEmpty ? 'ORDINARIA' : tipo.trim(),
+      'scadenza': scadenza.toUtc().toIso8601String(),
+      'importoTotale': importoTotale,
     };
   }
 }

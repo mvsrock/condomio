@@ -158,6 +158,37 @@ class AsyncJobsNotifier extends StateNotifier<AsyncJobsState> {
     }
   }
 
+  Future<AsyncJobModel> queueUpcomingReminders({
+    required int maxDaysAhead,
+    String? condominioId,
+  }) async {
+    state = state.copyWith(isQueueing: true, clearErrorMessage: true);
+    try {
+      final token = _requireAccessToken();
+      final exerciseId =
+          _normalize(condominioId) ?? _requireSelectedCondominioId();
+      final job = await _api.queueUpcomingReminders(
+        accessToken: token,
+        condominioId: exerciseId,
+        maxDaysAhead: maxDaysAhead,
+      );
+      _upsertJob(job);
+      state = state.copyWith(isQueueing: false);
+      return job;
+    } catch (e, st) {
+      if (e is ApiError) {
+        debugPrint(
+          '[ASYNC_JOBS][queueUpcomingReminders] ${e.technicalMessage}',
+        );
+      } else {
+        debugPrint('[ASYNC_JOBS][queueUpcomingReminders] $e');
+      }
+      debugPrint('$st');
+      state = state.copyWith(isQueueing: false, errorMessage: '$e');
+      rethrow;
+    }
+  }
+
   Future<DocumentoDownloadModel> downloadResult({required String jobId}) async {
     try {
       final token = _requireAccessToken();

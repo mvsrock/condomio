@@ -549,6 +549,23 @@ class DocumentsApiClient {
     return int.tryParse(payload.toString()) ?? 0;
   }
 
+  /// Applica un piano rate in blocco su tutte le posizioni attive
+  /// dell'esercizio selezionato.
+  Future<void> applyRatePlan({
+    required String accessToken,
+    required String condominioId,
+    required List<Map<String, dynamic>> templates,
+  }) async {
+    final response = await http.post(
+      _uri('/condomino/rate-plan/$condominioId'),
+      headers: _headers(accessToken),
+      body: jsonEncode({'rate': templates}),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      _throwHttpError('applyRatePlan', response);
+    }
+  }
+
   Future<void> createTabella({
     required String accessToken,
     required String condominioId,

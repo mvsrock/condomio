@@ -84,6 +84,23 @@ class DashboardKpi {
   final int rateScadenza30;
 }
 
+enum DashboardAlertSeverity { info, warning, critical }
+
+/// Alert operativo sintetico per dashboard amministratore.
+class DashboardAlertItem {
+  const DashboardAlertItem({
+    required this.severity,
+    required this.title,
+    required this.message,
+    required this.actionHint,
+  });
+
+  final DashboardAlertSeverity severity;
+  final String title;
+  final String message;
+  final String actionHint;
+}
+
 final dashboardKpiProvider = Provider<DashboardKpi>((ref) {
   final exercise = ref.watch(selectedManagedCondominioProvider);
   final morosita = ref.watch(selectedMorositaItemsProvider);
@@ -194,6 +211,64 @@ final dashboardRecentSollecitiProvider =
       rows.sort((left, right) => right.createdAt.compareTo(left.createdAt));
       return rows.take(5).toList(growable: false);
     });
+
+final dashboardAlertsProvider = Provider<List<DashboardAlertItem>>((ref) {
+  final kpi = ref.watch(dashboardKpiProvider);
+  final morosita = ref.watch(selectedMorositaItemsProvider);
+  final alerts = <DashboardAlertItem>[];
+
+  if (kpi.debitoScadutoTotale > 0) {
+    final top = [...morosita]
+      ..sort((a, b) => b.debitoScaduto.compareTo(a.debitoScaduto));
+    final topName = top.isEmpty ? '' : top.first.nominativo;
+    alerts.add(
+      DashboardAlertItem(
+        severity: DashboardAlertSeverity.critical,
+        title: 'Morosita scaduta',
+        message:
+            '${kpi.morosiTotali} posizioni con debito scaduto (${kpi.debitoScadutoTotale.toStringAsFixed(2)}).'
+            '${topName.isEmpty ? '' : ' Maggiore esposizione: $topName.'}',
+        actionHint: 'Apri Automazioni e accoda auto-solleciti.',
+      ),
+    );
+  }
+
+  if (kpi.rateScadenza7 > 0) {
+    alerts.add(
+      DashboardAlertItem(
+        severity: DashboardAlertSeverity.warning,
+        title: 'Rate in scadenza entro 7 giorni',
+        message:
+            '${kpi.rateScadenza7} rate in prossima scadenza richiedono reminder operativo.',
+        actionHint: 'Accoda reminder scadenze (7 giorni).',
+      ),
+    );
+  }
+
+  if (kpi.praticheLegale > 0) {
+    alerts.add(
+      DashboardAlertItem(
+        severity: DashboardAlertSeverity.warning,
+        title: 'Pratiche legali aperte',
+        message: '${kpi.praticheLegale} posizioni in stato legale.',
+        actionHint: 'Verifica cronologia solleciti e documentazione.',
+      ),
+    );
+  }
+
+  if (alerts.isEmpty) {
+    alerts.add(
+      const DashboardAlertItem(
+        severity: DashboardAlertSeverity.info,
+        title: 'Nessuna urgenza',
+        message: 'Non risultano alert critici su scadenze e morosita.',
+        actionHint: 'Monitora la coda job e aggiorna periodicamente i dati.',
+      ),
+    );
+  }
+
+  return alerts;
+});
 
 /// Mostra se i provider principali anagrafica/documenti stanno caricando.
 final dashboardDataLoadingProvider = Provider<bool>((ref) {
