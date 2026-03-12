@@ -4,10 +4,12 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
 /**
- * Configurazione runtime delle automazioni Fase 8.
+ * Configurazione runtime automazioni morosita' usate dal dominio core.
  *
- * Tutti i valori hanno fallback di sicurezza per evitare NPE o bootstrap failure
- * in assenza di override su application.yml / variabili ambiente.
+ * Nota architetturale:
+ * - da quando i job asincroni sono stati estratti in operations-service,
+ *   nel core restano solo le proprieta' realmente usate dalla business logic
+ *   di solleciti/reminder (niente executor/list job).
  */
 @Component
 @ConfigurationProperties(prefix = "app.jobs")
@@ -21,18 +23,8 @@ public class JobAutomationProperties {
             "Rate in scadenza entro %d giorni: %d, scoperto totale %.2f";
     public static final String DEFAULT_REMINDER_NEAREST_DUE_DATE_PATTERN = ", prima scadenza %s";
 
-    private final Executor executor = new Executor();
-    private final ListConfig list = new ListConfig();
     private final Solleciti solleciti = new Solleciti();
     private final Reminder reminder = new Reminder();
-
-    public Executor getExecutor() {
-        return executor;
-    }
-
-    public ListConfig getList() {
-        return list;
-    }
 
     public Solleciti getSolleciti() {
         return solleciti;
@@ -40,66 +32,6 @@ public class JobAutomationProperties {
 
     public Reminder getReminder() {
         return reminder;
-    }
-
-    public static class Executor {
-        private int corePoolSize = 2;
-        private int maxPoolSize = 8;
-        private int queueCapacity = 200;
-        private int awaitTerminationSeconds = 30;
-
-        public int getCorePoolSize() {
-            return corePoolSize;
-        }
-
-        public void setCorePoolSize(int corePoolSize) {
-            this.corePoolSize = corePoolSize;
-        }
-
-        public int getMaxPoolSize() {
-            return maxPoolSize;
-        }
-
-        public void setMaxPoolSize(int maxPoolSize) {
-            this.maxPoolSize = maxPoolSize;
-        }
-
-        public int getQueueCapacity() {
-            return queueCapacity;
-        }
-
-        public void setQueueCapacity(int queueCapacity) {
-            this.queueCapacity = queueCapacity;
-        }
-
-        public int getAwaitTerminationSeconds() {
-            return awaitTerminationSeconds;
-        }
-
-        public void setAwaitTerminationSeconds(int awaitTerminationSeconds) {
-            this.awaitTerminationSeconds = awaitTerminationSeconds;
-        }
-    }
-
-    public static class ListConfig {
-        private int defaultLimit = 30;
-        private int maxLimit = 200;
-
-        public int getDefaultLimit() {
-            return defaultLimit;
-        }
-
-        public void setDefaultLimit(int defaultLimit) {
-            this.defaultLimit = defaultLimit;
-        }
-
-        public int getMaxLimit() {
-            return maxLimit;
-        }
-
-        public void setMaxLimit(int maxLimit) {
-            this.maxLimit = maxLimit;
-        }
     }
 
     public static class Solleciti {

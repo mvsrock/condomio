@@ -9,6 +9,8 @@ import java.util.Optional;
 
 import org.bson.Document;
 import org.bson.types.ObjectId;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
@@ -19,6 +21,7 @@ import org.springframework.stereotype.Service;
 
 import com.mongodb.client.gridfs.model.GridFSFile;
 
+import io.micrometer.core.instrument.MeterRegistry;
 import feign.FeignException;
 import it.condomio.client.core.CoreOperationsClient;
 import it.condomio.client.core.model.CoreAutomaticSollecitiRequest;
@@ -45,6 +48,7 @@ import it.condomio.repository.AsyncJobRepository;
  */
 @Service
 public class AsyncJobService {
+    private static final Logger LOG = LoggerFactory.getLogger(AsyncJobService.class);
 
     public static final String REPORT_FORMAT_XLSX = "xlsx";
     public static final String REPORT_FORMAT_PDF = "pdf";
@@ -60,6 +64,7 @@ public class AsyncJobService {
     private final CoreOperationsClient coreOperationsClient;
     private final CoreInternalBridgeProperties coreInternalBridgeProperties;
     private final JobAutomationProperties jobAutomationProperties;
+    private final MeterRegistry meterRegistry;
 
     public AsyncJobService(
             AsyncJobRepository asyncJobRepository,
@@ -68,7 +73,8 @@ public class AsyncJobService {
             AsyncJobWorker asyncJobWorker,
             CoreOperationsClient coreOperationsClient,
             CoreInternalBridgeProperties coreInternalBridgeProperties,
-            JobAutomationProperties jobAutomationProperties) {
+            JobAutomationProperties jobAutomationProperties,
+            MeterRegistry meterRegistry) {
         this.asyncJobRepository = asyncJobRepository;
         this.gridFsTemplate = gridFsTemplate;
         this.gridFsOperations = gridFsOperations;
@@ -76,6 +82,7 @@ public class AsyncJobService {
         this.coreOperationsClient = coreOperationsClient;
         this.coreInternalBridgeProperties = coreInternalBridgeProperties;
         this.jobAutomationProperties = jobAutomationProperties;
+        this.meterRegistry = meterRegistry;
     }
 
     public AsyncJobResource queueReportExport(
@@ -98,6 +105,7 @@ public class AsyncJobService {
         payload.setMessage("Job accodato");
 
         AsyncJob saved = asyncJobRepository.save(payload);
+        recordQueued(saved);
         asyncJobWorker.process(saved.getId());
         return toResource(saved);
     }
@@ -119,6 +127,7 @@ public class AsyncJobService {
         payload.setMessage("Job accodato");
 
         AsyncJob saved = asyncJobRepository.save(payload);
+        recordQueued(saved);
         asyncJobWorker.process(saved.getId());
         return toResource(saved);
     }
@@ -140,6 +149,7 @@ public class AsyncJobService {
         payload.setMessage("Job accodato");
 
         AsyncJob saved = asyncJobRepository.save(payload);
+        recordQueued(saved);
         asyncJobWorker.process(saved.getId());
         return toResource(saved);
     }
@@ -310,12 +320,28 @@ public class AsyncJobService {
         job.setFinishedAt(null);
         job.setMessage("Job in esecuzione");
         asyncJobRepository.save(job);
+        meterRegistry.counter("condomio.jobs.running", "type", job.getType().name()).increment();
+        LOG.info(
+                "[OPS_JOBS] RUNNING id={} type={} condominio={} requester={}",
+                job.getId(),
+                job.getType(),
+                job.getIdCondominio(),
+                job.getRequesterKeycloakUserId());
     }
 
     private void complete(AsyncJob job) {
         job.setStatus(AsyncJob.Status.DONE);
         job.setFinishedAt(Instant.now());
         asyncJobRepository.save(job);
+        recordTerminalMetrics(job, "done");
+        LOG.info(
+                "[OPS_JOBS] DONE id={} type={} condominio={} requester={} resultCount={} file={}",
+                job.getId(),
+                job.getType(),
+                job.getIdCondominio(),
+                job.getRequesterKeycloakUserId(),
+                job.getResultCount(),
+                job.getResultFileName());
     }
 
     private void fail(AsyncJob job, String errorCode, String message) {
@@ -324,6 +350,15 @@ public class AsyncJobService {
         job.setErrorCode(errorCode);
         job.setMessage(message);
         asyncJobRepository.save(job);
+        recordTerminalMetrics(job, "failed");
+        LOG.warn(
+                "[OPS_JOBS] FAILED id={} type={} condominio={} requester={} errorCode={} message={}",
+                job.getId(),
+                job.getType(),
+                job.getIdCondominio(),
+                job.getRequesterKeycloakUserId(),
+                errorCode,
+                message);
     }
 
     private AsyncJob loadOwnedJob(String jobId, String requesterKeycloakUserId) throws ApiException {
@@ -461,6 +496,26 @@ public class AsyncJobService {
 
     private int clamp(int value, int min, int max) {
         return Math.max(min, Math.min(max, value));
+    }
+
+    private void recordQueued(AsyncJob job) {
+        meterRegistry.counter("condomio.jobs.queued", "type", job.getType().name()).increment();
+        LOG.info(
+                "[OPS_JOBS] QUEUED id={} type={} condominio={} requester={}",
+                job.getId(),
+                job.getType(),
+                job.getIdCondominio(),
+                job.getRequesterKeycloakUserId());
+    }
+
+    private void recordTerminalMetrics(AsyncJob job, String outcome) {
+        meterRegistry.counter("condomio.jobs.completed", "type", job.getType().name(), "outcome", outcome).increment();
+        if (job.getStartedAt() == null || job.getFinishedAt() == null) {
+            return;
+        }
+        long durationMs = Math.max(0L, job.getFinishedAt().toEpochMilli() - job.getStartedAt().toEpochMilli());
+        meterRegistry.timer("condomio.jobs.duration", "type", job.getType().name(), "outcome", outcome)
+                .record(java.time.Duration.ofMillis(durationMs));
     }
 
     public record JobDownloadPayload(String fileName, String contentType, byte[] bytes) {

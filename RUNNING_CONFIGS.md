@@ -15,6 +15,7 @@ Avvia `core`:
 
 ```powershell
 cd C:\Users\marco.simone\Desktop\smartmetering\regenesy\Condomio\core
+$env:APP_INTERNAL_OPERATIONS_SHARED_KEY="change-me-ops-key"
 .\mvnw.cmd spring-boot:run
 ```
 
@@ -22,6 +23,7 @@ Avvia `operations-service`:
 
 ```powershell
 cd C:\Users\marco.simone\Desktop\smartmetering\regenesy\Condomio\operations
+$env:APP_INTERNAL_OPERATIONS_SHARED_KEY="change-me-ops-key"
 .\mvnw.cmd spring-boot:run
 ```
 

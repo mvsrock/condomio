@@ -76,14 +76,6 @@ app:
   # Fase 8: automazioni dashboard/job asincroni completamente configurabili.
   # Evita costanti hardcoded nel codice business.
   jobs:
-    executor:
-      core-pool-size: 2
-      max-pool-size: 8
-      queue-capacity: 200
-      await-termination-seconds: 30
-    list:
-      default-limit: 30
-      max-limit: 200
     solleciti:
       default-min-days-overdue: 1
       min-days-overdue-min: 0

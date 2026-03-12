@@ -1,0 +1,45 @@
+services:
+  core-ms:
+    image: core
+    environment:
+      SERVER_PORT: 8090
+      SPRING_APPLICATION_NAME: core
+      SPRING_MAIN_BANNER-MODE: "off"
+
+      SPRING_DATA_MONGODB_URI: mongodb://myuser:mypassword@mongodb:27017/mimdb?authSource=admin&replicaSet=rs0
+      SPRING_DATA_MONGODB_DATABASE: mimdb
+
+      SPRING_CLOUD_DISCOVERY_ENABLED: "true"
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discoveryservice:8761/eureka
+      EUREKA_CLIENT_REGISTER-WITH-EUREKA: "true"
+      EUREKA_CLIENT_FETCH-REGISTRY: "true"
+      EUREKA_INSTANCE_HOSTNAME: core-ms
+      EUREKA_INSTANCE_PREFER-IP-ADDRESS: "false"
+      EUREKA_INSTANCE_NON-SECURE-PORT: 8090
+
+      KEYCLOAK_AUTH-SERVER-URL: http://keycloak:8082
+      KEYCLOAK_REALM: condominio
+      SPRING_SECURITY_OAUTH2_RESOURCE-SERVER_JWT_JWK-SET-URI: http://keycloak:8082/realms/condominio/protocol/openid-connect/certs
+
+      SPRING_CACHE_TYPE: none
+      APP_INTERNAL_OPERATIONS_SHARED_KEY: ${APP_INTERNAL_OPERATIONS_SHARED_KEY:-change-me-ops-key}
+      APP_CORS_ALLOWED-ORIGINS: "*"
+      APP_PROPERTIES_ENABLED: "true"
+
+    ports:
+      - target: 8090
+        published: 8090
+        mode: host
+    networks:
+      - keycloak-network
+      - mongo-net
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+
+networks:
+  keycloak-network:
+  mongo-net:
+    external: true
+    name: DB_mongo-net

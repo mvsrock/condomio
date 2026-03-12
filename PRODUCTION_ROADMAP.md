@@ -172,6 +172,9 @@ Una fase non e' `Production ready` finche' non supera tutte le verifiche:
   - nuovo `operations-service` come owner dei job asincroni (`/jobs`)
   - `core` mantiene `/jobs` come facade/proxy verso `operations-service` (nessun impatto su Flutter)
   - `operations-service` delega la business logic a `core` tramite endpoint interni signed (`/internal/operations/**`)
+  - bonifica legacy completata su `core`: rimossi service/repository/document asincroni locali duplicati
+  - observability minima su `operations-service`: metriche `queued/running/completed/duration` + log lifecycle job
+  - deploy stack allineato: aggiunti compose dedicati per `core` e `operations-service`
 - Riparto condominiale reso coerente con partecipazione opzionale per tabella
 - Error mapping FE aggiornato sui nuovi codici business (`unita in uso`, `noPartecipanti`)
 - Verticale preventivo/consuntivo disponibile con API dedicate (`/preventivi/{idCondominio}`)

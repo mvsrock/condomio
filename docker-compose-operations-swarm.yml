@@ -1,0 +1,42 @@
+services:
+  operations-ms:
+    image: operations
+    environment:
+      SERVER_PORT: 8094
+      SPRING_APPLICATION_NAME: operations-service
+      SPRING_MAIN_BANNER-MODE: "off"
+
+      SPRING_DATA_MONGODB_URI: mongodb://myuser:mypassword@mongodb:27017/mimdb?authSource=admin&replicaSet=rs0
+      SPRING_DATA_MONGODB_DATABASE: mimdb
+
+      SPRING_CLOUD_DISCOVERY_ENABLED: "true"
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discoveryservice:8761/eureka
+      EUREKA_CLIENT_REGISTER-WITH-EUREKA: "true"
+      EUREKA_CLIENT_FETCH-REGISTRY: "true"
+      EUREKA_INSTANCE_HOSTNAME: operations-ms
+      EUREKA_INSTANCE_PREFER-IP-ADDRESS: "false"
+      EUREKA_INSTANCE_NON-SECURE-PORT: 8094
+
+      KEYCLOAK_AUTH-SERVER-URL: http://keycloak:8082
+      KEYCLOAK_REALM: condominio
+      SPRING_SECURITY_OAUTH2_RESOURCE-SERVER_JWT_JWK-SET-URI: http://keycloak:8082/realms/condominio/protocol/openid-connect/certs
+
+      APP_INTERNAL_OPERATIONS_SHARED_KEY: ${APP_INTERNAL_OPERATIONS_SHARED_KEY:-change-me-ops-key}
+
+    ports:
+      - target: 8094
+        published: 8094
+        mode: host
+    networks:
+      - keycloak-network
+      - mongo-net
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+
+networks:
+  keycloak-network:
+  mongo-net:
+    external: true
+    name: DB_mongo-net

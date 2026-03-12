@@ -71,3 +71,9 @@ app:
 logging:
   level:
     "[it.condomio]": DEBUG
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics

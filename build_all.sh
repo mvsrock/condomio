@@ -23,6 +23,7 @@ LIBRARIES=(
   "mim-dto"
   "cache"
   "mim-data"
+  "core"
   "operations"
   "keycloak"
   "Discovery"
@@ -49,6 +50,8 @@ done
 
 
 declare -A DOCKER_SERVICES=(
+  ["core"]="core"
+  ["operations"]="operations"
   ["keycloak"]="admin"
    ["Discovery"]="discovery"
    ["Gateway"]="gateway"

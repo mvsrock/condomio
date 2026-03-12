@@ -35,7 +35,7 @@ echo "Stack '$STACK_DB' avviato con successo!"
 
 echo
 echo " Deploy dello stack '$STACK_MIM'..."
-docker stack deploy -c docker-compose-common-swarm.yml    -c docker-compose-keycloak-swarm.yml -c docker-compose-discovery-swarm.yml -c docker-compose-gateway-swarm.yml -c docker-compose-redis-swarm.yml   -c docker-compose-admin-swarm.yml -c docker-compose-angular-swarm.yml "$STACK_MIM"
+docker stack deploy -c docker-compose-common-swarm.yml -c docker-compose-keycloak-swarm.yml -c docker-compose-discovery-swarm.yml -c docker-compose-gateway-swarm.yml -c docker-compose-redis-swarm.yml -c docker-compose-admin-swarm.yml -c docker-compose-core-swarm.yml -c docker-compose-operations-swarm.yml -c docker-compose-angular-swarm.yml "$STACK_MIM"
 echo "Stack '$STACK_MIM' avviato con successo!"
 
 
