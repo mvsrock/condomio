@@ -17,10 +17,7 @@ class CondominioSelectionErrorCard extends StatelessWidget {
       color: Colors.red.shade50,
       child: Padding(
         padding: const EdgeInsets.all(12),
-        child: Text(
-          message,
-          style: TextStyle(color: Colors.red.shade900),
-        ),
+        child: Text(message, style: TextStyle(color: Colors.red.shade900)),
       ),
     );
   }
@@ -97,8 +94,12 @@ class _OverviewPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final baseColor = emphasized ? const Color(0xFF155E75) : const Color(0xFF334155);
-    final background = emphasized ? const Color(0xFFE3F0F4) : const Color(0xFFF1F5F9);
+    final baseColor = emphasized
+        ? const Color(0xFF155E75)
+        : const Color(0xFF334155);
+    final background = emphasized
+        ? const Color(0xFFE3F0F4)
+        : const Color(0xFFF1F5F9);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
@@ -110,11 +111,16 @@ class _OverviewPill extends StatelessWidget {
         children: [
           Icon(icon, size: 16, color: baseColor),
           const SizedBox(width: 6),
-          Text(
-            '$label: $value',
-            style: TextStyle(
-              color: baseColor,
-              fontWeight: emphasized ? FontWeight.w700 : FontWeight.w600,
+          Flexible(
+            child: Text(
+              '$label: $value',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              softWrap: false,
+              style: TextStyle(
+                color: baseColor,
+                fontWeight: emphasized ? FontWeight.w700 : FontWeight.w600,
+              ),
             ),
           ),
         ],
@@ -241,7 +247,8 @@ class ManagedCondominiiCard extends StatelessWidget {
                     children: [
                       if (canCreate)
                         OutlinedButton.icon(
-                          onPressed: selectedId == null ||
+                          onPressed:
+                              selectedId == null ||
                                   selectedIsClosed ||
                                   isClosingExercise
                               ? null
@@ -313,9 +320,7 @@ class _ExerciseStateChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = isClosed
-        ? const Color(0xFF9B1C1C)
-        : const Color(0xFF155E75);
+    final color = isClosed ? const Color(0xFF9B1C1C) : const Color(0xFF155E75);
     final background = isClosed
         ? const Color(0xFFFEE2E2)
         : const Color(0xFFE3F0F4);
@@ -378,7 +383,8 @@ class CreateEsercizioCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final effectiveRootId = selectedRootId ?? (roots.isNotEmpty ? roots.first.id : null);
+    final effectiveRootId =
+        selectedRootId ?? (roots.isNotEmpty ? roots.first.id : null);
     final inheritedSaldo = latestExercise?.residuo ?? 0;
 
     return Card(
@@ -391,9 +397,9 @@ class CreateEsercizioCard extends StatelessWidget {
             children: [
               Text(
                 'Crea nuovo esercizio',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
@@ -556,10 +562,7 @@ class _LatestExerciseCard extends StatelessWidget {
         children: [
           Text(
             message,
-            style: TextStyle(
-              fontWeight: FontWeight.w700,
-              color: warningColor,
-            ),
+            style: TextStyle(fontWeight: FontWeight.w700, color: warningColor),
           ),
           const SizedBox(height: 4),
           Text(
@@ -637,18 +640,15 @@ class CreateCondominioCard extends StatelessWidget {
             children: [
               Text(
                 'Crea nuovo condominio',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: labelController,
-                decoration: const InputDecoration(
-                  labelText: 'Nome condominio',
-                ),
-                validator: (value) =>
-                    (value == null || value.trim().isEmpty)
+                decoration: const InputDecoration(labelText: 'Nome condominio'),
+                validator: (value) => (value == null || value.trim().isEmpty)
                     ? 'Obbligatorio'
                     : null,
               ),
