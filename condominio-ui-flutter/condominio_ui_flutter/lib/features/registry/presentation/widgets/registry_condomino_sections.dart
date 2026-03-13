@@ -386,19 +386,27 @@ class RegistryCondominoAppAccessSection extends StatelessWidget {
   const RegistryCondominoAppAccessSection({
     super.key,
     required this.hasAppAccess,
+    required this.createNewUser,
     required this.selectedKeycloakUserId,
     required this.selectedRole,
+    required this.usernameController,
+    required this.passwordController,
     required this.keycloakUsers,
     required this.onAccessChanged,
+    required this.onCreateNewUserChanged,
     required this.onUserSelected,
     required this.onRoleSelected,
   });
 
   final bool hasAppAccess;
+  final bool createNewUser;
   final String? selectedKeycloakUserId;
   final CondominoRuolo selectedRole;
+  final TextEditingController usernameController;
+  final TextEditingController passwordController;
   final List<AdminUser> keycloakUsers;
   final ValueChanged<bool>? onAccessChanged;
+  final ValueChanged<bool>? onCreateNewUserChanged;
   final ValueChanged<String?>? onUserSelected;
   final ValueChanged<CondominoRuolo?>? onRoleSelected;
 
@@ -424,32 +432,65 @@ class RegistryCondominoAppAccessSection extends StatelessWidget {
           onChanged: onAccessChanged,
         ),
         if (hasAppAccess) ...[
-          const SizedBox(height: 8),
-          DropdownButtonFormField<String>(
-            initialValue:
-                keycloakUsers.any(
-                  (user) => user.userId == selectedKeycloakUserId,
-                )
-                ? selectedKeycloakUserId
-                : null,
-            decoration: const InputDecoration(labelText: 'Utente app'),
-            items: keycloakUsers
-                .map(
-                  (user) => DropdownMenuItem<String>(
-                    value: user.userId,
-                    child: Text('${user.username} (${user.email})'),
-                  ),
-                )
-                .toList(),
-            onChanged: onUserSelected,
-            validator: (value) {
-              if (!hasAppAccess) return null;
-              if (value == null || value.trim().isEmpty) {
-                return 'Seleziona utente app';
-              }
-              return null;
-            },
+          SwitchListTile.adaptive(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Crea nuovo utente app'),
+            value: createNewUser,
+            onChanged: onCreateNewUserChanged,
           ),
+          const SizedBox(height: 8),
+          if (!createNewUser)
+            DropdownButtonFormField<String>(
+              initialValue:
+                  keycloakUsers.any(
+                    (user) => user.userId == selectedKeycloakUserId,
+                  )
+                  ? selectedKeycloakUserId
+                  : null,
+              decoration: const InputDecoration(labelText: 'Utente app'),
+              items: keycloakUsers
+                  .map(
+                    (user) => DropdownMenuItem<String>(
+                      value: user.userId,
+                      child: Text('${user.username} (${user.email})'),
+                    ),
+                  )
+                  .toList(),
+              onChanged: onUserSelected,
+              validator: (value) {
+                if (!hasAppAccess || createNewUser) return null;
+                if (value == null || value.trim().isEmpty) {
+                  return 'Seleziona utente app';
+                }
+                return null;
+              },
+            ),
+          if (createNewUser) ...[
+            TextFormField(
+              controller: usernameController,
+              decoration: const InputDecoration(labelText: 'Username app'),
+              validator: (value) {
+                if (!hasAppAccess || !createNewUser) return null;
+                if (value == null || value.trim().isEmpty) {
+                  return 'Username obbligatorio';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: passwordController,
+              decoration: const InputDecoration(labelText: 'Password'),
+              obscureText: true,
+              validator: (value) {
+                if (!hasAppAccess || !createNewUser) return null;
+                if (value == null || value.trim().length < 8) {
+                  return 'Minimo 8 caratteri';
+                }
+                return null;
+              },
+            ),
+          ],
           const SizedBox(height: 12),
           DropdownButtonFormField<CondominoRuolo>(
             initialValue: selectedRole,

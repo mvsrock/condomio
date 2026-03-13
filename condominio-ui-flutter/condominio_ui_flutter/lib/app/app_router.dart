@@ -81,7 +81,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         if (condominioState.selectedId == null) {
           return isCondominioSelection ? null : '/select-condominio';
         }
-        if (isCondominioLoading || isCondominioSelection) {
+        if (isCondominioLoading) {
           return defaultHome;
         }
         if (!isAdmin &&
@@ -100,16 +100,22 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         AuthState.loading => isLoading ? null : '/loading',
         AuthState.error => isError ? null : '/error',
         AuthState.unauthenticated => isLogin ? null : '/login',
-        AuthState.authenticated => (isHome || isCondominioSelection)
-            ? null
-            : (ref.read(keycloakServiceProvider).hasRealmRole('amministratore')
-                  ? '/home/dashboard'
-                  : '/home/portal'),
+        AuthState.authenticated =>
+          (isHome || isCondominioSelection)
+              ? null
+              : (ref
+                        .read(keycloakServiceProvider)
+                        .hasRealmRole('amministratore')
+                    ? '/home/dashboard'
+                    : '/home/portal'),
       };
     },
     routes: [
       ShellRoute(
-        builder: (context, state, child) => SelectionArea(child: child),
+        // Nessun SelectionArea globale: su web puo' generare eccezioni
+        // di concorrenza quando i widget selezionabili cambiano durante
+        // frame/rebuild rapidi. Usiamo selezione locale solo dove serve.
+        builder: (context, state, child) => child,
         routes: [
           GoRoute(
             path: '/login',

@@ -98,14 +98,14 @@ Sul fronte Flutter la base tecnica e' stata gia' consolidata:
 - provider derivati per ridurre i rebuild
 - sincronizzazione cross-tab tra `Anagrafica` e `Documenti`
 - refactor delle pagine monolitiche in shell, widget e dialog separati
-- selezione testo abilitata a livello globale via router (`SelectionArea`)
+- selezione testo gestita in modo locale sui punti utili (no wrapper globale)
 
 Questo significa che il frontend non e' piu' appoggiato a refresh manuali o stato sparso in widget troppo grandi. I flussi principali sono gia' orchestrati con stato osservabile e refresh mirati.
 
 Nota performance UI:
-- l'abilitazione globale della selezione testo introduce un overhead leggero di hit-test/selection manager
-- nel breve resta attiva per coerenza UX su web/desktop
-- in hardening UX/performance verra' resa configurabile per piattaforma o per schermata, in base ai profili di carico reali
+- il wrapper globale `SelectionArea` e' stato rimosso per stabilita' runtime (evita `ConcurrentModificationError` su rebuild dinamici web)
+- i testi restano selezionabili nei punti diagnostici e nelle viste dove porta valore reale
+- la strategia attuale privilegia robustezza UI su web/desktop mantenendo selezione locale esplicita
 
 ### Query, read model e scalabilita'
 
@@ -274,6 +274,11 @@ Una fase non e' `Production ready` finche' non supera tutte le verifiche:
     - bottone `Automazioni` in dashboard (admin, esercizio aperto)
     - reminder/auto-solleciti accodabili direttamente da dashboard
     - accesso rapido alla coda job dalla stessa modale
+  - hardening UX runtime (2026-03-13):
+    - rimosso `SelectionArea` globale nel router per eliminare eccezioni concorrenti in selezione testo su pagine dinamiche
+    - modali documenti aggiornate con selezione locale puntuale (`SelectableText`) al posto di wrapper globali
+    - header home aggiornato: cambio esercizio solo via icona dedicata, label condominio solo informativa (non cliccabile)
+    - dashboard semplificata: rimosso pulsante testuale "Cambia esercizio" dal box contesto
 
 ### Gap per diventare realmente vendibile
 - Hardening error UX ancora incompleto in piu' punti operativi
@@ -583,7 +588,7 @@ Queste non vivono in una singola fase: devono avanzare sempre.
 - stato esercizio sempre evidente
 - distinzione chiara tra profilo condiviso e posizione esercizio
 - mobile realmente operativo
-- profiling e tuning della selezione testo globale (`SelectionArea`) su web/desktop per bilanciare usabilita' e costo rendering
+- mantenere selezione testo locale solo sui contenuti ad alto valore diagnostico/funzionale, evitando wrapper globali instabili
 
 ## Documentazione tecnica di riferimento
 

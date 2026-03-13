@@ -29,13 +29,13 @@ class RegistryPaginationBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    final resultText = totalItems == 0
+        ? '0 risultati'
+        : 'Risultati ${start + 1}-$end di $totalItems';
+
+    final controls = Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Text(
-          totalItems == 0 ? '0 risultati' : 'Risultati ${start + 1}-$end di $totalItems',
-          style: const TextStyle(color: Color(0xFF52606D)),
-        ),
-        const Spacer(),
         const Text('Righe'),
         const SizedBox(width: 8),
         DropdownButton<int>(
@@ -52,16 +52,43 @@ class RegistryPaginationBar extends StatelessWidget {
           ],
         ),
         const SizedBox(width: 12),
-        IconButton(
-          onPressed: onPrevPage,
-          icon: const Icon(Icons.chevron_left),
-        ),
+        IconButton(onPressed: onPrevPage, icon: const Icon(Icons.chevron_left)),
         Text('${pageIndex + 1}/$totalPages'),
         IconButton(
           onPressed: onNextPage,
           icon: const Icon(Icons.chevron_right),
         ),
       ],
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 540;
+        if (compact) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                resultText,
+                style: const TextStyle(color: Color(0xFF52606D)),
+              ),
+              const SizedBox(height: 6),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: controls,
+              ),
+            ],
+          );
+        }
+
+        return Row(
+          children: [
+            Text(resultText, style: const TextStyle(color: Color(0xFF52606D))),
+            const Spacer(),
+            controls,
+          ],
+        );
+      },
     );
   }
 }

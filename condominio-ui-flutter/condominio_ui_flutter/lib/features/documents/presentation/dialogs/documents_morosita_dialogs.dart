@@ -97,6 +97,8 @@ class _DocumentsMorositaDialogState extends State<_DocumentsMorositaDialog> {
   late List<MorositaItemModel> _rows;
   late Map<String, List<SollecitoModel>> _sollecitiMap;
   final Set<String> _expandedHistory = <String>{};
+  final ScrollController _summaryScrollController = ScrollController();
+  final ScrollController _rowsScrollController = ScrollController();
 
   @override
   void initState() {
@@ -112,6 +114,13 @@ class _DocumentsMorositaDialogState extends State<_DocumentsMorositaDialog> {
       _rows = List<MorositaItemModel>.from(widget.items, growable: false);
     }
     _sollecitiMap = widget.readSollecitiMap();
+  }
+
+  @override
+  void dispose() {
+    _summaryScrollController.dispose();
+    _rowsScrollController.dispose();
+    super.dispose();
   }
 
   String _money(double value) => 'EUR ${value.toStringAsFixed(2)}';
@@ -334,19 +343,65 @@ class _DocumentsMorositaDialogState extends State<_DocumentsMorositaDialog> {
   Widget build(BuildContext context) {
     final rows = _rows;
     final overdueCount = rows.where((item) => item.hasDebitoScaduto).length;
+    final totalDebito = rows.fold<double>(
+      0,
+      (sum, item) => sum + item.debitoTotale,
+    );
     final totalScaduto = rows.fold<double>(
       0,
       (sum, item) => sum + item.debitoScaduto,
+    );
+    final totalNonScaduto = rows.fold<double>(
+      0,
+      (sum, item) => sum + item.debitoNonScaduto,
     );
     final totalSolleciti = rows.fold<int>(
       0,
       (sum, item) => sum + item.numeroSolleciti,
     );
-    final viewportWidth = MediaQuery.of(context).size.width;
+    final mediaSize = MediaQuery.of(context).size;
+    final viewportWidth = mediaSize.width;
+    final viewportHeight = mediaSize.height;
     final dialogWidth = viewportWidth > 1280 ? 1120.0 : viewportWidth * 0.95;
+    // Spazio body dinamico: lascia sempre margine a title+actions dell'AlertDialog.
+    final dialogBodyHeight = (viewportHeight - 260).clamp(190.0, 680.0);
+    final tinyLayout = dialogWidth < 360;
+    final microHeightLayout = dialogBodyHeight < 240;
+    final showNotes = !microHeightLayout;
+    final summaryHeight = tinyLayout ? 60.0 : 68.0;
+    final compactHeaderLayout = dialogWidth < 760;
     final canEdit = !widget.isReadOnly && !_isWorking;
+    final summaryCards = <Widget>[
+      _MorositaSummaryCard(
+        label: 'Posizioni in mora',
+        value: '$overdueCount / ${rows.length}',
+        icon: Icons.people_alt_outlined,
+      ),
+      _MorositaSummaryCard(
+        label: 'Debito totale aperto',
+        value: _money(totalDebito),
+        icon: Icons.account_balance_wallet_outlined,
+      ),
+      _MorositaSummaryCard(
+        label: 'Totale scaduto',
+        value: _money(totalScaduto),
+        icon: Icons.warning_amber_rounded,
+        color: Colors.orange.shade800,
+      ),
+      _MorositaSummaryCard(
+        label: 'Debito non scaduto',
+        value: _money(totalNonScaduto),
+        icon: Icons.schedule_outlined,
+      ),
+      _MorositaSummaryCard(
+        label: 'Solleciti registrati',
+        value: '$totalSolleciti',
+        icon: Icons.mark_email_read_outlined,
+      ),
+    ];
 
     return AlertDialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       title: Row(
         children: [
           const Icon(Icons.gavel_rounded),
@@ -362,99 +417,100 @@ class _DocumentsMorositaDialogState extends State<_DocumentsMorositaDialog> {
       ),
       content: SizedBox(
         width: dialogWidth,
+        height: dialogBodyHeight,
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisSize: MainAxisSize.max,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: [
-                _MorositaSummaryCard(
-                  label: 'Posizioni in mora',
-                  value: '$overdueCount / ${rows.length}',
-                  icon: Icons.people_alt_outlined,
-                ),
-                _MorositaSummaryCard(
-                  label: 'Totale scaduto',
-                  value: _money(totalScaduto),
-                  icon: Icons.warning_amber_rounded,
-                  color: Colors.orange.shade800,
-                ),
-                _MorositaSummaryCard(
-                  label: 'Solleciti registrati',
-                  value: '$totalSolleciti',
-                  icon: Icons.mark_email_read_outlined,
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Text(
-              'Nota: "Registra sollecito" aggiunge una voce allo storico e imposta '
-              'lo stato a "Sollecitato" (se non e gia "Legale").',
-              style: TextStyle(color: Colors.grey.shade700, fontSize: 12),
-            ),
-            const SizedBox(height: 12),
             SizedBox(
-              height: 470,
+              height: summaryHeight,
+              child: Scrollbar(
+                controller: _summaryScrollController,
+                thumbVisibility: true,
+                child: SingleChildScrollView(
+                  controller: _summaryScrollController,
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      for (var i = 0; i < summaryCards.length; i++) ...[
+                        if (i > 0) const SizedBox(width: 6),
+                        SizedBox(
+                          width: tinyLayout ? 156 : 176,
+                          child: summaryCards[i],
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            SizedBox(height: microHeightLayout ? 4 : 10),
+            if (showNotes)
+              Text(
+                'Nota: i bucket "Scaduto da 0-30/31-60/61-90/>90 gg" indicano i giorni di '
+                'ritardo trascorsi dalla scadenza (non finestre future).',
+                style: TextStyle(color: Colors.grey.shade700, fontSize: 12),
+              ),
+            if (showNotes && !tinyLayout) ...[
+              const SizedBox(height: 4),
+              Text(
+                'Registra sollecito aggiunge una voce allo storico e imposta lo stato a '
+                '"Sollecitato" (se non e gia "Legale").',
+                style: TextStyle(color: Colors.grey.shade700, fontSize: 12),
+              ),
+            ],
+            SizedBox(height: showNotes ? 10 : 4),
+            Flexible(
+              fit: FlexFit.loose,
               child: rows.isEmpty
                   ? const Center(child: Text('Nessuna posizione disponibile'))
-                  : ListView.separated(
-                      itemCount: rows.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 10),
-                      itemBuilder: (context, index) {
-                        final item = rows[index];
-                        final statusColor = _statusColor(
-                          context,
-                          item.praticaStato,
-                        );
-                        final history =
-                            _sollecitiMap[item.condominoId] ??
-                            const <SollecitoModel>[];
-                        final isExpanded = _expandedHistory.contains(
-                          item.condominoId,
-                        );
-                        return Container(
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.grey.shade300),
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(12),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            item.nominativo,
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.w700,
-                                              fontSize: 16,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 6),
-                                          _statusChip(
-                                            context,
-                                            item.praticaStato,
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    const SizedBox(width: 10),
+                  : Scrollbar(
+                      controller: _rowsScrollController,
+                      thumbVisibility: true,
+                      child: ListView.separated(
+                        controller: _rowsScrollController,
+                        itemCount: rows.length,
+                        separatorBuilder: (_, _) => const SizedBox(height: 10),
+                        itemBuilder: (context, index) {
+                          final item = rows[index];
+                          final statusColor = _statusColor(
+                            context,
+                            item.praticaStato,
+                          );
+                          final history =
+                              _sollecitiMap[item.condominoId] ??
+                              const <SollecitoModel>[];
+                          final isExpanded = _expandedHistory.contains(
+                            item.condominoId,
+                          );
+                          return Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.grey.shade300),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  if (compactHeaderLayout)
                                     Column(
                                       crossAxisAlignment:
-                                          CrossAxisAlignment.end,
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Text(
-                                          'Debito scaduto',
+                                          item.nominativo,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 16,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 6),
+                                        _statusChip(context, item.praticaStato),
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          'Debito scaduto (rate scadute)',
                                           style: TextStyle(
                                             color: Colors.grey.shade700,
                                             fontSize: 12,
@@ -469,224 +525,294 @@ class _DocumentsMorositaDialogState extends State<_DocumentsMorositaDialog> {
                                           ),
                                         ),
                                       ],
+                                    )
+                                  else
+                                    Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                item.nominativo,
+                                                style: const TextStyle(
+                                                  fontWeight: FontWeight.w700,
+                                                  fontSize: 16,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 6),
+                                              _statusChip(
+                                                context,
+                                                item.praticaStato,
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        const SizedBox(width: 10),
+                                        Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.end,
+                                          children: [
+                                            Text(
+                                              'Debito scaduto (rate scadute)',
+                                              style: TextStyle(
+                                                color: Colors.grey.shade700,
+                                                fontSize: 12,
+                                              ),
+                                            ),
+                                            Text(
+                                              _money(item.debitoScaduto),
+                                              style: TextStyle(
+                                                color: statusColor,
+                                                fontWeight: FontWeight.w800,
+                                                fontSize: 18,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
                                     ),
-                                  ],
-                                ),
-                                const SizedBox(height: 10),
-                                Wrap(
-                                  spacing: 8,
-                                  runSpacing: 8,
-                                  children: [
-                                    _MorositaMetricBadge(
-                                      label: '0-30 gg',
-                                      value: _money(item.scaduto0_30),
-                                    ),
-                                    _MorositaMetricBadge(
-                                      label: '31-60 gg',
-                                      value: _money(item.scaduto31_60),
-                                    ),
-                                    _MorositaMetricBadge(
-                                      label: '61-90 gg',
-                                      value: _money(item.scaduto61_90),
-                                    ),
-                                    _MorositaMetricBadge(
-                                      label: '>90 gg',
-                                      value: _money(item.scadutoOver90),
-                                    ),
-                                    _MorositaMetricBadge(
-                                      label: 'Ritardo max',
-                                      value: '${item.massimoRitardoGiorni} gg',
-                                    ),
-                                    _MorositaMetricBadge(
-                                      label: 'Solleciti',
-                                      value: '${history.length}',
-                                    ),
-                                  ],
-                                ),
-                                if (item.ultimoSollecitoAt != null) ...[
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    'Ultimo sollecito: ${item.ultimoSollecitoAt!.toLocal()}',
-                                    style: TextStyle(
-                                      color: Colors.grey.shade700,
-                                      fontSize: 12,
-                                    ),
+                                  const SizedBox(height: 10),
+                                  Wrap(
+                                    spacing: 8,
+                                    runSpacing: 8,
+                                    children: [
+                                      _MorositaMetricBadge(
+                                        label: 'Debito totale',
+                                        value: _money(item.debitoTotale),
+                                      ),
+                                      _MorositaMetricBadge(
+                                        label: 'Non scaduto',
+                                        value: _money(item.debitoNonScaduto),
+                                      ),
+                                      _MorositaMetricBadge(
+                                        label: 'Scaduto da 0-30 gg',
+                                        value: _money(item.scaduto0_30),
+                                      ),
+                                      _MorositaMetricBadge(
+                                        label: 'Scaduto da 31-60 gg',
+                                        value: _money(item.scaduto31_60),
+                                      ),
+                                      _MorositaMetricBadge(
+                                        label: 'Scaduto da 61-90 gg',
+                                        value: _money(item.scaduto61_90),
+                                      ),
+                                      _MorositaMetricBadge(
+                                        label: 'Scaduto da >90 gg',
+                                        value: _money(item.scadutoOver90),
+                                      ),
+                                      _MorositaMetricBadge(
+                                        label: 'Ritardo max (gg)',
+                                        value:
+                                            '${item.massimoRitardoGiorni} gg',
+                                      ),
+                                      _MorositaMetricBadge(
+                                        label: 'Solleciti',
+                                        value: '${history.length}',
+                                      ),
+                                    ],
                                   ),
-                                ],
-                                const SizedBox(height: 10),
-                                OutlinedButton.icon(
-                                  onPressed: () {
-                                    setState(() {
-                                      if (isExpanded) {
-                                        _expandedHistory.remove(
-                                          item.condominoId,
-                                        );
-                                      } else {
-                                        _expandedHistory.add(item.condominoId);
-                                      }
-                                    });
-                                  },
-                                  icon: Icon(
-                                    isExpanded
-                                        ? Icons.expand_less_rounded
-                                        : Icons.expand_more_rounded,
-                                  ),
-                                  label: Text(
-                                    'Storico solleciti (${history.length})',
-                                  ),
-                                ),
-                                if (isExpanded) ...[
-                                  const SizedBox(height: 8),
-                                  if (history.isEmpty)
+                                  if (item.ultimoSollecitoAt != null) ...[
+                                    const SizedBox(height: 8),
                                     Text(
-                                      'Nessun sollecito registrato.',
+                                      'Ultimo sollecito: ${item.ultimoSollecitoAt!.toLocal()}',
                                       style: TextStyle(
                                         color: Colors.grey.shade700,
                                         fontSize: 12,
                                       ),
-                                    )
-                                  else
-                                    ...history.reversed.map(
-                                      (sollecito) => Container(
-                                        margin: const EdgeInsets.only(
-                                          bottom: 8,
+                                    ),
+                                  ],
+                                  const SizedBox(height: 10),
+                                  OutlinedButton.icon(
+                                    onPressed: () {
+                                      setState(() {
+                                        if (isExpanded) {
+                                          _expandedHistory.remove(
+                                            item.condominoId,
+                                          );
+                                        } else {
+                                          _expandedHistory.add(
+                                            item.condominoId,
+                                          );
+                                        }
+                                      });
+                                    },
+                                    icon: Icon(
+                                      isExpanded
+                                          ? Icons.expand_less_rounded
+                                          : Icons.expand_more_rounded,
+                                    ),
+                                    label: Text(
+                                      'Storico solleciti (${history.length})',
+                                    ),
+                                  ),
+                                  if (isExpanded) ...[
+                                    const SizedBox(height: 8),
+                                    if (history.isEmpty)
+                                      Text(
+                                        'Nessun sollecito registrato.',
+                                        style: TextStyle(
+                                          color: Colors.grey.shade700,
+                                          fontSize: 12,
                                         ),
-                                        padding: const EdgeInsets.all(10),
-                                        decoration: BoxDecoration(
-                                          color: Colors.grey.shade50,
-                                          borderRadius: BorderRadius.circular(
-                                            10,
+                                      )
+                                    else
+                                      ...history.reversed.map(
+                                        (sollecito) => Container(
+                                          margin: const EdgeInsets.only(
+                                            bottom: 8,
                                           ),
-                                          border: Border.all(
-                                            color: Colors.grey.shade300,
+                                          padding: const EdgeInsets.all(10),
+                                          decoration: BoxDecoration(
+                                            color: Colors.grey.shade50,
+                                            borderRadius: BorderRadius.circular(
+                                              10,
+                                            ),
+                                            border: Border.all(
+                                              color: Colors.grey.shade300,
+                                            ),
                                           ),
-                                        ),
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Row(
-                                              children: [
-                                                Expanded(
-                                                  child: Text(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Wrap(
+                                                spacing: 8,
+                                                runSpacing: 6,
+                                                crossAxisAlignment:
+                                                    WrapCrossAlignment.center,
+                                                children: [
+                                                  Text(
                                                     sollecito.titolo,
                                                     style: const TextStyle(
                                                       fontWeight:
                                                           FontWeight.w600,
                                                     ),
                                                   ),
-                                                ),
-                                                Container(
-                                                  padding:
-                                                      const EdgeInsets.symmetric(
-                                                        horizontal: 8,
-                                                        vertical: 3,
-                                                      ),
-                                                  decoration: BoxDecoration(
-                                                    color: sollecito.automatico
-                                                        ? Colors.blue.shade50
-                                                        : Colors.green.shade50,
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                          999,
+                                                  Container(
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          horizontal: 8,
+                                                          vertical: 3,
                                                         ),
-                                                  ),
-                                                  child: Text(
-                                                    sollecito.automatico
-                                                        ? 'Automatico'
-                                                        : 'Manuale',
-                                                    style: TextStyle(
-                                                      fontSize: 11,
+                                                    decoration: BoxDecoration(
                                                       color:
                                                           sollecito.automatico
-                                                          ? Colors.blue.shade800
+                                                          ? Colors.blue.shade50
                                                           : Colors
                                                                 .green
-                                                                .shade800,
+                                                                .shade50,
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            999,
+                                                          ),
+                                                    ),
+                                                    child: Text(
+                                                      sollecito.automatico
+                                                          ? 'Automatico'
+                                                          : 'Manuale',
+                                                      style: TextStyle(
+                                                        fontSize: 11,
+                                                        color:
+                                                            sollecito.automatico
+                                                            ? Colors
+                                                                  .blue
+                                                                  .shade800
+                                                            : Colors
+                                                                  .green
+                                                                  .shade800,
+                                                      ),
                                                     ),
                                                   ),
-                                                ),
-                                              ],
-                                            ),
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              'Canale: ${sollecito.canale} - '
-                                              '${_formatSollecitoDate(sollecito.createdAt)}',
-                                              style: TextStyle(
-                                                color: Colors.grey.shade700,
-                                                fontSize: 12,
+                                                ],
                                               ),
-                                            ),
-                                            if ((sollecito.note ?? '')
-                                                .trim()
-                                                .isNotEmpty) ...[
                                               const SizedBox(height: 4),
                                               Text(
-                                                'Note: ${sollecito.note!.trim()}',
+                                                'Canale: ${sollecito.canale} - '
+                                                '${_formatSollecitoDate(sollecito.createdAt)}',
                                                 style: TextStyle(
-                                                  color: Colors.grey.shade800,
+                                                  color: Colors.grey.shade700,
                                                   fontSize: 12,
                                                 ),
                                               ),
+                                              if ((sollecito.note ?? '')
+                                                  .trim()
+                                                  .isNotEmpty) ...[
+                                                const SizedBox(height: 4),
+                                                Text(
+                                                  'Note: ${sollecito.note!.trim()}',
+                                                  style: TextStyle(
+                                                    color: Colors.grey.shade800,
+                                                    fontSize: 12,
+                                                  ),
+                                                ),
+                                              ],
                                             ],
-                                          ],
+                                          ),
                                         ),
                                       ),
-                                    ),
-                                ],
-                                const SizedBox(height: 12),
-                                Wrap(
-                                  spacing: 10,
-                                  runSpacing: 8,
-                                  crossAxisAlignment: WrapCrossAlignment.center,
-                                  children: [
-                                    ConstrainedBox(
-                                      constraints: const BoxConstraints(
-                                        maxWidth: 240,
-                                      ),
-                                      child:
-                                          DropdownButtonFormField<
-                                            MorositaStatoUi
-                                          >(
-                                            initialValue: item.praticaStato,
-                                            decoration: const InputDecoration(
-                                              labelText: 'Stato pratica',
-                                              isDense: true,
-                                              border: OutlineInputBorder(),
-                                            ),
-                                            onChanged: canEdit
-                                                ? (next) {
-                                                    if (next != null) {
-                                                      _changeStato(item, next);
-                                                    }
-                                                  }
-                                                : null,
-                                            items: MorositaStatoUi.values
-                                                .map(
-                                                  (value) => DropdownMenuItem(
-                                                    value: value,
-                                                    child: Text(value.label),
-                                                  ),
-                                                )
-                                                .toList(growable: false),
-                                          ),
-                                    ),
-                                    FilledButton.icon(
-                                      onPressed: canEdit
-                                          ? () => _openSollecitoForm(item)
-                                          : null,
-                                      icon: const Icon(
-                                        Icons.notification_add_outlined,
-                                      ),
-                                      label: const Text('Registra sollecito'),
-                                    ),
                                   ],
-                                ),
-                              ],
+                                  const SizedBox(height: 12),
+                                  Wrap(
+                                    spacing: 10,
+                                    runSpacing: 8,
+                                    crossAxisAlignment:
+                                        WrapCrossAlignment.center,
+                                    children: [
+                                      ConstrainedBox(
+                                        constraints: const BoxConstraints(
+                                          maxWidth: 240,
+                                        ),
+                                        child:
+                                            DropdownButtonFormField<
+                                              MorositaStatoUi
+                                            >(
+                                              initialValue: item.praticaStato,
+                                              decoration: const InputDecoration(
+                                                labelText: 'Stato pratica',
+                                                isDense: true,
+                                                border: OutlineInputBorder(),
+                                              ),
+                                              onChanged: canEdit
+                                                  ? (next) {
+                                                      if (next != null) {
+                                                        _changeStato(
+                                                          item,
+                                                          next,
+                                                        );
+                                                      }
+                                                    }
+                                                  : null,
+                                              items: MorositaStatoUi.values
+                                                  .map(
+                                                    (value) => DropdownMenuItem(
+                                                      value: value,
+                                                      child: Text(value.label),
+                                                    ),
+                                                  )
+                                                  .toList(growable: false),
+                                            ),
+                                      ),
+                                      FilledButton.icon(
+                                        onPressed: canEdit
+                                            ? () => _openSollecitoForm(item)
+                                            : null,
+                                        icon: const Icon(
+                                          Icons.notification_add_outlined,
+                                        ),
+                                        label: const Text('Registra sollecito'),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
-                        );
-                      },
+                          );
+                        },
+                      ),
                     ),
             ),
           ],
@@ -724,31 +850,42 @@ class _MorositaSummaryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final accent = color ?? Theme.of(context).colorScheme.primary;
     return Container(
-      constraints: const BoxConstraints(minWidth: 220),
-      padding: const EdgeInsets.all(10),
+      constraints: const BoxConstraints(maxWidth: 320),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
       decoration: BoxDecoration(
         color: accent.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: accent.withValues(alpha: 0.22)),
       ),
-      child: Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: accent),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
+          Row(
+            children: [
+              Icon(icon, color: accent, size: 16),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
                   label,
                   style: TextStyle(color: Colors.grey.shade700, fontSize: 12),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                Text(
-                  value,
-                  style: TextStyle(color: accent, fontWeight: FontWeight.w700),
-                ),
-              ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 2),
+          Text(
+            value,
+            style: TextStyle(
+              color: accent,
+              fontWeight: FontWeight.w800,
+              fontSize: 14,
             ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),

@@ -20,7 +20,8 @@ class HomeHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final hasCondominio =
-        activeCondominioLabel != null && activeCondominioLabel!.trim().isNotEmpty;
+        activeCondominioLabel != null &&
+        activeCondominioLabel!.trim().isNotEmpty;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
@@ -56,7 +57,7 @@ class HomeHeader extends StatelessWidget {
                   style: IconButton.styleFrom(
                     backgroundColor: const Color(0xFFEFF7ED),
                   ),
-                  icon: const Icon(Icons.home_work_outlined),
+                  icon: const Icon(Icons.swap_horiz),
                 ),
                 if (hasCondominio && activeExerciseClosed)
                   const Padding(
@@ -85,43 +86,51 @@ class HomeHeader extends StatelessWidget {
                 ),
               ),
               if (hasCondominio) ...[
-                InkWell(
-                  onTap: onManageCondomini,
-                  borderRadius: BorderRadius.circular(999),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFEFF7ED),
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.home_work_outlined, size: 16),
-                        const SizedBox(width: 6),
-                        Text(
-                          activeCondominioLabel!,
-                          style: theme.textTheme.labelMedium?.copyWith(
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        if (activeExerciseClosed) ...[
-                          const SizedBox(width: 6),
-                          const Icon(Icons.lock_outline, size: 16),
-                        ],
-                      ],
-                    ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
                   ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEFF7ED),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.home_work_outlined, size: 16),
+                      const SizedBox(width: 6),
+                      Text(
+                        activeCondominioLabel!,
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      if (activeExerciseClosed) ...[
+                        const SizedBox(width: 6),
+                        const Icon(Icons.lock_outline, size: 16),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 6),
+                IconButton(
+                  tooltip: 'Cambia esercizio',
+                  onPressed: onManageCondomini,
+                  style: IconButton.styleFrom(
+                    backgroundColor: const Color(0xFFEFF7ED),
+                  ),
+                  icon: const Icon(Icons.swap_horiz),
                 ),
                 const SizedBox(width: 12),
               ] else ...[
                 IconButton(
-                  tooltip: 'Gestisci condomini',
+                  tooltip: 'Cambia esercizio',
                   onPressed: onManageCondomini,
-                  icon: const Icon(Icons.home_work_outlined),
+                  style: IconButton.styleFrom(
+                    backgroundColor: const Color(0xFFEFF7ED),
+                  ),
+                  icon: const Icon(Icons.swap_horiz),
                 ),
                 const SizedBox(width: 12),
               ],

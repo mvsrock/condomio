@@ -43,15 +43,14 @@ class RegistryPage extends ConsumerWidget {
     final filteredSorted = ref.watch(registryFilteredSortedProvider);
     final allItems = ref.watch(condominiItemsProvider);
     final totalItems = filteredSorted.length;
-    final totalPages =
-        totalItems == 0 ? 1 : (totalItems / tableState.rowsPerPage).ceil();
+    final totalPages = totalItems == 0
+        ? 1
+        : (totalItems / tableState.rowsPerPage).ceil();
     final activeCount = allItems.where((item) => item.isActivePosition).length;
     final ceasedCount = allItems.length - activeCount;
 
     // Evitiamo mutazioni di stato in build: usiamo un indice pagina "safe" locale.
-    final safePageIndex = tableState.pageIndex
-        .clamp(0, totalPages - 1)
-        .toInt();
+    final safePageIndex = tableState.pageIndex.clamp(0, totalPages - 1).toInt();
     final start = (safePageIndex * tableState.rowsPerPage)
         .clamp(0, totalItems)
         .toInt();
@@ -63,33 +62,38 @@ class RegistryPage extends ConsumerWidget {
         final isCompact = AppBreakpoints.isRegistryCompact(
           constraints.maxWidth,
         );
+        // Viewport estremamente bassi (split/resize): riduciamo sezioni
+        // accessorie per evitare overflow verticale.
+        final compactHeight = constraints.maxHeight < 340;
+        final ultraCompactHeight = constraints.maxHeight < 260;
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                RegistryInfoChip(
-                  label: 'Totale visibili: ${filteredSorted.length}',
-                  icon: Icons.people_alt_outlined,
-                ),
-                RegistryInfoChip(
-                  label: 'Attivi: $activeCount',
-                  icon: Icons.how_to_reg_outlined,
-                ),
-                RegistryInfoChip(
-                  label: 'Cessati: $ceasedCount',
-                  icon: Icons.history_toggle_off_outlined,
-                ),
-                RegistryInfoChip(
-                  label: 'Pagina ${safePageIndex + 1} di $totalPages',
-                  icon: Icons.format_list_numbered_outlined,
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
+            if (!ultraCompactHeight)
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  RegistryInfoChip(
+                    label: 'Totale visibili: ${filteredSorted.length}',
+                    icon: Icons.people_alt_outlined,
+                  ),
+                  RegistryInfoChip(
+                    label: 'Attivi: $activeCount',
+                    icon: Icons.how_to_reg_outlined,
+                  ),
+                  RegistryInfoChip(
+                    label: 'Cessati: $ceasedCount',
+                    icon: Icons.history_toggle_off_outlined,
+                  ),
+                  RegistryInfoChip(
+                    label: 'Pagina ${safePageIndex + 1} di $totalPages',
+                    icon: Icons.format_list_numbered_outlined,
+                  ),
+                ],
+              ),
+            SizedBox(height: ultraCompactHeight ? 4 : 12),
             RegistryFiltersBar(
               searchQuery: tableState.searchQuery,
               showCeased: tableState.showCeased,
@@ -97,11 +101,11 @@ class RegistryPage extends ConsumerWidget {
               onClearSearch: tableNotifier.clearSearch,
               onShowCeasedChanged: tableNotifier.setShowCeased,
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: ultraCompactHeight ? 6 : 12),
             Expanded(
               child: Column(
                 children: [
-                  if (!isCompact) ...[
+                  if (!isCompact && !compactHeight) ...[
                     RegistryTableHeader(
                       sortField: tableState.sortField,
                       sortAscending: tableState.sortAscending,
@@ -118,7 +122,8 @@ class RegistryPage extends ConsumerWidget {
                           )
                         : ListView.separated(
                             itemCount: paged.length,
-                            separatorBuilder: (_, _) => const SizedBox(height: 6),
+                            separatorBuilder: (_, _) =>
+                                const SizedBox(height: 6),
                             itemBuilder: (context, index) {
                               final condomino = paged[index];
                               return RegistryRow(
@@ -133,22 +138,24 @@ class RegistryPage extends ConsumerWidget {
                             },
                           ),
                   ),
-                  const SizedBox(height: 8),
-                  RegistryPaginationBar(
-                    totalItems: totalItems,
-                    start: start,
-                    end: end,
-                    totalPages: totalPages,
-                    pageIndex: safePageIndex,
-                    rowsPerPage: tableState.rowsPerPage,
-                    onRowsPerPageChanged: tableNotifier.setRowsPerPage,
-                    onPrevPage: safePageIndex == 0
-                        ? null
-                        : tableNotifier.prevPage,
-                    onNextPage: safePageIndex >= totalPages - 1
-                        ? null
-                        : () => tableNotifier.nextPage(totalPages),
-                  ),
+                  if (!ultraCompactHeight) ...[
+                    const SizedBox(height: 8),
+                    RegistryPaginationBar(
+                      totalItems: totalItems,
+                      start: start,
+                      end: end,
+                      totalPages: totalPages,
+                      pageIndex: safePageIndex,
+                      rowsPerPage: tableState.rowsPerPage,
+                      onRowsPerPageChanged: tableNotifier.setRowsPerPage,
+                      onPrevPage: safePageIndex == 0
+                          ? null
+                          : tableNotifier.prevPage,
+                      onNextPage: safePageIndex >= totalPages - 1
+                          ? null
+                          : () => tableNotifier.nextPage(totalPages),
+                    ),
+                  ],
                 ],
               ),
             ),

@@ -42,6 +42,7 @@ Regole:
 - Layout responsive desktop/mobile senza overflow.
 - Azioni sensibili visibili solo ai ruoli corretti.
 - Testi utente selezionabili dove utile (diagnostica, dettagli, logiche di calcolo).
+- Evitare `SelectionArea` globale su shell/router: usare selezione locale per schermata/modale.
 - Messaggi business chiari: niente errori tecnici grezzi in UI finale.
 - In caso di errore tecnico complesso, fornire un dettaglio copiabile.
 

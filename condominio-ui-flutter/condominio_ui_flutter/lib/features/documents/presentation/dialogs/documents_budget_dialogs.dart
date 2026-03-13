@@ -120,89 +120,85 @@ class _DocumentsPreventivoDialogState
       title: const Text('Preventivo e consuntivo'),
       content: SizedBox(
         width: 980,
-        child: SelectionArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  Chip(
-                    label: Text(
-                      'Preventivo ${currentPreventivo.toStringAsFixed(2)}',
-                    ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                Chip(
+                  label: Text(
+                    'Preventivo ${currentPreventivo.toStringAsFixed(2)}',
                   ),
-                  Chip(
-                    label: Text('Consuntivo ${consuntivo.toStringAsFixed(2)}'),
-                  ),
-                  Chip(label: Text('Delta ${delta.toStringAsFixed(2)}')),
-                ],
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Imposta il preventivo per ogni coppia codice spesa/tabella. '
-                'Il consuntivo viene calcolato automaticamente dai movimenti.',
-              ),
-              const SizedBox(height: 12),
-              SizedBox(
-                height: 420,
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(minWidth: 920),
-                    child: SingleChildScrollView(
-                      child: DataTable(
-                        columns: const [
-                          DataColumn(label: Text('Codice spesa')),
-                          DataColumn(label: Text('Tabella')),
-                          DataColumn(label: Text('Descrizione')),
-                          DataColumn(label: Text('Preventivo')),
-                          DataColumn(label: Text('Consuntivo')),
-                          DataColumn(label: Text('Delta')),
-                        ],
-                        rows: [
-                          for (var i = 0; i < rows.length; i++)
-                            DataRow(
-                              cells: [
-                                DataCell(Text(rows[i].codiceSpesa)),
-                                DataCell(Text(rows[i].codiceTabella)),
-                                DataCell(Text(rows[i].descrizioneTabella)),
-                                DataCell(
-                                  SizedBox(
-                                    width: 120,
-                                    child: TextField(
-                                      controller: _controllers[i],
-                                      enabled: !widget.isReadOnly,
-                                      keyboardType:
-                                          const TextInputType.numberWithOptions(
-                                            decimal: true,
-                                          ),
-                                      decoration: const InputDecoration(
-                                        isDense: true,
-                                        border: OutlineInputBorder(),
-                                      ),
-                                      onChanged: (_) => setState(() {}),
+                ),
+                Chip(
+                  label: Text('Consuntivo ${consuntivo.toStringAsFixed(2)}'),
+                ),
+                Chip(label: Text('Delta ${delta.toStringAsFixed(2)}')),
+              ],
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Imposta il preventivo per ogni coppia codice spesa/tabella. '
+              'Il consuntivo viene calcolato automaticamente dai movimenti.',
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 420,
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(minWidth: 920),
+                  child: SingleChildScrollView(
+                    child: DataTable(
+                      columns: const [
+                        DataColumn(label: Text('Codice spesa')),
+                        DataColumn(label: Text('Tabella')),
+                        DataColumn(label: Text('Descrizione')),
+                        DataColumn(label: Text('Preventivo')),
+                        DataColumn(label: Text('Consuntivo')),
+                        DataColumn(label: Text('Delta')),
+                      ],
+                      rows: [
+                        for (var i = 0; i < rows.length; i++)
+                          DataRow(
+                            cells: [
+                              DataCell(Text(rows[i].codiceSpesa)),
+                              DataCell(Text(rows[i].codiceTabella)),
+                              DataCell(Text(rows[i].descrizioneTabella)),
+                              DataCell(
+                                SizedBox(
+                                  width: 120,
+                                  child: TextField(
+                                    controller: _controllers[i],
+                                    enabled: !widget.isReadOnly,
+                                    keyboardType:
+                                        const TextInputType.numberWithOptions(
+                                          decimal: true,
+                                        ),
+                                    decoration: const InputDecoration(
+                                      isDense: true,
+                                      border: OutlineInputBorder(),
                                     ),
+                                    onChanged: (_) => setState(() {}),
                                   ),
                                 ),
-                                DataCell(
-                                  Text(rows[i].consuntivo.toStringAsFixed(2)),
-                                ),
-                                DataCell(
-                                  Text(rows[i].delta.toStringAsFixed(2)),
-                                ),
-                              ],
-                            ),
-                        ],
-                      ),
+                              ),
+                              DataCell(
+                                Text(rows[i].consuntivo.toStringAsFixed(2)),
+                              ),
+                              DataCell(Text(rows[i].delta.toStringAsFixed(2))),
+                            ],
+                          ),
+                      ],
                     ),
                   ),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
       actions: [

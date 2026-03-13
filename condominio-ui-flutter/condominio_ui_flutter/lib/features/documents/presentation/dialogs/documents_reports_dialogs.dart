@@ -13,7 +13,7 @@ Future<void> showDocumentsReportsDialog({required BuildContext context}) {
   return showDialog<void>(
     context: context,
     barrierDismissible: false,
-    builder: (_) => const SelectionArea(child: _DocumentsReportsDialog()),
+    builder: (_) => const _DocumentsReportsDialog(),
   );
 }
 

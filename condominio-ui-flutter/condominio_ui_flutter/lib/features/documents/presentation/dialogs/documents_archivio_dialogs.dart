@@ -24,11 +24,9 @@ Future<void> showDocumentsArchivioDialog({
 }) {
   return showDialog<void>(
     context: context,
-    builder: (dialogContext) => SelectionArea(
-      child: _DocumentsArchivioDialog(
-        movimentoId: movimentoId,
-        movimentoLabel: movimentoLabel,
-      ),
+    builder: (dialogContext) => _DocumentsArchivioDialog(
+      movimentoId: movimentoId,
+      movimentoLabel: movimentoLabel,
     ),
   );
 }
@@ -559,9 +557,7 @@ class _DocumentsArchivioDialogState
       );
     } else if (isTextLike) {
       final text = utf8.decode(payload.bytes, allowMalformed: true);
-      previewBody = SingleChildScrollView(
-        child: SelectionArea(child: Text(text)),
-      );
+      previewBody = SingleChildScrollView(child: SelectableText(text));
     } else {
       previewBody = Center(
         child: Text(
@@ -573,17 +569,15 @@ class _DocumentsArchivioDialogState
 
     return showDialog<void>(
       context: context,
-      builder: (dialogContext) => SelectionArea(
-        child: AlertDialog(
-          title: Text('Anteprima - ${payload.fileName}'),
-          content: SizedBox(width: 920, height: 680, child: previewBody),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Chiudi'),
-            ),
-          ],
-        ),
+      builder: (dialogContext) => AlertDialog(
+        title: Text('Anteprima - ${payload.fileName}'),
+        content: SizedBox(width: 920, height: 680, child: previewBody),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Chiudi'),
+          ),
+        ],
       ),
     );
   }
@@ -1201,11 +1195,9 @@ Future<_DocumentoMetadataResult?> _showMetadataDialog({
   return showDialog<_DocumentoMetadataResult>(
     context: context,
     barrierDismissible: false,
-    builder: (dialogContext) => SelectionArea(
-      child: _DocumentoMetadataDialog(
-        fileName: fileName,
-        movimentoIdLocked: movimentoIdLocked,
-      ),
+    builder: (dialogContext) => _DocumentoMetadataDialog(
+      fileName: fileName,
+      movimentoIdLocked: movimentoIdLocked,
     ),
   );
 }

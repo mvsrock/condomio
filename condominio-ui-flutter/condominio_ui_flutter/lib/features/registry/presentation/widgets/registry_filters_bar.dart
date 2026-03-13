@@ -61,13 +61,16 @@ class _RegistryFiltersBarState extends State<RegistryFiltersBar> {
 
   @override
   Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 10,
-      runSpacing: 10,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
-        SizedBox(
-          width: 320,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final availableWidth = constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : MediaQuery.sizeOf(context).width;
+        final fieldWidth = availableWidth.clamp(180.0, 320.0).toDouble();
+        final compact = availableWidth < 460;
+
+        final searchField = SizedBox(
+          width: fieldWidth,
           child: TextField(
             controller: _controller,
             decoration: InputDecoration(
@@ -80,13 +83,30 @@ class _RegistryFiltersBarState extends State<RegistryFiltersBar> {
                     ),
             ),
           ),
-        ),
-        FilterChip(
+        );
+
+        final ceasedChip = FilterChip(
           label: const Text('Mostra cessati'),
           selected: widget.showCeased,
           onSelected: widget.onShowCeasedChanged,
-        ),
-      ],
+        );
+
+        if (compact) {
+          return SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [searchField, const SizedBox(width: 10), ceasedChip],
+            ),
+          );
+        }
+
+        return Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [searchField, ceasedChip],
+        );
+      },
     );
   }
 }

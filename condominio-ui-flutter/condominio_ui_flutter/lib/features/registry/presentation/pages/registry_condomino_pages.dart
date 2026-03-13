@@ -177,11 +177,22 @@ class _RegistryCondominoEditPageState
   late final TextEditingController _telefonoController;
   late final TextEditingController _saldoInizialeController;
   late final TextEditingController _keycloakUsernameController;
+  late final TextEditingController _keycloakPasswordController;
   String? _selectedUnitaImmobiliareId;
   late CondominoTitolaritaTipo _titolaritaTipo;
   bool _hasAppAccess = false;
+  bool _createNewUser = false;
   String? _selectedKeycloakUserId;
   late CondominoRuolo _selectedAppRole;
+
+  String _defaultUsername() {
+    final email = _emailController.text.trim();
+    if (email.contains('@')) return email.split('@').first;
+    final base =
+        '${_nomeController.text.trim()}.${_cognomeController.text.trim()}'
+            .toLowerCase();
+    return base.replaceAll(' ', '');
+  }
 
   @override
   void initState() {
@@ -200,6 +211,7 @@ class _RegistryCondominoEditPageState
     _keycloakUsernameController = TextEditingController(
       text: widget.condomino.keycloakUsername ?? '',
     );
+    _keycloakPasswordController = TextEditingController();
     _selectedUnitaImmobiliareId = widget.condomino.unitaImmobiliareId;
     _titolaritaTipo = widget.condomino.titolaritaTipo;
     _hasAppAccess = widget.condomino.hasAppAccess;
@@ -221,6 +233,7 @@ class _RegistryCondominoEditPageState
     _telefonoController.dispose();
     _saldoInizialeController.dispose();
     _keycloakUsernameController.dispose();
+    _keycloakPasswordController.dispose();
     super.dispose();
   }
 
@@ -344,23 +357,46 @@ class _RegistryCondominoEditPageState
                                   const SizedBox(height: 16),
                                   RegistryCondominoAppAccessSection(
                                     hasAppAccess: _hasAppAccess,
+                                    createNewUser: _createNewUser,
                                     selectedKeycloakUserId:
                                         _selectedKeycloakUserId,
                                     selectedRole: _selectedAppRole,
+                                    usernameController:
+                                        _keycloakUsernameController,
+                                    passwordController:
+                                        _keycloakPasswordController,
                                     keycloakUsers: keycloakUsers,
                                     onAccessChanged: (value) => setState(() {
                                       _hasAppAccess = value;
                                       if (!value) {
+                                        _createNewUser = false;
                                         _selectedKeycloakUserId = null;
                                         _keycloakUsernameController.clear();
+                                        _keycloakPasswordController.clear();
                                         _selectedAppRole =
                                             CondominoRuolo.standard;
                                       }
                                     }),
+                                    onCreateNewUserChanged: (value) =>
+                                        setState(() {
+                                          _createNewUser = value;
+                                          if (value) {
+                                            _selectedKeycloakUserId = null;
+                                            if (_keycloakUsernameController.text
+                                                .trim()
+                                                .isEmpty) {
+                                              _keycloakUsernameController.text =
+                                                  _defaultUsername();
+                                            }
+                                          } else {
+                                            _keycloakPasswordController.clear();
+                                          }
+                                        }),
                                     onUserSelected: (value) {
-                                      setState(
-                                        () => _selectedKeycloakUserId = value,
-                                      );
+                                      setState(() {
+                                        _selectedKeycloakUserId = value;
+                                        _createNewUser = false;
+                                      });
                                       final user = _findAdminUserById(
                                         keycloakUsers,
                                         value,
@@ -409,10 +445,11 @@ class _RegistryCondominoEditPageState
     if (!(_formKey.currentState?.validate() ?? false)) {
       return;
     }
+    final adminNotifier = ref.read(adminUsersProvider.notifier);
     final keycloakUsers = ref.read(
       adminUsersProvider.select((state) => state.items),
     );
-    final selectedUser = _findAdminUserById(
+    AdminUser? selectedUser = _findAdminUserById(
       keycloakUsers,
       _selectedKeycloakUserId,
     );
@@ -420,37 +457,81 @@ class _RegistryCondominoEditPageState
         ? _selectedAppRole
         : CondominoRuolo.standard;
 
+    if (_hasAppAccess && _createNewUser) {
+      final username = _keycloakUsernameController.text.trim().isEmpty
+          ? _defaultUsername()
+          : _keycloakUsernameController.text.trim();
+      final password = _keycloakPasswordController.text.trim();
+      if (username.isEmpty) {
+        throw Exception('Username app obbligatorio');
+      }
+      if (password.length < 8) {
+        throw Exception('Password app: minimo 8 caratteri');
+      }
+
+      await adminNotifier.createUserOnly(
+        username: username,
+        firstName: _nomeController.text.trim(),
+        lastName: _cognomeController.text.trim(),
+        email: _emailController.text.trim(),
+        password: password,
+      );
+      final createError = ref.read(
+        adminUsersProvider.select((state) => state.errorMessage),
+      );
+      if (createError != null) {
+        throw Exception(createError);
+      }
+
+      await adminNotifier.loadUsers();
+      final updatedUsers = ref.read(
+        adminUsersProvider.select((state) => state.items),
+      );
+      selectedUser = _findAdminUserByUsername(updatedUsers, username);
+      if (selectedUser == null) {
+        throw Exception(
+          'Utenza creata ma non recuperabile. Riprova a ricaricare la lista utenti.',
+        );
+      }
+      _selectedKeycloakUserId = selectedUser.userId;
+      _keycloakUsernameController.text = selectedUser.username;
+    }
+    if (_hasAppAccess && !_createNewUser && selectedUser == null) {
+      throw Exception(
+        'Seleziona un utente app esistente oppure crea un nuovo utente',
+      );
+    }
+
     final hasSelectedUnit =
         _selectedUnitaImmobiliareId != null &&
         _selectedUnitaImmobiliareId!.trim().isNotEmpty;
     final candidate = widget.condomino.copyWith(
-        nome: _nomeController.text.trim(),
-        cognome: _cognomeController.text.trim(),
-        scala: hasSelectedUnit ? _scalaController.text.trim() : '',
-        interno: hasSelectedUnit ? _internoController.text.trim() : '',
-        email: _emailController.text.trim(),
-        telefono: _telefonoController.text.trim(),
-        saldoIniziale: double.parse(
-          _saldoInizialeController.text.trim().replaceAll(',', '.'),
-        ),
-        unitaImmobiliareId:
-            (_selectedUnitaImmobiliareId == null ||
-                _selectedUnitaImmobiliareId!.trim().isEmpty)
-            ? null
-            : _selectedUnitaImmobiliareId,
-        clearUnitaImmobiliareId:
-            _selectedUnitaImmobiliareId == null ||
-            _selectedUnitaImmobiliareId!.trim().isEmpty,
-        titolaritaTipo: _titolaritaTipo,
-        hasAppAccess: _hasAppAccess,
-        ruolo: resolvedRole,
-        keycloakUsername: _hasAppAccess
-            ? (selectedUser?.username ??
-                  _keycloakUsernameController.text.trim())
-            : null,
-        keycloakUserId: _hasAppAccess ? selectedUser?.userId : null,
-        clearKeycloakUsername: !_hasAppAccess,
-        clearKeycloakUserId: !_hasAppAccess,
+      nome: _nomeController.text.trim(),
+      cognome: _cognomeController.text.trim(),
+      scala: hasSelectedUnit ? _scalaController.text.trim() : '',
+      interno: hasSelectedUnit ? _internoController.text.trim() : '',
+      email: _emailController.text.trim(),
+      telefono: _telefonoController.text.trim(),
+      saldoIniziale: double.parse(
+        _saldoInizialeController.text.trim().replaceAll(',', '.'),
+      ),
+      unitaImmobiliareId:
+          (_selectedUnitaImmobiliareId == null ||
+              _selectedUnitaImmobiliareId!.trim().isEmpty)
+          ? null
+          : _selectedUnitaImmobiliareId,
+      clearUnitaImmobiliareId:
+          _selectedUnitaImmobiliareId == null ||
+          _selectedUnitaImmobiliareId!.trim().isEmpty,
+      titolaritaTipo: _titolaritaTipo,
+      hasAppAccess: _hasAppAccess,
+      ruolo: resolvedRole,
+      keycloakUsername: _hasAppAccess
+          ? (selectedUser?.username ?? _keycloakUsernameController.text.trim())
+          : null,
+      keycloakUserId: _hasAppAccess ? selectedUser?.userId : null,
+      clearKeycloakUsername: !_hasAppAccess,
+      clearKeycloakUserId: !_hasAppAccess,
     );
     try {
       final saved = await widget.onSave(candidate);
@@ -459,12 +540,12 @@ class _RegistryCondominoEditPageState
     } catch (e) {
       if (!mounted) return;
       debugPrint('[REGISTRY][editSaveError] $e');
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(
-        const SnackBar(
-          content: Text('Impossibile salvare la modifica. Verifica i dati e riprova.'),
-        ),
+      final raw = e.toString();
+      final pretty = raw.startsWith('Exception: ')
+          ? raw.substring('Exception: '.length)
+          : raw;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Impossibile salvare la modifica: $pretty')),
       );
     }
   }
@@ -481,6 +562,17 @@ class _RegistryCondominoEditPageState
     if (id == null || id.isEmpty) return null;
     for (final user in users) {
       if (user.userId == id) return user;
+    }
+    return null;
+  }
+
+  AdminUser? _findAdminUserByUsername(List<AdminUser> users, String username) {
+    final normalized = username.trim().toLowerCase();
+    if (normalized.isEmpty) return null;
+    for (final user in users) {
+      if (user.username.trim().toLowerCase() == normalized) {
+        return user;
+      }
     }
     return null;
   }

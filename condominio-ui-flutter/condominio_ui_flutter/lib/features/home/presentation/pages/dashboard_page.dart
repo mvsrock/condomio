@@ -83,11 +83,6 @@ class DashboardPage extends ConsumerWidget {
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     statusChip,
-                    FilledButton.tonalIcon(
-                      onPressed: () => context.go('/select-condominio'),
-                      icon: const Icon(Icons.swap_horiz),
-                      label: const Text('Cambia esercizio'),
-                    ),
                     if (iconOnlyRefresh)
                       Tooltip(
                         message: 'Aggiorna dati',

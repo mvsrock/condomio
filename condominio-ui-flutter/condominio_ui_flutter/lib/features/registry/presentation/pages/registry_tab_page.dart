@@ -42,9 +42,7 @@ class _RegistryTabPageState extends ConsumerState<RegistryTabPage> {
       },
     );
 
-    final items = ref.watch(
-      condominiItemsProvider,
-    );
+    final items = ref.watch(condominiItemsProvider);
     final isLoading = ref.watch(condominiIsLoadingProvider);
     final error = ref.watch(condominiErrorMessageProvider);
     final selectedCondominoId = ref.watch(
@@ -60,56 +58,79 @@ class _RegistryTabPageState extends ConsumerState<RegistryTabPage> {
     );
     final effectiveView = isAdmin ? _viewMode : _RegistryViewMode.anagrafica;
 
-    return Column(
-      children: [
-        const _WorkspaceModuleHeader(isDocumentsModule: false),
-        const SizedBox(height: 8),
-        if (isAdmin)
-          Container(
-            padding: const EdgeInsets.all(4),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF1F5F9),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: const Color(0xFFD9E2EC)),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Su viewport molto bassi (split window / tastiera / resize estremo)
+        // riduciamo la parte header per evitare overflow verticale.
+        final ultraCompact = constraints.maxHeight < 280;
+        final showAdminSwitcher = isAdmin && !ultraCompact;
+        return Column(
+          children: [
+            if (!ultraCompact)
+              const _WorkspaceModuleHeader(isDocumentsModule: false),
+            if (!ultraCompact) const SizedBox(height: 8),
+            if (showAdminSwitcher)
+              Container(
+                padding: EdgeInsets.all(ultraCompact ? 2 : 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFFD9E2EC)),
+                ),
+                child: LayoutBuilder(
+                  builder: (context, segmentedConstraints) {
+                    final segmented = SegmentedButton<_RegistryViewMode>(
+                      showSelectedIcon: false,
+                      segments: const [
+                        ButtonSegment<_RegistryViewMode>(
+                          value: _RegistryViewMode.anagrafica,
+                          icon: Icon(Icons.badge_outlined),
+                          label: Text('Anagrafica'),
+                        ),
+                        ButtonSegment<_RegistryViewMode>(
+                          value: _RegistryViewMode.accessi,
+                          icon: Icon(Icons.manage_accounts_outlined),
+                          label: Text('Accessi'),
+                        ),
+                      ],
+                      selected: {effectiveView},
+                      onSelectionChanged: (value) {
+                        setState(() => _viewMode = value.first);
+                      },
+                    );
+                    if (segmentedConstraints.maxWidth < 420) {
+                      return SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(minWidth: 420),
+                          child: segmented,
+                        ),
+                      );
+                    }
+                    return segmented;
+                  },
+                ),
+              ),
+            if (showAdminSwitcher) const SizedBox(height: 8),
+            Expanded(
+              child: effectiveView == _RegistryViewMode.accessi
+                  ? const AdminUsersPage()
+                  : (isLoading && items.isEmpty)
+                  ? const Center(child: CircularProgressIndicator())
+                  : _buildRegistryContent(
+                      context: context,
+                      ref: ref,
+                      uiNotifier: uiNotifier,
+                      isAdmin: isAdmin,
+                      isReadOnly: isReadOnly,
+                      currentUserId: currentUserId,
+                      selectedCondominoId: selectedCondominoId,
+                      error: error,
+                    ),
             ),
-            child: SegmentedButton<_RegistryViewMode>(
-              showSelectedIcon: false,
-              segments: const [
-                ButtonSegment<_RegistryViewMode>(
-                  value: _RegistryViewMode.anagrafica,
-                  icon: Icon(Icons.badge_outlined),
-                  label: Text('Anagrafica'),
-                ),
-                ButtonSegment<_RegistryViewMode>(
-                  value: _RegistryViewMode.accessi,
-                  icon: Icon(Icons.manage_accounts_outlined),
-                  label: Text('Accessi'),
-                ),
-              ],
-              selected: {effectiveView},
-              onSelectionChanged: (value) {
-                setState(() => _viewMode = value.first);
-              },
-            ),
-          ),
-        if (isAdmin) const SizedBox(height: 8),
-        Expanded(
-          child: effectiveView == _RegistryViewMode.accessi
-              ? const AdminUsersPage()
-              : (isLoading && items.isEmpty)
-              ? const Center(child: CircularProgressIndicator())
-              : _buildRegistryContent(
-                  context: context,
-                  ref: ref,
-                  uiNotifier: uiNotifier,
-                  isAdmin: isAdmin,
-                  isReadOnly: isReadOnly,
-                  currentUserId: currentUserId,
-                  selectedCondominoId: selectedCondominoId,
-                  error: error,
-                ),
-        ),
-      ],
+          ],
+        );
+      },
     );
   }
 
@@ -146,8 +167,8 @@ class _RegistryTabPageState extends ConsumerState<RegistryTabPage> {
                   ],
                 ),
               ),
-              ),
             ),
+          ),
         if (isReadOnly)
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
@@ -178,7 +199,8 @@ class _RegistryTabPageState extends ConsumerState<RegistryTabPage> {
           child: RegistryPage(
             selectedCondominoId: selectedCondominoId,
             canEditCondomino: (condomino) =>
-                !isReadOnly && _canEditCondomino(condomino, isAdmin, currentUserId),
+                !isReadOnly &&
+                _canEditCondomino(condomino, isAdmin, currentUserId),
             onCondominoRowTap: (selected) =>
                 uiNotifier.selectCondomino(selected.id),
             onCondominoTap: (selected) => _openCondominoDetailScreen(
@@ -186,14 +208,16 @@ class _RegistryTabPageState extends ConsumerState<RegistryTabPage> {
               ref: ref,
               selected: selected,
               canEdit:
-                  !isReadOnly && _canEditCondomino(selected, isAdmin, currentUserId),
+                  !isReadOnly &&
+                  _canEditCondomino(selected, isAdmin, currentUserId),
             ),
             onCondominoEdit: (condomino) => _openCondominoEditScreen(
               context: context,
               ref: ref,
               condomino: condomino,
               canEdit:
-                  !isReadOnly && _canEditCondomino(condomino, isAdmin, currentUserId),
+                  !isReadOnly &&
+                  _canEditCondomino(condomino, isAdmin, currentUserId),
             ),
           ),
         ),
@@ -245,9 +269,9 @@ class _RegistryTabPageState extends ConsumerState<RegistryTabPage> {
     final notifier = ref.read(condominiProvider.notifier);
     await notifier.updateCondomino(updated);
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Modifica salvata.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Modifica salvata.')));
     }
     return updated;
   }
@@ -282,9 +306,9 @@ class _RegistryTabPageState extends ConsumerState<RegistryTabPage> {
     await ref.read(condominiProvider.notifier).deleteCondomino(condomino.id);
     ref.read(homeUiProvider.notifier).clearSelectedCondomino();
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Posizione eliminata.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Posizione eliminata.')));
     }
   }
 
@@ -295,22 +319,22 @@ class _RegistryTabPageState extends ConsumerState<RegistryTabPage> {
   }) async {
     final result = await showDialog<RegistryCessazioneResult>(
       context: context,
-      builder: (_) => RegistryCessazioneDialog(
-        initialDate: DateTime.now(),
-      ),
+      builder: (_) => RegistryCessazioneDialog(initialDate: DateTime.now()),
     );
     if (result == null) {
       return condomino;
     }
-    final updated = await ref.read(condominiProvider.notifier).cessaCondomino(
-      condominoId: condomino.id,
-      dataCessazione: result.dataCessazione,
-      motivo: result.motivo,
-    );
+    final updated = await ref
+        .read(condominiProvider.notifier)
+        .cessaCondomino(
+          condominoId: condomino.id,
+          dataCessazione: result.dataCessazione,
+          motivo: result.motivo,
+        );
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Posizione cessata.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Posizione cessata.')));
     }
     return updated;
   }
@@ -333,32 +357,34 @@ class _RegistryTabPageState extends ConsumerState<RegistryTabPage> {
     if (result == null) {
       return condomino;
     }
-    final created = await ref.read(condominiProvider.notifier).subentraCondomino(
-      precedenteCondominoId: condomino.id,
-      nuovoCondomino: Condomino(
-        id: '',
-        nome: result.nome,
-        cognome: result.cognome,
-        scala: condomino.scala,
-        interno: condomino.interno,
-        email: result.email,
-        telefono: result.telefono,
-        saldoIniziale: result.saldoIniziale,
-        millesimi: condomino.millesimi,
-        residente: condomino.residente,
-        ruolo: CondominoRuolo.standard,
-        hasAppAccess: false,
-        unitaImmobiliareId: condomino.unitaImmobiliareId,
-        titolaritaTipo: condomino.titolaritaTipo,
-      ),
-      dataSubentro: result.dataSubentro,
-      carryOverSaldo: result.carryOverSaldo,
-    );
+    final created = await ref
+        .read(condominiProvider.notifier)
+        .subentraCondomino(
+          precedenteCondominoId: condomino.id,
+          nuovoCondomino: Condomino(
+            id: '',
+            nome: result.nome,
+            cognome: result.cognome,
+            scala: condomino.scala,
+            interno: condomino.interno,
+            email: result.email,
+            telefono: result.telefono,
+            saldoIniziale: result.saldoIniziale,
+            millesimi: condomino.millesimi,
+            residente: condomino.residente,
+            ruolo: CondominoRuolo.standard,
+            hasAppAccess: false,
+            unitaImmobiliareId: condomino.unitaImmobiliareId,
+            titolaritaTipo: condomino.titolaritaTipo,
+          ),
+          dataSubentro: result.dataSubentro,
+          carryOverSaldo: result.carryOverSaldo,
+        );
     ref.read(homeUiProvider.notifier).selectCondomino(created.id);
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Subentro registrato.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Subentro registrato.')));
     }
     return created;
   }
@@ -372,7 +398,9 @@ class _RegistryTabPageState extends ConsumerState<RegistryTabPage> {
     if (!canEdit) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Non puoi modificare questo condomino.')),
+          const SnackBar(
+            content: Text('Non puoi modificare questo condomino.'),
+          ),
         );
       }
       return;
@@ -382,8 +410,11 @@ class _RegistryTabPageState extends ConsumerState<RegistryTabPage> {
       MaterialPageRoute(
         builder: (_) => RegistryCondominoEditPage(
           condomino: condomino,
-          onSave: (updated) =>
-              _saveCondominoUpdate(context: context, ref: ref, updated: updated),
+          onSave: (updated) => _saveCondominoUpdate(
+            context: context,
+            ref: ref,
+            updated: updated,
+          ),
         ),
       ),
     );
@@ -392,7 +423,11 @@ class _RegistryTabPageState extends ConsumerState<RegistryTabPage> {
     }
   }
 
-  bool _canEditCondomino(Condomino condomino, bool isAdmin, String? currentUserId) {
+  bool _canEditCondomino(
+    Condomino condomino,
+    bool isAdmin,
+    String? currentUserId,
+  ) {
     if (isAdmin) return true;
     if (currentUserId == null || currentUserId.isEmpty) return false;
     return condomino.keycloakUserId == currentUserId;
