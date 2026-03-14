@@ -1,3 +1,5 @@
+codex resume 019cadc2-d4ed-7e01-9145-3d55f4ecf8c3
+
 # Running Configs (Flutter)
 
 Questo file e' il riferimento unico per avvio locale su web, desktop e Android.
